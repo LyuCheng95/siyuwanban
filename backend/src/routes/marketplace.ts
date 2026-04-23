@@ -120,8 +120,8 @@ marketplaceRouter.post('/:characterId/review', async (req: AuthRequest, res: Res
     await tx.character.update({
       where: { id: characterId },
       data: {
-        avgRating: agg._avg.rating ?? 0,
-        reviewCount: agg._count.rating,
+        avgRating: agg._avg?.rating ?? 0,
+        reviewCount: (agg._count as { rating: number }).rating,
       },
     });
 
