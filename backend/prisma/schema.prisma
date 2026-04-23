@@ -1,0 +1,111 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(uuid())
+  telegramId    BigInt   @unique
+  username      String?
+  firstName     String?
+  lastName      String?
+  photoUrl      String?
+  freeCredits   Int      @default(5)   // free turns remaining
+  paidCredits   Int      @default(0)   // purchased turns
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  characters    Character[]   @relation("CharacterCreator")
+  conversations Conversation[]
+  reviews       Review[]
+  payments      Payment[]
+
+  @@index([telegramId])
+}
+
+model Character {
+  id            String   @id @default(uuid())
+  creatorId     String
+  name          String
+  age           Int
+  gender        String
+  occupation    String
+  personality   String   @db.Text
+  background    String   @db.Text
+  speakingStyle String   @db.Text
+  avatarEmoji   String   @default("🤖")
+  isPublic      Boolean  @default(true)
+  usageCount    Int      @default(0)
+  avgRating     Float    @default(0)
+  reviewCount   Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  creator       User          @relation("CharacterCreator", fields: [creatorId], references: [id])
+  conversations Conversation[]
+  reviews       Review[]
+
+  @@index([isPublic, usageCount])
+  @@index([avgRating])
+}
+
+model Conversation {
+  id            String   @id @default(uuid())
+  userId        String
+  characterId   String
+  // stored as JSON array of {role, content} objects
+  contextJson   Json     @default("[]")
+  totalTurns    Int      @default(0)
+  // user memory: facts we learned about this user
+  userMemory    Json     @default("{}")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user          User      @relation(fields: [userId], references: [id])
+  character     Character @relation(fields: [characterId], references: [id])
+  messages      Message[]
+
+  @@unique([userId, characterId])
+  @@index([userId])
+}
+
+model Message {
+  id             String   @id @default(uuid())
+  conversationId String
+  role           String   // "user" | "assistant"
+  content        String   @db.Text
+  createdAt      DateTime @default(now())
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+
+  @@index([conversationId, createdAt])
+}
+
+model Review {
+  id          String   @id @default(uuid())
+  userId      String
+  characterId String
+  rating      Int      // 1-5
+  comment     String?  @db.Text
+  createdAt   DateTime @default(now())
+
+  user        User      @relation(fields: [userId], references: [id])
+  character   Character @relation(fields: [characterId], references: [id])
+
+  @@unique([userId, characterId])
+}
+
+model Payment {
+  id              String   @id @default(uuid())
+  userId          String
+  telegramPayload Json
+  turnsGranted    Int
+  stars           Int
+  createdAt       DateTime @default(now())
+
+  user            User @relation(fields: [userId], references: [id])
+}
