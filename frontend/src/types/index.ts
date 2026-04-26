@@ -30,6 +30,7 @@ export interface Character {
 export interface Message {
   role: 'user' | 'assistant';
   content: string;
+  imageUrl?: string;
 }
 
 export interface Conversation {

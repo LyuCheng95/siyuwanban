@@ -89,6 +89,12 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
               const newCredits = data.credits;
               setCredits(newCredits);
               onCreditsUpdate(newCredits.free, newCredits.paid);
+            } else if (data.type === 'image' && data.url) {
+              setMessages(prev => {
+                const next = [...prev];
+                next[next.length - 1] = { ...next[next.length - 1], imageUrl: data.url };
+                return next;
+              });
             }
           } catch {}
         }
@@ -193,10 +199,25 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
             {msg.role === 'assistant' && (
               <div style={{ fontSize: 24, alignSelf: 'flex-end' }}>{character.avatarEmoji}</div>
             )}
-            <div className={`bubble ${msg.role}`} style={{ whiteSpace: 'pre-wrap' }}>
-              {msg.content || (streaming && i === messages.length - 1 ? (
-                <span style={{ opacity: 0.5 }}>正在输入...</span>
-              ) : '')}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxWidth: '75%' }}>
+              <div className={`bubble ${msg.role}`} style={{ whiteSpace: 'pre-wrap' }}>
+                {msg.content || (streaming && i === messages.length - 1 ? (
+                  <span style={{ opacity: 0.5 }}>正在输入...</span>
+                ) : '')}
+              </div>
+              {msg.imageUrl && (
+                <img
+                  src={msg.imageUrl}
+                  alt="场景图"
+                  style={{
+                    borderRadius: 12,
+                    maxWidth: '100%',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
+                  }}
+                  onClick={() => WebApp.openLink(msg.imageUrl!)}
+                />
+              )}
             </div>
           </div>
         ))}
