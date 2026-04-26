@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
 import { prisma } from '../utils/prisma';
 import { buildCharacterSystemPrompt, chatStream, extractUserMemory, Message } from '../services/grok';
+import { generateSceneImage, shouldGenerateImage } from '../services/comfyui';
 
 export const chatRouter = Router();
 chatRouter.use(authMiddleware);
@@ -158,9 +159,25 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
     });
   }
 
+  // Send done event first so UI can update credits immediately
   res.write(`data: ${JSON.stringify({
     type: 'done',
     credits: { free: updatedUser.freeCredits, paid: updatedUser.paidCredits },
   })}\n\n`);
-  res.end();
+
+  // Async: decide if scene warrants image generation (non-blocking)
+  const recentForImage = [
+    { role: 'user', content: message },
+    { role: 'assistant', content: fullReply },
+  ];
+  shouldGenerateImage(character.name, recentForImage).then(async ({ generate, prompt }) => {
+    if (!generate || !prompt) { res.end(); return; }
+    try {
+      const imageUrl = await generateSceneImage(prompt);
+      res.write(`data: ${JSON.stringify({ type: 'image', url: imageUrl })}\n\n`);
+    } catch (err: any) {
+      console.error('[ImageGen]', err.message);
+    }
+    res.end();
+  }).catch(() => res.end());
 });
