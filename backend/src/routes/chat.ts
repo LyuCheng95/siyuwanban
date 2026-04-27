@@ -47,10 +47,11 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
   const user = await prisma.user.findUnique({ where: { id: req.userId! } });
   if (!user) { res.status(401).json({ error: 'User not found' }); return; }
 
-  if (user.freeCredits <= 0 && user.paidCredits <= 0) {
-    res.status(402).json({ error: 'No credits', needPayment: true });
-    return;
-  }
+  // TODO: re-enable payment check before launch
+  // if (user.freeCredits <= 0 && user.paidCredits <= 0) {
+  //   res.status(402).json({ error: 'No credits', needPayment: true });
+  //   return;
+  // }
 
   // Load character
   const character = await prisma.character.findUnique({ where: { id: characterId } });
@@ -99,11 +100,6 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
     { role: 'assistant', content: fullReply },
   ];
 
-  // Deduct credit (free first, then paid)
-  const creditUpdate = user.freeCredits > 0
-    ? { freeCredits: { decrement: 1 } }
-    : { paidCredits: { decrement: 1 } };
-
   const [updatedConversation, updatedUser] = await Promise.all([
     conversation
       ? prisma.conversation.update({
@@ -122,10 +118,8 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
             userMemory: {},
           },
         }),
-    prisma.user.update({
-      where: { id: req.userId! },
-      data: creditUpdate,
-    }),
+    // TODO: re-enable credit deduction before launch
+    Promise.resolve(user),
     prisma.character.update({
       where: { id: characterId },
       data: { usageCount: { increment: 1 } },

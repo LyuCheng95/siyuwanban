@@ -69,8 +69,9 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
   async function send() {
     const text = input.trim();
     if (!text || streaming || !characterId) return;
-    const total = credits.free + credits.paid;
-    if (total <= 0) { setNeedPayment(true); return; }
+    // TODO: re-enable payment check before launch
+    // const total = credits.free + credits.paid;
+    // if (total <= 0) { setNeedPayment(true); return; }
 
     setInput('');
     setMessages(prev => [...prev, { role: 'user', content: text }]);
@@ -80,12 +81,8 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
 
     try {
       const res = await api.chat.send(characterId, text);
-      if (res.status === 402) {
-        setNeedPayment(true);
-        setMessages(prev => prev.slice(0, -2));
-        setStreaming(false);
-        return;
-      }
+      // TODO: re-enable before launch
+      // if (res.status === 402) { setNeedPayment(true); ... }
       const reader = res.body!.getReader();
       const decoder = new TextDecoder();
       while (true) {
@@ -194,25 +191,7 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
         </div>
       </div>
 
-      {/* Payment banner */}
-      {needPayment && (
-        <div style={{
-          background: 'linear-gradient(135deg, rgba(255,61,127,0.15), rgba(192,38,211,0.15))',
-          borderBottom: '1px solid var(--border-accent)',
-          padding: '12px 14px',
-          display: 'flex', alignItems: 'center', gap: 10,
-        }}>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 600, fontSize: 13 }}>免费次数用完了 😢</div>
-            <div style={{ fontSize: 11, color: 'var(--text-2)', marginTop: 2 }}>购买次数继续和{character.name}聊天</div>
-          </div>
-          <button className="btn btn-primary btn-sm" onClick={openPayment}>购买 ⭐</button>
-          <button
-            style={{ background: 'none', border: 'none', color: 'var(--text-hint)', fontSize: 18, cursor: 'pointer', padding: '0 4px' }}
-            onClick={() => setNeedPayment(false)}
-          >×</button>
-        </div>
-      )}
+      {/* TODO: re-enable payment banner before launch */}
 
       {/* Messages */}
       <div className="chat-messages">
@@ -250,17 +229,17 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
       <div className="chat-input-area">
         <textarea
           className="chat-input"
-          placeholder={totalCredits <= 0 ? '购买次数后继续聊天' : `对${character.name}说点什么…`}
+          placeholder={`对${character.name}说点什么…`}
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={onKey}
           rows={1}
-          disabled={streaming || totalCredits <= 0}
+          disabled={streaming}
         />
         <button
           className="chat-send-btn"
-          onClick={totalCredits <= 0 ? openPayment : send}
-          disabled={totalCredits <= 0 ? false : (!input.trim() || streaming)}
+          onClick={send}
+          disabled={!input.trim() || streaming}
         >
           {totalCredits <= 0 ? '⭐' : '↑'}
         </button>
