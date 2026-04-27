@@ -20,7 +20,7 @@ jobs:
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no root@168.144.108.9 << 'ENDSSH'
             set -e
             cd /app
-            git pull origin main
+            for i in 1 2 3; do git pull origin main && break || sleep 10; done
             cd /app/backend && npm run build
             cd /app/frontend && npm run build && cp -r dist /var/www/siyuwanban
             pm2 restart siyuwanban
