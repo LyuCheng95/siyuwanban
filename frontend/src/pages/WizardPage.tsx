@@ -316,6 +316,13 @@ export function WizardPage() {
               maxLength={20}
             />
 
+            {/* TODO: 智能生成头像 — 根据角色设定（性格、职业、气质）调用 AI 图片生成接口
+                自动生成专属头像，替换手动选 emoji 的方式。
+                接口已有 /api/images/generate，需要：
+                1. 在完成所有步骤后自动触发生成
+                2. 显示 loading 状态
+                3. 生成的图片 URL 存入 character.avatarUrl 字段（需加 DB 字段）
+                4. 保留 emoji 作为备选/占位符 */}
             <div style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 8 }}>选择头像</div>
             <div className="emoji-grid">
               {EMOJIS.map(e => (
