@@ -105,4 +105,12 @@ export const api = {
         { method: 'POST', body: JSON.stringify({ tierIndex }) }
       ),
   },
+
+  images: {
+    generate: (prompt: string) =>
+      request<{ url: string }>('/images/generate', {
+        method: 'POST',
+        body: JSON.stringify({ prompt }),
+      }),
+  },
 };

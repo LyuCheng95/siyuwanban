@@ -1,124 +1,383 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
-import type { Message } from '../types';
 
-const WELCOME = '你好！我是角色创建向导 ✨\n\n我会通过几个简单的问题，帮你设计一个独特的AI陪伴角色。\n\n首先，你想创建什么类型的角色？比如温柔的姐姐、知性的老师、幽默的朋友……';
+const ARCHETYPES = [
+  { label: '御姐系', icon: '👸', sub: '成熟气质、掌控感' },
+  { label: '清纯学妹', icon: '🎀', sub: '天真可爱、青春感' },
+  { label: '性感人妻', icon: '💋', sub: '风情万种、懂你' },
+  { label: '女神范儿', icon: '✨', sub: '高冷神秘、难追到' },
+  { label: '邻家女孩', icon: '🌸', sub: '温暖亲切、日常感' },
+  { label: '腹黑系', icon: '🌙', sub: '心机深沉、难以捉摸' },
+  { label: '元气少女', icon: '⚡', sub: '活力四射、阳光' },
+  { label: '知性白领', icon: '💼', sub: '聪明干练、职场风' },
+];
+
+const AGES = [
+  { label: '18–20岁', value: 19 },
+  { label: '21–24岁', value: 22 },
+  { label: '25–29岁', value: 27 },
+  { label: '30–35岁', value: 32 },
+];
+
+const PERSONALITIES = [
+  '温柔体贴', '主动撩人', '傲娇可爱', '腹黑撩人',
+  '元气满满', '害羞腼腆', '霸道占有', '知性优雅',
+  '热情奔放', '神秘感十足',
+];
+
+const OCCUPATIONS = [
+  { label: '大学生', icon: '📚' },
+  { label: '护士', icon: '💉' },
+  { label: '教师', icon: '🎓' },
+  { label: '秘书', icon: '📋' },
+  { label: '模特/主播', icon: '📸' },
+  { label: '家庭主妇', icon: '🏠' },
+  { label: '职场精英', icon: '💼' },
+  { label: '艺术家', icon: '🎨' },
+];
+
+const RELATIONSHIPS = [
+  { label: '刚认识', icon: '👋', sub: '神秘陌生人' },
+  { label: '青梅竹马', icon: '🌱', sub: '从小认识' },
+  { label: '热恋情侣', icon: '💕', sub: '甜蜜恋人' },
+  { label: '秘密情人', icon: '🔑', sub: '不能说的关系' },
+  { label: '禁忌之恋', icon: '🔥', sub: '越界的吸引' },
+  { label: '老夫老妻', icon: '💍', sub: '相互了解' },
+];
+
+const EMOJIS = [
+  '👩','💃','🌸','🌺','🌹','💋','👄','🦋',
+  '🌙','✨','🍑','💕','🌷','🔥','💎','🌊',
+  '🎀','👑','🌈','💫','🍒','🌿','🦊','🐰',
+  '💖','🌟','🎭','🍓','🌙','💜','🌸','🎪',
+];
+
+interface Selections {
+  archetype: string;
+  age: number;
+  personalities: string[];
+  occupation: string;
+  relationship: string;
+  background: string;
+  name: string;
+  emoji: string;
+  isPublic: boolean;
+}
+
+const STEPS = ['类型', '年龄', '性格', '职业', '关系', '故事', '定名'];
 
 export function WizardPage() {
   const navigate = useNavigate();
-  const [messages, setMessages] = useState<Message[]>([
-    { role: 'assistant', content: WELCOME },
-  ]);
-  const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [sel, setSel] = useState<Selections>({
+    archetype: '', age: 22, personalities: [],
+    occupation: '', relationship: '', background: '',
+    name: '', emoji: '🌸', isPublic: true,
+  });
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  function canNext(): boolean {
+    if (step === 0) return !!sel.archetype;
+    if (step === 1) return !!sel.age;
+    if (step === 2) return sel.personalities.length > 0;
+    if (step === 3) return !!sel.occupation;
+    if (step === 4) return !!sel.relationship;
+    if (step === 5) return true;
+    if (step === 6) return sel.name.trim().length >= 1;
+    return true;
+  }
 
-  async function send() {
-    const text = input.trim();
-    if (!text || loading) return;
-    setInput('');
-    setMessages(prev => [...prev, { role: 'user', content: text }]);
-    setLoading(true);
+  function togglePersonality(p: string) {
+    setSel(s => ({
+      ...s,
+      personalities: s.personalities.includes(p)
+        ? s.personalities.filter(x => x !== p)
+        : [...s.personalities, p],
+    }));
+  }
 
+  async function finish() {
+    if (!canNext() || saving) return;
+    setSaving(true);
     try {
-      const res = await api.characters.wizard(text);
-      setMessages(prev => [...prev, { role: 'assistant', content: res.reply }]);
-
-      if (res.isComplete && res.characterData) {
-        setSaving(true);
-        try {
-          const char = await api.characters.create(res.characterData);
-          setMessages(prev => [
-            ...prev,
-            { role: 'assistant', content: `🎉 角色「${char.name}」创建成功！现在可以开始对话了～` },
-          ]);
-          setTimeout(() => navigate(`/chat/${char.id}`), 1500);
-        } catch {
-          setMessages(prev => [...prev, { role: 'assistant', content: '保存角色时出错了，请重试' }]);
-        } finally {
-          setSaving(false);
-        }
-      }
+      const personality = [sel.archetype, ...sel.personalities, sel.relationship].join('、');
+      const char = await api.characters.create({
+        name: sel.name.trim(),
+        age: sel.age,
+        gender: '女',
+        occupation: sel.occupation,
+        personality,
+        background: sel.background.trim() || `${sel.archetype}风格，${sel.relationship}的关系`,
+        avatarEmoji: sel.emoji,
+        isPublic: sel.isPublic,
+      });
+      navigate(`/chat/${char.id}`, { replace: true });
     } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: '出错了，请重试一下 🙏' }]);
-    } finally {
-      setLoading(false);
+      setSaving(false);
     }
   }
 
-  function onKey(e: React.KeyboardEvent) {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+  function next() {
+    if (step < STEPS.length - 1) setStep(s => s + 1);
+    else finish();
   }
 
-  async function reset() {
-    await api.characters.wizardReset().catch(() => {});
-    setMessages([{ role: 'assistant', content: WELCOME }]);
-    setInput('');
+  function back() {
+    if (step > 0) setStep(s => s - 1);
+    else navigate(-1);
   }
+
+  const progress = ((step + 1) / STEPS.length) * 100;
 
   return (
     <div className="wizard-page">
+      {/* Progress bar */}
+      <div className="wizard-progress">
+        <div className="wizard-progress-fill" style={{ width: `${progress}%` }} />
+      </div>
+
       {/* Header */}
       <div className="chat-header">
         <button
-          onClick={() => { reset(); navigate(-1); }}
-          style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: 'var(--text)' }}
+          onClick={back}
+          style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: 'var(--text)', padding: '0 4px' }}
         >
           ‹
         </button>
-        <div style={{ fontWeight: 600 }}>✨ 角色创建向导</div>
-        <button
-          onClick={reset}
-          style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: 13, color: 'var(--accent)', cursor: 'pointer' }}
-        >
-          重新开始
-        </button>
+        <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-2)' }}>
+          创建角色 {step + 1}/{STEPS.length}
+        </div>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
+          {STEPS.map((_, i) => (
+            <div key={i} style={{
+              width: i <= step ? 16 : 6,
+              height: 6,
+              borderRadius: 3,
+              background: i < step ? 'var(--accent)' : i === step ? 'var(--gradient)' : 'var(--bg-elevated)',
+              transition: 'all 0.2s',
+            }} />
+          ))}
+        </div>
       </div>
 
-      {/* Messages */}
-      <div className="chat-messages">
-        {messages.map((msg, i) => (
-          <div key={i} className={`bubble-wrap ${msg.role}`}>
-            {msg.role === 'assistant' && (
-              <div style={{ fontSize: 28, alignSelf: 'flex-end' }}>✨</div>
-            )}
-            <div className={`bubble ${msg.role}`} style={{ whiteSpace: 'pre-wrap' }}>
-              {msg.content}
+      {/* Content */}
+      <div className="wizard-content">
+
+        {/* Step 0: Archetype */}
+        {step === 0 && (
+          <>
+            <div className="wizard-q">你想要什么类型的她？</div>
+            <div className="wizard-sub">选择一种最吸引你的气质类型</div>
+            <div className="option-grid">
+              {ARCHETYPES.map(a => (
+                <div
+                  key={a.label}
+                  className={`option-chip-lg ${sel.archetype === a.label ? 'selected' : ''}`}
+                  onClick={() => setSel(s => ({ ...s, archetype: a.label }))}
+                >
+                  <span className="chip-icon">{a.icon}</span>
+                  {a.label}
+                  <div className="chip-sub">{a.sub}</div>
+                </div>
+              ))}
             </div>
-          </div>
-        ))}
-        {(loading || saving) && (
-          <div className="bubble-wrap assistant">
-            <div style={{ fontSize: 28 }}>✨</div>
-            <div className="bubble assistant" style={{ color: 'var(--text-hint)' }}>
-              {saving ? '正在保存角色...' : '思考中...'}
-            </div>
-          </div>
+          </>
         )}
-        <div ref={bottomRef} />
+
+        {/* Step 1: Age */}
+        {step === 1 && (
+          <>
+            <div className="wizard-q">她大概多大？</div>
+            <div className="wizard-sub">年龄会影响她的谈话方式和心态</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {AGES.map(a => (
+                <div
+                  key={a.label}
+                  className={`option-chip-lg ${sel.age === a.value ? 'selected' : ''}`}
+                  onClick={() => setSel(s => ({ ...s, age: a.value }))}
+                  style={{ padding: '18px 20px', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12 }}
+                >
+                  <span style={{ fontSize: 20 }}>
+                    {a.value <= 20 ? '🌱' : a.value <= 24 ? '🌸' : a.value <= 29 ? '🌹' : '💎'}
+                  </span>
+                  <div>
+                    <div style={{ fontWeight: 600 }}>{a.label}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2 }}>
+                      {a.value <= 20 ? '青春活力、懵懂可爱' :
+                       a.value <= 24 ? '青春与成熟的过渡' :
+                       a.value <= 29 ? '成熟风韵、有内涵' : '人生阅历丰富、懂男人'}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* Step 2: Personality */}
+        {step === 2 && (
+          <>
+            <div className="wizard-q">她是什么性格？</div>
+            <div className="wizard-sub">可以多选，打造专属于你的她</div>
+            <div className="option-grid">
+              {PERSONALITIES.map(p => (
+                <div
+                  key={p}
+                  className={`option-chip ${sel.personalities.includes(p) ? 'selected' : ''}`}
+                  onClick={() => togglePersonality(p)}
+                >
+                  {sel.personalities.includes(p) && <span style={{ marginRight: 4 }}>✓</span>}
+                  {p}
+                </div>
+              ))}
+            </div>
+            {sel.personalities.length > 0 && (
+              <div style={{ marginTop: 8, fontSize: 12, color: 'var(--accent)' }}>
+                已选 {sel.personalities.length} 个性格特征
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Step 3: Occupation */}
+        {step === 3 && (
+          <>
+            <div className="wizard-q">她从事什么职业？</div>
+            <div className="wizard-sub">职业塑造她的谈吐和气场</div>
+            <div className="option-grid">
+              {OCCUPATIONS.map(o => (
+                <div
+                  key={o.label}
+                  className={`option-chip-lg ${sel.occupation === o.label ? 'selected' : ''}`}
+                  onClick={() => setSel(s => ({ ...s, occupation: o.label }))}
+                >
+                  <span className="chip-icon">{o.icon}</span>
+                  {o.label}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* Step 4: Relationship */}
+        {step === 4 && (
+          <>
+            <div className="wizard-q">你们是什么关系？</div>
+            <div className="wizard-sub">关系决定了她对待你的方式</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {RELATIONSHIPS.map(r => (
+                <div
+                  key={r.label}
+                  className={`option-chip-lg ${sel.relationship === r.label ? 'selected' : ''}`}
+                  onClick={() => setSel(s => ({ ...s, relationship: r.label }))}
+                  style={{ padding: '16px 20px', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 14 }}
+                >
+                  <span style={{ fontSize: 28 }}>{r.icon}</span>
+                  <div>
+                    <div style={{ fontWeight: 600 }}>{r.label}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2 }}>{r.sub}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* Step 5: Background */}
+        {step === 5 && (
+          <>
+            <div className="wizard-q">关于她，还有什么故事？</div>
+            <div className="wizard-sub">可选 — 描述她的背景、特点、秘密……越具体越真实</div>
+            <textarea
+              className="text-input"
+              placeholder={`比如：她是一个在咖啡馆打工的大学生，平时喜欢看漫画，第一次见你就对你有好感，但是很害羞不敢说出口……`}
+              value={sel.background}
+              onChange={e => setSel(s => ({ ...s, background: e.target.value }))}
+              style={{ minHeight: 160, fontSize: 14 }}
+            />
+            <div style={{ textAlign: 'right', fontSize: 11, color: 'var(--text-hint)', marginTop: 6 }}>
+              {sel.background.length}/500
+            </div>
+          </>
+        )}
+
+        {/* Step 6: Name + Emoji + Public */}
+        {step === 6 && (
+          <>
+            <div className="wizard-q">最后，给她起个名字</div>
+            <div className="wizard-sub">一个好名字让她更有灵魂</div>
+
+            <input
+              className="name-input"
+              placeholder="她叫什么？"
+              value={sel.name}
+              onChange={e => setSel(s => ({ ...s, name: e.target.value }))}
+              maxLength={20}
+            />
+
+            <div style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 8 }}>选择头像</div>
+            <div className="emoji-grid">
+              {EMOJIS.map(e => (
+                <div
+                  key={e}
+                  className={`emoji-opt ${sel.emoji === e ? 'selected' : ''}`}
+                  onClick={() => setSel(s => ({ ...s, emoji: e }))}
+                >
+                  {e}
+                </div>
+              ))}
+            </div>
+
+            <div className="toggle-row">
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 14 }}>公开到广场</div>
+                <div style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2 }}>让其他人也能和她聊天</div>
+              </div>
+              <button
+                className={`toggle ${sel.isPublic ? 'on' : ''}`}
+                onClick={() => setSel(s => ({ ...s, isPublic: !s.isPublic }))}
+              />
+            </div>
+
+            {/* Preview */}
+            {sel.name && (
+              <div style={{
+                marginTop: 16, padding: '14px 16px',
+                background: 'var(--bg-card)', borderRadius: 'var(--radius)',
+                border: '1px solid var(--border-accent)',
+                display: 'flex', alignItems: 'center', gap: 12,
+              }}>
+                <div style={{ fontSize: 36 }}>{sel.emoji}</div>
+                <div>
+                  <div style={{ fontWeight: 700 }}>{sel.name}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-2)' }}>
+                    {sel.age}岁 · {sel.occupation} · {sel.archetype}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-hint)', marginTop: 2 }}>
+                    {sel.personalities.slice(0, 3).join(' · ')}
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
+        )}
       </div>
 
-      {/* Input */}
-      <div className="chat-input-area">
-        <textarea
-          ref={textareaRef}
-          className="chat-input"
-          placeholder="告诉我你的想法..."
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={onKey}
-          rows={1}
-          disabled={loading || saving}
-        />
-        <button className="chat-send-btn" onClick={send} disabled={!input.trim() || loading || saving}>
-          ↑
+      {/* Footer */}
+      <div className="wizard-footer">
+        {step > 0 && (
+          <button className="btn btn-secondary" style={{ flex: 1 }} onClick={back}>
+            上一步
+          </button>
+        )}
+        <button
+          className="btn btn-primary"
+          style={{ flex: step === 0 ? 1 : 2 }}
+          disabled={!canNext() || saving}
+          onClick={next}
+        >
+          {saving ? '创建中...' : step === STEPS.length - 1 ? '✦ 开始聊天' : '下一步'}
         </button>
       </div>
     </div>

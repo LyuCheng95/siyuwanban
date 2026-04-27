@@ -56,7 +56,7 @@ export function ProfilePage({ user, setUser }: Props) {
       <div className="card" style={{ display: 'flex', gap: 14, alignItems: 'center', marginBottom: 16 }}>
         <div style={{
           width: 56, height: 56, borderRadius: '50%',
-          background: 'linear-gradient(135deg, #7c3aed, #a855f7)',
+          background: 'var(--gradient)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           color: 'white', fontSize: 22, fontWeight: 700, flexShrink: 0,
         }}>
