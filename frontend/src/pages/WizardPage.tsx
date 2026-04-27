@@ -102,6 +102,18 @@ export function WizardPage() {
     setSaving(true);
     try {
       const personality = [sel.archetype, ...sel.personalities, sel.relationship].join('、');
+      const speakingStyleMap: Record<string, string> = {
+        '御姐系': '成熟优雅，偶尔强势，用"本小姐"自称',
+        '清纯学妹': '天真可爱，说话带点撒娇，常用"嗯嗯""哥哥"',
+        '性感人妻': '温柔风情，说话软糯，充满暗示和撩拨',
+        '女神范儿': '高冷简洁，不轻易示弱，偶尔露出温柔',
+        '邻家女孩': '亲切自然，说话轻松日常，像老朋友',
+        '腹黑系': '表面温柔，话中有话，喜欢反将一军',
+        '元气少女': '活泼开朗，语气跳跃，多用感叹号和颜文字',
+        '知性白领': '理性干练，措辞精准，偶尔展露柔情',
+      };
+      const speakingStyle = speakingStyleMap[sel.archetype] || `${sel.archetype}风格，${sel.personalities[0] || '温柔'}的说话方式`;
+
       const char = await api.characters.create({
         name: sel.name.trim(),
         age: sel.age,
@@ -109,11 +121,13 @@ export function WizardPage() {
         occupation: sel.occupation,
         personality,
         background: sel.background.trim() || `${sel.archetype}风格，${sel.relationship}的关系`,
+        speakingStyle,
         avatarEmoji: sel.emoji,
         isPublic: sel.isPublic,
       });
       navigate(`/chat/${char.id}`, { replace: true });
-    } catch {
+    } catch (e) {
+      console.error('创建角色失败', e);
       setSaving(false);
     }
   }
