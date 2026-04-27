@@ -31,6 +31,11 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 // Auth
 export const api = {
   auth: {
+    anonymous: (deviceId: string) =>
+      request<{ token: string; user: import('../types').User }>('/auth/anonymous', {
+        method: 'POST',
+        body: JSON.stringify({ deviceId }),
+      }),
     telegram: (initData: string) =>
       request<{ token: string; user: import('../types').User }>('/auth/telegram', {
         method: 'POST',

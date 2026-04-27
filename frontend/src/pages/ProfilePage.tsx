@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import WebApp from '@twa-dev/sdk';
 import { api } from '../api/client';
-import type { Character, PaymentTier, User } from '../types';
+import type { Character, User } from '../types';
 
 interface Props {
   user: User;
@@ -12,7 +11,7 @@ interface Props {
 export function ProfilePage({ user, setUser }: Props) {
   const navigate = useNavigate();
   const [myChars, setMyChars] = useState<Character[]>([]);
-  const [tiers, setTiers] = useState<PaymentTier[]>([]);
+  const [tiers, setTiers] = useState<import('../types').PaymentTier[]>([]);
   const [showPayment, setShowPayment] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -21,34 +20,22 @@ export function ProfilePage({ user, setUser }: Props) {
     api.payments.tiers().then(setTiers).catch(console.error);
   }, []);
 
-  async function buyTier(i: number) {
-    try {
-      const { invoiceLink, tier } = await api.payments.createInvoice(i);
-      WebApp.openInvoice(invoiceLink, (status) => {
-        if (status === 'paid') {
-          setUser({ ...user, paidCredits: user.paidCredits + tier.turns });
-          WebApp.showAlert(`购买成功！已获得 ${tier.turns} 次对话次数 🎉`);
-          setShowPayment(false);
-        }
-      });
-    } catch {
-      WebApp.showAlert('创建订单失败，请稍后重试');
-    }
+  function buyTier(_i: number) {
+    // TODO: 接入支付渠道后实现
+    alert('支付功能即将上线，敬请期待 🔥');
   }
 
   async function deleteChar(id: string) {
-    WebApp.showConfirm('确定删除这个角色吗？所有对话记录也会删除。', async (confirmed) => {
-      if (!confirmed) return;
-      setDeletingId(id);
-      await api.characters.delete(id).catch(console.error);
-      setMyChars(prev => prev.filter(c => c.id !== id));
-      setDeletingId(null);
-    });
+    if (!window.confirm('确定删除这个角色吗？所有对话记录也会删除。')) return;
+    setDeletingId(id);
+    await api.characters.delete(id).catch(console.error);
+    setMyChars(prev => prev.filter(c => c.id !== id));
+    setDeletingId(null);
   }
 
-  const displayName = user.firstName
-    ? `${user.firstName}${user.lastName ? ' ' + user.lastName : ''}`
-    : user.username || '用户';
+  const displayName = user.firstName && user.firstName !== '匿名用户'
+    ? `${user.firstName}${(user as any).lastName ? ' ' + (user as any).lastName : ''}`
+    : user.username?.startsWith('anon_') ? '神秘访客' : user.username || '神秘访客';
 
   return (
     <div className="page" style={{ paddingTop: 16 }}>

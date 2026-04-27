@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import WebApp from '@twa-dev/sdk';
 import { api } from '../api/client';
 import type { Character, Message, User } from '../types';
 
@@ -122,20 +121,9 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
     }
   }
 
-  async function openPayment() {
-    try {
-      const tiers = await api.payments.tiers();
-      const { invoiceLink } = await api.payments.createInvoice(1);
-      WebApp.openInvoice(invoiceLink, (status) => {
-        if (status === 'paid') {
-          setCredits(prev => ({ ...prev, paid: prev.paid + tiers[1].turns }));
-          onCreditsUpdate(credits.free, credits.paid + tiers[1].turns);
-          setNeedPayment(false);
-        }
-      });
-    } catch {
-      WebApp.showAlert('无法创建订单，请稍后重试');
-    }
+  function openPayment() {
+    // TODO: 接入支付渠道后实现
+    setNeedPayment(true);
   }
 
   function onKey(e: React.KeyboardEvent) {
@@ -216,7 +204,7 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
                   src={msg.imageUrl}
                   alt="场景图"
                   style={{ borderRadius: 12, maxWidth: '100%', cursor: 'pointer', border: '1px solid var(--border)' }}
-                  onClick={() => WebApp.openLink(msg.imageUrl!)}
+                  onClick={() => window.open(msg.imageUrl!, "_blank")}
                 />
               )}
             </div>
@@ -277,7 +265,7 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
                   className="portrait-image"
                   src={portraitUrl}
                   alt={character.name}
-                  onClick={() => WebApp.openLink(portraitUrl)}
+                  onClick={() => window.open(portraitUrl, "_blank")}
                 />
                 <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
                   <button
