@@ -1,0 +1,34 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 168.144.108.9
+          username: root
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+            cd /app
+            git pull origin main
+
+            # Build backend
+            cd /app/backend
+            npm run build
+
+            # Build frontend
+            cd /app/frontend
+            npm run build
+            cp -r dist /var/www/siyuwanban
+
+            # Restart backend
+            pm2 restart siyuwanban
+
+            echo "✅ Deploy complete"
