@@ -135,6 +135,27 @@ adminRouter.delete('/character/:id', async (req: Request, res: Response): Promis
   res.json({ ok: true });
 });
 
+// POST /api/admin/character/:id/remove-images?key=... — 批量删除角色图片
+adminRouter.post('/character/:id/remove-images', async (req: Request, res: Response): Promise<void> => {
+  if (!checkKey(req, res)) return;
+  const { imageUrls } = req.body as { imageUrls: string[] };
+  if (!Array.isArray(imageUrls) || !imageUrls.length) { res.status(400).json({ error: 'imageUrls required' }); return; }
+  const char = await prisma.character.findUnique({
+    where: { id: req.params.id },
+    select: { portraitImages: true, portraitUrl: true },
+  });
+  if (!char) { res.status(404).json({ error: 'not found' }); return; }
+  const toRemove = new Set(imageUrls);
+  const remaining = (char.portraitImages as string[]).filter(u => !toRemove.has(u));
+  const newPortraitUrl = char.portraitUrl && toRemove.has(char.portraitUrl) ? (remaining[0] ?? null) : char.portraitUrl;
+  const updated = await prisma.character.update({
+    where: { id: req.params.id },
+    data: { portraitImages: remaining, portraitUrl: newPortraitUrl },
+    select: { id: true, name: true, portraitImages: true, portraitUrl: true },
+  });
+  res.json({ ok: true, remaining: (updated.portraitImages as string[]).length, portraitUrl: updated.portraitUrl });
+});
+
 // POST /api/admin/set-portrait?key=... — 手动设置角色图片
 adminRouter.post('/set-portrait', async (req: Request, res: Response): Promise<void> => {
   if (!checkKey(req, res)) return;

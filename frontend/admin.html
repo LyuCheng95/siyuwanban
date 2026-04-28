@@ -123,6 +123,24 @@
   .msg-ai { background: var(--bg3); border: 1px solid var(--border); }
   .msg-role { font-size: 10px; color: var(--hint); margin-bottom: 4px; }
 
+  /* ── Image Gallery ── */
+  .gallery-char-block { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 16px; overflow: hidden; }
+  .gallery-char-header { padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); }
+  .gallery-char-name { font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+  .gallery-char-count { font-size: 11px; color: var(--hint); }
+  .gallery-imgs { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 16px; }
+  .gallery-img-wrap { position: relative; cursor: pointer; border-radius: 8px; overflow: hidden; border: 2px solid transparent; transition: border-color 0.15s; flex-shrink: 0; }
+  .gallery-img-wrap:hover { border-color: rgba(255,255,255,0.2); }
+  .gallery-img-wrap.selected { border-color: var(--red); box-shadow: 0 0 0 2px rgba(248,113,113,0.3); }
+  .gallery-img-wrap img { width: 120px; height: 160px; object-fit: cover; object-position: top center; display: block; }
+  .gallery-img-wrap .img-check { position: absolute; top: 5px; right: 5px; width: 20px; height: 20px; border-radius: 50%; background: var(--red); display: none; align-items: center; justify-content: center; font-size: 12px; color: white; }
+  .gallery-img-wrap.selected .img-check { display: flex; }
+  .gallery-img-wrap .img-type { position: absolute; bottom: 4px; left: 4px; font-size: 9px; padding: 2px 5px; border-radius: 4px; font-weight: 600; }
+  .gallery-img-main { background: rgba(255,61,127,0.7); color: white; }
+  .gallery-img-album { background: rgba(0,0,0,0.6); color: rgba(255,255,255,0.8); }
+  .gallery-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; padding: 14px 16px; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); }
+  .gallery-sel-count { font-size: 13px; color: var(--text2); flex: 1; }
+
   /* ── Responsive ── */
   @media (max-width: 768px) {
     .stat-grid { grid-template-columns: 1fr 1fr; }
@@ -158,6 +176,7 @@
       <button class="nav-item" onclick="showPage('characters')" id="nav-characters"><span class="icon">👤</span><span>角色管理</span></button>
       <button class="nav-item" onclick="showPage('users')" id="nav-users"><span class="icon">👥</span><span>用户列表</span></button>
       <button class="nav-item" onclick="showPage('logs')" id="nav-logs"><span class="icon">💬</span><span>对话记录</span></button>
+      <button class="nav-item" onclick="showPage('gallery')" id="nav-gallery"><span class="icon">🖼️</span><span>图片库</span></button>
     </div>
     <div class="sidebar-footer">
       <div class="api-key" id="keyDisplay"></div>
@@ -202,6 +221,22 @@
       <div class="card">
         <div id="usersTable"><div class="loading"><span class="spinning">⟳</span> 加载中...</div></div>
       </div>
+    </div>
+
+    <!-- Gallery -->
+    <div class="page" id="page-gallery">
+      <div class="page-header">
+        <h1>🖼️ 图片库</h1>
+        <p>查看所有角色图片，选中有问题的图片后删除</p>
+      </div>
+      <div class="gallery-toolbar">
+        <span class="gallery-sel-count" id="gallerySelCount">未选中任何图片</span>
+        <button class="btn btn-ghost" onclick="gallerySelectAll()">全选</button>
+        <button class="btn btn-ghost" onclick="galleryDeselectAll()">取消全选</button>
+        <button class="btn btn-danger" id="galleryDeleteBtn" onclick="galleryDeleteSelected()" disabled>🗑 删除选中</button>
+        <button class="btn btn-ghost" onclick="loadGallery()">🔄 刷新</button>
+      </div>
+      <div id="galleryContent"><div class="loading"><span class="spinning">⟳</span> 加载中...</div></div>
     </div>
 
     <!-- Logs -->
@@ -251,6 +286,7 @@ function showPage(name) {
   document.getElementById('page-' + name).classList.add('active');
   document.getElementById('nav-' + name).classList.add('active');
   if (name === 'logs' && !document.getElementById('logsContent').innerHTML.trim()) loadLogs();
+  if (name === 'gallery') loadGallery();
 }
 
 // ── API helpers ───────────────────────────────────────────────────────────────
@@ -402,6 +438,98 @@ async function loadLogs() {
   }).join('');
 
   document.getElementById('logsContent').innerHTML = userCard + (convCards || '<div class="loading">没有对话记录</div>');
+}
+
+// ── Gallery page ──────────────────────────────────────────────────────────────
+const gallerySelected = new Map(); // url -> { charId, charName }
+
+function galleryUpdateToolbar() {
+  const n = gallerySelected.size;
+  document.getElementById('gallerySelCount').textContent = n ? `已选中 ${n} 张图片` : '未选中任何图片';
+  document.getElementById('galleryDeleteBtn').disabled = n === 0;
+}
+
+function galleryToggle(url, charId, charName, el) {
+  if (gallerySelected.has(url)) {
+    gallerySelected.delete(url);
+    el.classList.remove('selected');
+  } else {
+    gallerySelected.set(url, { charId, charName });
+    el.classList.add('selected');
+  }
+  galleryUpdateToolbar();
+}
+
+function gallerySelectAll() {
+  document.querySelectorAll('.gallery-img-wrap').forEach(el => {
+    const url = el.dataset.url, charId = el.dataset.charid, charName = el.dataset.charname;
+    if (!gallerySelected.has(url)) { gallerySelected.set(url, { charId, charName }); el.classList.add('selected'); }
+  });
+  galleryUpdateToolbar();
+}
+
+function galleryDeselectAll() {
+  gallerySelected.clear();
+  document.querySelectorAll('.gallery-img-wrap').forEach(el => el.classList.remove('selected'));
+  galleryUpdateToolbar();
+}
+
+async function galleryDeleteSelected() {
+  if (!gallerySelected.size) return;
+  if (!confirm(`确定删除选中的 ${gallerySelected.size} 张图片？此操作不可撤销。`)) return;
+  // Group by charId
+  const byChar = new Map();
+  for (const [url, { charId, charName }] of gallerySelected) {
+    if (!byChar.has(charId)) byChar.set(charId, { charName, urls: [] });
+    byChar.get(charId).urls.push(url);
+  }
+  const btn = document.getElementById('galleryDeleteBtn');
+  btn.disabled = true; btn.textContent = '删除中...';
+  let ok = 0, fail = 0;
+  for (const [charId, { charName, urls }] of byChar) {
+    try {
+      const r = await fetch(`${BASE}/api/admin/character/${charId}/remove-images?key=${ADMIN_KEY}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageUrls: urls }),
+      });
+      const d = await r.json();
+      if (d.ok) ok += urls.length; else fail += urls.length;
+    } catch { fail += urls.length; }
+  }
+  btn.textContent = '🗑 删除选中';
+  gallerySelected.clear();
+  galleryUpdateToolbar();
+  alert(`已删除 ${ok} 张${fail ? `，失败 ${fail} 张` : ''}`);
+  loadGallery();
+}
+
+async function loadGallery() {
+  gallerySelected.clear();
+  galleryUpdateToolbar();
+  document.getElementById('galleryContent').innerHTML = '<div class="loading"><span class="spinning">⟳</span> 加载中...</div>';
+  const chars = await api('/characters');
+  if (!chars.length) { document.getElementById('galleryContent').innerHTML = '<div class="loading">没有角色数据</div>'; return; }
+  const blocks = chars.map(c => {
+    const imgs = Array.isArray(c.portraitImages) ? c.portraitImages : [];
+    if (!imgs.length) return '';
+    const imgEls = imgs.map(url => {
+      const isMain = url === c.portraitUrl;
+      return `<div class="gallery-img-wrap" data-url="${esc(url)}" data-charid="${esc(c.id)}" data-charname="${esc(c.name)}"
+        onclick="galleryToggle('${esc(url)}','${esc(c.id)}','${esc(c.name)}',this)">
+        <img src="${esc(url)}" onerror="this.parentElement.style.display='none'" loading="lazy"/>
+        <div class="img-check">✕</div>
+        <div class="img-type ${isMain ? 'gallery-img-main' : 'gallery-img-album'}">${isMain ? '主图' : '写真'}</div>
+      </div>`;
+    }).join('');
+    return `<div class="gallery-char-block">
+      <div class="gallery-char-header">
+        <div class="gallery-char-name">${esc(c.name)} <span style="color:var(--hint);font-weight:400;font-size:12px">${esc(c.occupation)}</span></div>
+        <div class="gallery-char-count">${imgs.length} 张</div>
+      </div>
+      <div class="gallery-imgs">${imgEls}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('galleryContent').innerHTML = blocks || '<div class="loading">所有角色都没有图片</div>';
 }
 
 async function loadFullConv(convId, charName, btn) {
