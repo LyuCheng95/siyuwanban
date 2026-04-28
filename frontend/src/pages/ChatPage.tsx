@@ -40,6 +40,7 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
   const [portraitOpen, setPortraitOpen] = useState(false);
   const [portraitLoading, setPortraitLoading] = useState(false);
   const [portraitUrl, setPortraitUrl] = useState<string | null>(null);
+  const [openingScene, setOpeningScene] = useState<string | null>(null);
 
   // Interactive engagement state
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -63,7 +64,9 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
           role: m.role as 'user' | 'assistant',
           content: m.content,
         })));
-      } else {
+      }
+      if ((data as any).openingScene) setOpeningScene((data as any).openingScene);
+      if (!data.conversation?.messages?.length) {
         setMessages([{
           role: 'assistant',
           content: `嗯…你终于来了 💋 我是${data.character.name}，一直在等你呢…`,
@@ -83,6 +86,20 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
     setPortraitLoading(true);
     try {
       const res = await api.images.generate(buildPortraitPrompt(character));
+      setPortraitUrl(res.url);
+    } catch {
+      setPortraitUrl(null);
+    } finally {
+      setPortraitLoading(false);
+    }
+  }
+
+  async function generateSceneImage(prompt: string) {
+    setPortraitOpen(true);
+    setPortraitUrl(null);
+    setPortraitLoading(true);
+    try {
+      const res = await api.images.generate(prompt);
       setPortraitUrl(res.url);
     } catch {
       setPortraitUrl(null);
@@ -138,6 +155,14 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
               setIntimacy(data.intimacy ?? intimacy);
               setDominance(data.dominance ?? dominance);
               setSuggestions(data.suggestions || []);
+              // Attach imagePrompt to last assistant message if present
+              if (data.imagePrompt) {
+                setMessages(prev => {
+                  const next = [...prev];
+                  next[next.length - 1] = { ...next[next.length - 1], imagePrompt: data.imagePrompt };
+                  return next;
+                });
+              }
 
             } else if (data.type === 'done') {
               setCredits(data.credits);
@@ -222,8 +247,6 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
           <div style={{ fontSize: 10, color: 'var(--text-2)' }}>{intimacy}💛</div>
         </button>
 
-        <button className="portrait-btn" onClick={generatePortrait} title="看她现在的样子">📸</button>
-
         <div className="credits-badge">
           {credits.free > 0
             ? <span className="free">💚 {credits.free}</span>
@@ -255,6 +278,30 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
 
       {/* Messages */}
       <div className="chat-messages">
+        {openingScene && messages.length <= 2 && (
+          <div style={{
+            margin: '12px 12px 4px',
+            padding: '16px',
+            background: 'linear-gradient(135deg, rgba(61,26,74,0.6), rgba(124,26,106,0.4))',
+            border: '1px solid rgba(255,61,127,0.2)',
+            borderRadius: 16,
+            fontSize: 14,
+            lineHeight: 1.7,
+            color: 'var(--text-2)',
+            fontStyle: 'italic',
+            position: 'relative',
+            overflow: 'hidden',
+          }}>
+            <div style={{
+              position: 'absolute', top: 0, left: 0, right: 0, height: 2,
+              background: 'linear-gradient(90deg, #ff3d7f, #c026d3)',
+            }} />
+            <div style={{ fontSize: 10, color: 'var(--accent)', fontWeight: 700, marginBottom: 8, letterSpacing: 1, fontStyle: 'normal' }}>
+              📖 场景开启
+            </div>
+            {openingScene}
+          </div>
+        )}
         {messages.map((msg, i) => (
           <div key={i} className={`bubble-wrap ${msg.role}`}>
             {msg.role === 'assistant' && (
@@ -278,6 +325,28 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
                   style={{ borderRadius: 12, maxWidth: '100%', cursor: 'pointer', border: '1px solid var(--border)' }}
                   onClick={() => window.open(msg.imageUrl!, '_blank')}
                 />
+              )}
+              {msg.role === 'assistant' && msg.imagePrompt && !streaming && (
+                <button
+                  onClick={() => generateSceneImage(msg.imagePrompt!)}
+                  style={{
+                    alignSelf: 'flex-start',
+                    background: 'linear-gradient(135deg, rgba(255,61,127,0.15), rgba(192,38,211,0.15))',
+                    border: '1px solid rgba(255,61,127,0.3)',
+                    borderRadius: 20,
+                    padding: '6px 14px',
+                    fontSize: 12,
+                    color: 'var(--accent)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 5,
+                    fontWeight: 600,
+                    marginTop: 2,
+                  }}
+                >
+                  👁️ 看她现在的样子
+                </button>
               )}
             </div>
           </div>

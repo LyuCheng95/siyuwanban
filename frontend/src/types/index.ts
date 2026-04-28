@@ -18,10 +18,12 @@ export interface Character {
   background: string;
   speakingStyle: string;
   avatarEmoji: string;
+  portraitUrl?: string | null;
   isPublic: boolean;
   usageCount: number;
   avgRating: number;
   reviewCount: number;
+  openingScene?: string;
   createdAt: string;
   creator?: { username?: string; firstName?: string };
   reviews?: Review[];
@@ -31,6 +33,7 @@ export interface Message {
   role: 'user' | 'assistant';
   content: string;
   imageUrl?: string;
+  imagePrompt?: string;
 }
 
 export interface Conversation {
@@ -45,6 +48,16 @@ export interface Review {
   comment?: string;
   createdAt: string;
   user?: { username?: string; firstName?: string };
+}
+
+export interface ChatHistoryItem {
+  id: string;
+  totalTurns: number;
+  updatedAt: string;
+  character: { id: string; name: string; avatarEmoji: string; occupation: string; portraitUrl?: string | null };
+  lastMessage: { role: string; content: string } | null;
+  intimacy: number;
+  mood: string;
 }
 
 export interface PaymentTier {

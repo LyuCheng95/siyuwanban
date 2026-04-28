@@ -62,6 +62,10 @@ export const api = {
       request<{ ok: boolean }>(`/characters/${id}`, { method: 'DELETE' }),
   },
 
+  conversations: {
+    list: () => request<import('../types').ChatHistoryItem[]>('/chat'),
+  },
+
   chat: {
     get: (characterId: string) =>
       request<{

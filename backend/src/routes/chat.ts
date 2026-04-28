@@ -9,6 +9,29 @@ chatRouter.use(authMiddleware);
 
 const CONTEXT_WINDOW = 30;
 
+// GET /api/chat — list all conversations for current user (for chat history)
+chatRouter.get('/', async (req: AuthRequest, res: Response): Promise<void> => {
+  const conversations = await prisma.conversation.findMany({
+    where: { userId: req.userId! },
+    orderBy: { updatedAt: 'desc' },
+    include: {
+      character: {
+        select: { id: true, name: true, avatarEmoji: true, occupation: true, portraitUrl: true },
+      },
+      messages: { orderBy: { createdAt: 'desc' }, take: 1 },
+    },
+  });
+  res.json(conversations.map(c => ({
+    id: c.id,
+    totalTurns: c.totalTurns,
+    updatedAt: c.updatedAt,
+    character: c.character,
+    lastMessage: c.messages[0] ?? null,
+    intimacy: (c.userMemory as any)?._intimacyLevel ?? 0,
+    mood: (c.userMemory as any)?._mood ?? '期待✨',
+  })));
+});
+
 // GET /api/chat/:characterId — get or create conversation
 chatRouter.get('/:characterId', async (req: AuthRequest, res: Response): Promise<void> => {
   const { characterId } = req.params;
@@ -36,6 +59,7 @@ chatRouter.get('/:characterId', async (req: AuthRequest, res: Response): Promise
     intimacy: (userMemory as any)._intimacyLevel ?? 0,
     dominance: (userMemory as any)._dominanceLevel ?? 0,
     mood: (userMemory as any)._mood ?? '期待✨',
+    openingScene: character.openingScene ?? null,
   });
 });
 
@@ -105,15 +129,6 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
   // Send replace event so frontend shows clean text
   res.write(`data: ${JSON.stringify({ type: 'replace', text: cleanReply })}\n\n`);
 
-  // Send meta event with suggestions, mood, intimacy, dominance
-  res.write(`data: ${JSON.stringify({
-    type: 'meta',
-    mood: meta.mood,
-    suggestions: meta.suggestions,
-    intimacy: newIntimacy,
-    dominance: newDominance,
-  })}\n\n`);
-
   // Persist conversation with clean reply
   const newContext: Message[] = [
     ...existingContext,
@@ -128,34 +143,53 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
     _mood: meta.mood,
   };
 
-  const [updatedConversation, updatedUser] = await Promise.all([
-    conversation
-      ? prisma.conversation.update({
-          where: { id: conversation.id },
-          data: {
-            contextJson: newContext as object[],
-            totalTurns: { increment: 1 },
-            userMemory: updatedUserMemory as object,
-          },
-        })
-      : prisma.conversation.create({
-          data: {
-            userId: req.userId!,
-            characterId: characterId as string,
-            contextJson: newContext as object[],
-            totalTurns: 1,
-            userMemory: updatedUserMemory as object,
-          },
-        }),
-    Promise.resolve(user),
-    prisma.character.update({
-      where: { id: characterId as string },
-      data: { usageCount: { increment: 1 } },
-    }),
+  // Persist conversation + check image scene concurrently
+  const recentForImage = [
+    { role: 'user' as const, content: message },
+    { role: 'assistant' as const, content: cleanReply },
+  ];
+
+  const [imageDecision, [updatedConversation, updatedUser]] = await Promise.all([
+    shouldGenerateImage(character.name, recentForImage, character),
+    Promise.all([
+      conversation
+        ? prisma.conversation.update({
+            where: { id: conversation.id },
+            data: {
+              contextJson: newContext as object[],
+              totalTurns: { increment: 1 },
+              userMemory: updatedUserMemory as object,
+            },
+          })
+        : prisma.conversation.create({
+            data: {
+              userId: req.userId!,
+              characterId: characterId as string,
+              contextJson: newContext as object[],
+              totalTurns: 1,
+              userMemory: updatedUserMemory as object,
+            },
+          }),
+      Promise.resolve(user),
+      prisma.character.update({
+        where: { id: characterId as string },
+        data: { usageCount: { increment: 1 } },
+      }),
+    ] as const),
   ]);
 
-  // Save messages to DB
-  await prisma.message.createMany({
+  // Send meta event — include imagePrompt if scene is spicy
+  res.write(`data: ${JSON.stringify({
+    type: 'meta',
+    mood: meta.mood,
+    suggestions: meta.suggestions,
+    intimacy: newIntimacy,
+    dominance: newDominance,
+    imagePrompt: imageDecision.generate ? imageDecision.prompt : null,
+  })}\n\n`);
+
+  // Save messages to DB (fire and forget)
+  prisma.message.createMany({
     data: [
       { conversationId: updatedConversation.id, role: 'user', content: message },
       { conversationId: updatedConversation.id, role: 'assistant', content: cleanReply },
@@ -179,17 +213,5 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
     });
   }
 
-  // Async: scene image generation
-  const recentForImage = [
-    { role: 'user' as const, content: message },
-    { role: 'assistant' as const, content: cleanReply },
-  ];
-  shouldGenerateImage(character.name, recentForImage, character).then(async ({ generate, prompt }) => {
-    if (!generate || !prompt) { res.end(); return; }
-    try {
-      const imageUrl = await generateSceneImage(prompt);
-      res.write(`data: ${JSON.stringify({ type: 'image', url: imageUrl })}\n\n`);
-    } catch {}
-    res.end();
-  }).catch(() => res.end());
+  res.end();
 });

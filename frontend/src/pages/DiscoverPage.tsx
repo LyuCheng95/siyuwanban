@@ -111,7 +111,7 @@ export function DiscoverPage() {
           </div>
           <div className="featured-scroll">
             {featured.map(char => (
-              <div key={char.id} className="featured-card" onClick={() => navigate(`/chat/${char.id}`)}>
+              <div key={char.id} className="featured-card" onClick={() => navigate(`/character/${char.id}`)}>
                 <div className="featured-card-img" style={{ background: cardGradient(char.id) }}>
                   <div className="char-card-glow" />
                   <span className="featured-card-emoji">{char.avatarEmoji}</span>
@@ -157,7 +157,7 @@ export function DiscoverPage() {
       ) : (
         <div className="char-grid">
           {displayed.map(char => (
-            <CharCard key={char.id} char={char} gradient={cardGradient(char.id)} onClick={() => navigate(`/chat/${char.id}`)} />
+            <CharCard key={char.id} char={char} gradient={cardGradient(char.id)} onClick={() => navigate(`/character/${char.id}`)} />
           ))}
         </div>
       )}

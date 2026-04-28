@@ -5,6 +5,7 @@ import { DiscoverPage } from './pages/DiscoverPage';
 import { MyCharsPage } from './pages/MyCharsPage';
 import { WizardPage } from './pages/WizardPage';
 import { ChatPage } from './pages/ChatPage';
+import { CharacterProfilePage } from './pages/CharacterProfilePage';
 import { ProfilePage } from './pages/ProfilePage';
 import { LeaderboardPage } from './pages/LeaderboardPage';
 import { CheckInModal } from './components/CheckInModal';
@@ -30,7 +31,7 @@ const NAV = [
   },
   {
     path: '/mine',
-    label: '我的角色',
+    label: '聊天',
     icon: (active: boolean) => (
       <svg width="22" height="22" viewBox="0 0 24 24" fill={active ? 'url(#grad2)' : 'none'} stroke={active ? 'url(#grad2)' : 'currentColor'} strokeWidth="1.8">
         <defs>
@@ -61,7 +62,7 @@ const NAV = [
   },
 ];
 
-const HIDE_NAV = ['/wizard', '/chat/'];
+const HIDE_NAV = ['/wizard', '/chat/', '/character/'];
 const CHECKIN_KEY = 'sywb_last_checkin_shown';
 
 export default function App() {
@@ -129,6 +130,7 @@ export default function App() {
           <Route path="/" element={<DiscoverPage />} />
           <Route path="/mine" element={<MyCharsPage user={user!} />} />
           <Route path="/wizard" element={<WizardPage />} />
+          <Route path="/character/:characterId" element={<CharacterProfilePage />} />
           <Route path="/chat/:characterId" element={<ChatPage user={user!} onCreditsUpdate={updateCredits} />} />
           <Route path="/profile" element={<ProfilePage user={user!} setUser={setUser} />} />
           <Route path="/leaderboard" element={<LeaderboardPage />} />
