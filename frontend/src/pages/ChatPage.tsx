@@ -48,6 +48,8 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
   const [intimacy, setIntimacy] = useState<number>(0);
   const [dominance, setDominance] = useState<number>(0);
   const [statusOpen, setStatusOpen] = useState(false);
+  const [questionCount, setQuestionCount] = useState<number>(0);
+  const [currentPhase, setCurrentPhase] = useState<number>(0);
 
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -66,6 +68,8 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
         })));
       }
       if ((data as any).openingScene) setOpeningScene((data as any).openingScene);
+      if ((data as any).questionCount) setQuestionCount((data as any).questionCount);
+      if ((data as any).phase != null) setCurrentPhase((data as any).phase);
       if (!data.conversation?.messages?.length) {
         setMessages([{
           role: 'assistant',
@@ -155,6 +159,8 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
               setIntimacy(data.intimacy ?? intimacy);
               setDominance(data.dominance ?? dominance);
               setSuggestions(data.suggestions || []);
+              if (data.questionCount) setQuestionCount(data.questionCount);
+              if (data.phase != null) setCurrentPhase(data.phase);
               // Attach imagePrompt to last assistant message if present
               if (data.imagePrompt) {
                 setMessages(prev => {
@@ -275,6 +281,29 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
           </div>
         )}
       </div>
+
+      {/* 椎名老师题目进度条 */}
+      {character?.name === '椎名老师' && questionCount > 0 && (
+        <div style={{ padding: '6px 16px 4px', background: 'rgba(168,85,247,0.06)', borderBottom: '1px solid rgba(168,85,247,0.12)', flexShrink: 0 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, color: 'var(--text-hint)', marginBottom: 4 }}>
+            <span>📝 补考进度</span>
+            <span style={{ color: questionCount >= 25 ? '#4ade80' : 'var(--accent)', fontWeight: 700, fontSize: 12 }}>
+              第 {questionCount} 题 / 25{questionCount >= 25 ? ' ✓' : ''}
+            </span>
+          </div>
+          <div style={{ height: 3, background: 'rgba(255,255,255,0.08)', borderRadius: 2, overflow: 'hidden' }}>
+            <div style={{
+              height: '100%',
+              width: `${Math.min((questionCount / 25) * 100, 100)}%`,
+              background: questionCount >= 25
+                ? 'linear-gradient(90deg,#4ade80,#22c55e)'
+                : 'linear-gradient(90deg,#a855f7,#ec4899)',
+              borderRadius: 2,
+              transition: 'width 0.5s ease',
+            }} />
+          </div>
+        </div>
+      )}
 
       {/* Messages */}
       <div className="chat-messages">

@@ -60,6 +60,8 @@ chatRouter.get('/:characterId', async (req: AuthRequest, res: Response): Promise
     dominance: (userMemory as any)._dominanceLevel ?? 0,
     mood: (userMemory as any)._mood ?? '期待✨',
     openingScene: character.openingScene ?? null,
+    phase: (userMemory as any)._phaseIndex ?? 0,
+    questionCount: (userMemory as any)._questionCount ?? 0,
   });
 });
 
@@ -126,6 +128,18 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
   const prevDominance = (userMemory as any)._dominanceLevel ?? 0;
   const newDominance = Math.max(0, Math.min(100, prevDominance + meta.controlDelta));
 
+  // Ratchet: merge unlocked acts (append-only, dedup)
+  const existingActs: string[] = (userMemory as any)._unlockedActs ?? [];
+  const newUnlockedActs = Array.from(new Set([...existingActs, ...meta.acts]));
+
+  // Ratchet: phase index only moves forward
+  const existingPhase: number = (userMemory as any)._phaseIndex ?? 0;
+  const newPhaseIndex = Math.max(existingPhase, meta.phase);
+
+  // Ratchet: question count for 椎名老师 only moves forward
+  const existingQn: number = (userMemory as any)._questionCount ?? 0;
+  const newQuestionCount = meta.qn !== null ? Math.max(existingQn, meta.qn) : existingQn;
+
   // Send replace event so frontend shows clean text
   res.write(`data: ${JSON.stringify({ type: 'replace', text: cleanReply })}\n\n`);
 
@@ -141,6 +155,9 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
     _intimacyLevel: newIntimacy,
     _dominanceLevel: newDominance,
     _mood: meta.mood,
+    _unlockedActs: newUnlockedActs,
+    _phaseIndex: newPhaseIndex,
+    _questionCount: newQuestionCount,
   };
 
   // Persist conversation + check image scene concurrently
@@ -186,6 +203,8 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
     intimacy: newIntimacy,
     dominance: newDominance,
     imagePrompt: imageDecision.generate ? imageDecision.prompt : null,
+    phase: newPhaseIndex,
+    questionCount: newQuestionCount,
   })}\n\n`);
 
   // Save messages to DB (fire and forget)
