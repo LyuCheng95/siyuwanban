@@ -40,6 +40,7 @@ model Character {
   background    String   @db.Text
   speakingStyle String   @db.Text
   avatarEmoji   String   @default("🤖")
+  portraitUrl   String?  // AI-generated character portrait
   isPublic      Boolean  @default(true)
   usageCount    Int      @default(0)
   avgRating     Float    @default(0)
