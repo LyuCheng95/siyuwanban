@@ -134,12 +134,12 @@ adminRouter.get('/logs', async (req: Request, res: Response): Promise<void> => {
 // DELETE /api/admin/character/:id?key=... — 删除角色（级联清理关联数据）
 adminRouter.delete('/character/:id', async (req: Request, res: Response): Promise<void> => {
   if (!checkKey(req, res)) return;
-  const { id } = req.params;
+  const id = req.params.id as string;
   try {
     // 先删 Message（通过 Conversation），再删 Conversation、Review，最后删 Character
     const convIds = (await prisma.conversation.findMany({ where: { characterId: id }, select: { id: true } }))
       .map(c => c.id);
-    if (convIds.length) await prisma.message.deleteMany({ where: { conversationId: { in: convIds } } });
+    if (convIds.length) await prisma.message.deleteMany({ where: { conversationId: { in: convIds as string[] } } });
     await prisma.conversation.deleteMany({ where: { characterId: id } });
     await prisma.review.deleteMany({ where: { characterId: id } });
     await prisma.character.delete({ where: { id } });
@@ -154,8 +154,9 @@ adminRouter.post('/character/:id/remove-images', async (req: Request, res: Respo
   if (!checkKey(req, res)) return;
   const { imageUrls } = req.body as { imageUrls: string[] };
   if (!Array.isArray(imageUrls) || !imageUrls.length) { res.status(400).json({ error: 'imageUrls required' }); return; }
+  const charRouteId = req.params.id as string;
   const char = await prisma.character.findUnique({
-    where: { id: req.params.id },
+    where: { id: charRouteId },
     select: { portraitImages: true, portraitUrl: true },
   });
   if (!char) { res.status(404).json({ error: 'not found' }); return; }
@@ -163,7 +164,7 @@ adminRouter.post('/character/:id/remove-images', async (req: Request, res: Respo
   const remaining = (char.portraitImages as string[]).filter(u => !toRemove.has(u));
   const newPortraitUrl = char.portraitUrl && toRemove.has(char.portraitUrl) ? (remaining[0] ?? null) : char.portraitUrl;
   const updated = await prisma.character.update({
-    where: { id: req.params.id },
+    where: { id: charRouteId },
     data: { portraitImages: remaining, portraitUrl: newPortraitUrl },
     select: { id: true, name: true, portraitImages: true, portraitUrl: true },
   });
