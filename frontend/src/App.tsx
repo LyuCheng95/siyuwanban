@@ -8,9 +8,55 @@ import { ProfilePage } from './pages/ProfilePage';
 import { LeaderboardPage } from './pages/LeaderboardPage';
 
 const NAV = [
-  { path: '/',        icon: '✦', label: '广场' },
-  { path: '/mine',    icon: '♡', label: '我的' },
-  { path: '/profile', icon: '◎', label: '设置' },
+  {
+    path: '/',
+    label: '广场',
+    icon: (active: boolean) => (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill={active ? 'url(#grad)' : 'none'} stroke={active ? 'url(#grad)' : 'currentColor'} strokeWidth="1.8">
+        <defs>
+          <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#ff3d7f"/>
+            <stop offset="100%" stopColor="#c026d3"/>
+          </linearGradient>
+        </defs>
+        <rect x="3" y="3" width="7" height="7" rx="1.5"/>
+        <rect x="14" y="3" width="7" height="7" rx="1.5"/>
+        <rect x="3" y="14" width="7" height="7" rx="1.5"/>
+        <rect x="14" y="14" width="7" height="7" rx="1.5"/>
+      </svg>
+    )
+  },
+  {
+    path: '/mine',
+    label: '我的角色',
+    icon: (active: boolean) => (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill={active ? 'url(#grad2)' : 'none'} stroke={active ? 'url(#grad2)' : 'currentColor'} strokeWidth="1.8">
+        <defs>
+          <linearGradient id="grad2" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#ff3d7f"/>
+            <stop offset="100%" stopColor="#c026d3"/>
+          </linearGradient>
+        </defs>
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+      </svg>
+    )
+  },
+  {
+    path: '/profile',
+    label: '我的',
+    icon: (active: boolean) => (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill={active ? 'url(#grad3)' : 'none'} stroke={active ? 'url(#grad3)' : 'currentColor'} strokeWidth="1.8">
+        <defs>
+          <linearGradient id="grad3" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#ff3d7f"/>
+            <stop offset="100%" stopColor="#c026d3"/>
+          </linearGradient>
+        </defs>
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+        <circle cx="12" cy="7" r="4"/>
+      </svg>
+    )
+  },
 ];
 
 const HIDE_NAV = ['/wizard', '/chat/'];
@@ -78,7 +124,7 @@ export default function App() {
                 className={`nav-item ${active ? 'active' : ''}`}
                 onClick={() => navigate(item.path)}
               >
-                <span className="icon">{item.icon}</span>
+                {item.icon(active)}
                 <span>{item.label}</span>
                 {active && <span className="nav-dot" />}
               </button>

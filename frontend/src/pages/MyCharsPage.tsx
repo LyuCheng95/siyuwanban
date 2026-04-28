@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import WebApp from '@twa-dev/sdk';
 import { api } from '../api/client';
 import type { Character, User } from '../types';
 
@@ -93,7 +92,8 @@ export function MyCharsPage({ user }: Props) {
 
 function MyCharCard({ char, onChat, onDelete }: { char: Character; onChat: () => void; onDelete: () => void }) {
   function confirmDelete() {
-    WebApp.showConfirm(`确定删除「${char.name}」？所有对话记录也会删除。`, (ok) => { if (ok) onDelete(); });
+    const ok = window.confirm(`确定删除「${char.name}」？所有对话记录也会删除。`);
+    if (ok) onDelete();
   }
 
   return (

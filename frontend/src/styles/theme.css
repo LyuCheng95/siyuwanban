@@ -44,11 +44,11 @@ html, body, #root {
 /* ---- Nav Bar ---- */
 .nav-bar {
   display: flex;
-  background: rgba(13,13,18,0.95);
+  background: rgba(13,13,18,0.97);
   border-top: 1px solid var(--border);
   padding-bottom: calc(6px + var(--safe-bottom));
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   flex-shrink: 0;
 }
 
@@ -58,7 +58,7 @@ html, body, #root {
   flex-direction: column;
   align-items: center;
   padding: 10px 0 4px;
-  gap: 3px;
+  gap: 4px;
   cursor: pointer;
   border: none;
   background: none;
@@ -68,13 +68,38 @@ html, body, #root {
   letter-spacing: 0.3px;
   transition: color 0.15s;
 }
-.nav-item .icon { font-size: 22px; line-height: 1; }
+.nav-item svg { transition: all 0.15s; }
 .nav-item.active { color: var(--accent); }
-.nav-item.active .nav-dot {
+.nav-item.active svg { filter: drop-shadow(0 0 6px rgba(255,61,127,0.6)); }
+.nav-dot {
   width: 4px; height: 4px;
   background: var(--accent);
   border-radius: 50%;
-  margin-top: 2px;
+}
+/* Create (center) nav button */
+.nav-item-create {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 0 4px;
+  gap: 3px;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: var(--text);
+  font-size: 10px;
+  font-weight: 600;
+}
+.nav-create-btn {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  background: var(--gradient);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--glow);
+  margin-top: -10px;
 }
 
 /* ---- Page ---- */
@@ -126,6 +151,89 @@ html, body, #root {
   background: linear-gradient(180deg, transparent 50%, rgba(0,0,0,0.6) 100%);
 }
 
+/* Redesigned character card image area */
+.char-card-img {
+  height: 155px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+/* Ambient glow behind emoji */
+.char-card-glow {
+  position: absolute;
+  width: 100px; height: 100px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.06);
+  filter: blur(24px);
+}
+/* Large emoji */
+.char-card-emoji {
+  font-size: 60px;
+  position: relative;
+  z-index: 2;
+  filter: drop-shadow(0 6px 20px rgba(0,0,0,0.6));
+  line-height: 1;
+}
+/* Name/age overlay on bottom of image */
+.char-card-overlay {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  background: linear-gradient(transparent, rgba(0,0,0,0.85));
+  padding: 28px 10px 8px;
+  z-index: 3;
+}
+.char-card-overlay-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: white;
+  line-height: 1.2;
+}
+.char-card-overlay-age {
+  font-size: 11px;
+  color: rgba(255,255,255,0.65);
+  margin-top: 1px;
+}
+/* Bottom info section */
+.char-card-info {
+  padding: 8px 10px 10px;
+}
+.char-card-occ {
+  font-size: 11px;
+  color: var(--text-2);
+  margin-bottom: 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.char-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+}
+.char-card-rating {
+  color: #fbbf24;
+  font-weight: 600;
+}
+.char-card-usage {
+  color: var(--text-hint);
+}
+/* Hot badge - updated */
+.hot-badge {
+  position: absolute;
+  top: 8px; left: 8px;
+  z-index: 4;
+  font-size: 10px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #ff3d7f, #c026d3);
+  color: white;
+  padding: 3px 8px;
+  border-radius: 20px;
+  letter-spacing: 0.3px;
+}
+
 .char-card-body {
   padding: 10px 10px 12px;
 }
@@ -155,25 +263,6 @@ html, body, #root {
   background: var(--bg-elevated);
   color: var(--text-2);
   white-space: nowrap;
-}
-.char-card-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 11px;
-  color: var(--text-hint);
-}
-.hot-badge {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  z-index: 2;
-  font-size: 10px;
-  font-weight: 700;
-  background: var(--gradient);
-  color: white;
-  padding: 2px 7px;
-  border-radius: 20px;
 }
 
 /* ---- Buttons ---- */
@@ -226,9 +315,27 @@ html, body, #root {
   padding: 12px 14px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
-  background: rgba(13,13,18,0.95);
+  background: rgba(13,13,18,0.97);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
+  position: relative;
+}
+/* Add online indicator to chat */
+.chat-online-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #4ade80;
+  position: absolute;
+  bottom: 2px; right: 2px;
+  border: 2px solid var(--bg);
+  box-shadow: 0 0 6px rgba(74,222,128,0.6);
+}
+/* Message timestamp */
+.msg-time {
+  font-size: 10px;
+  color: var(--text-hint);
+  text-align: center;
+  margin: 4px 0;
 }
 
 .chat-messages {
@@ -262,9 +369,9 @@ html, body, #root {
   border-bottom-right-radius: 5px;
 }
 .bubble.assistant {
-  background: var(--bubble-ai);
+  background: var(--bg-elevated);
   color: var(--text);
-  border: 1px solid var(--border);
+  border: 1px solid rgba(255,255,255,0.06);
   border-bottom-left-radius: 5px;
 }
 
@@ -633,7 +740,7 @@ html, body, #root {
 .pill-scroll::-webkit-scrollbar { display: none; }
 .pill {
   white-space: nowrap;
-  padding: 7px 14px;
+  padding: 7px 16px;
   border-radius: 20px;
   font-size: 13px;
   font-weight: 500;
@@ -648,7 +755,7 @@ html, body, #root {
   background: var(--gradient);
   border-color: transparent;
   color: white;
-  box-shadow: var(--glow);
+  box-shadow: 0 2px 12px rgba(255,61,127,0.35);
 }
 
 /* ---- Page header ---- */
@@ -757,4 +864,117 @@ html, body, #root {
   height: 1px;
   background: var(--border);
   margin: 12px 0;
+}
+
+/* ---- Featured banner section ---- */
+.featured-scroll {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 0 12px 14px;
+  scrollbar-width: none;
+}
+.featured-scroll::-webkit-scrollbar { display: none; }
+.featured-card {
+  flex-shrink: 0;
+  width: 130px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  cursor: pointer;
+  position: relative;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.featured-card-img {
+  height: 170px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+.featured-card-emoji {
+  font-size: 54px;
+  filter: drop-shadow(0 4px 16px rgba(0,0,0,0.6));
+  position: relative;
+  z-index: 2;
+}
+.featured-card-overlay {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  background: linear-gradient(transparent, rgba(0,0,0,0.9));
+  padding: 32px 8px 8px;
+  z-index: 3;
+}
+.featured-card-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: white;
+}
+.featured-card-meta {
+  font-size: 10px;
+  color: rgba(255,255,255,0.6);
+  margin-top: 2px;
+}
+
+/* ---- Page header accent ---- */
+.page-header-accent {
+  padding: 18px 14px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.page-title-lg {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -0.5px;
+}
+.page-title-lg span {
+  background: var(--gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ---- Section headers with gradient line ---- */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 14px 10px;
+}
+.section-header-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.section-header-title::before {
+  content: '';
+  display: inline-block;
+  width: 3px;
+  height: 14px;
+  background: var(--gradient);
+  border-radius: 2px;
+}
+.section-header-link {
+  font-size: 12px;
+  color: var(--accent);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+/* ---- Loading skeleton ---- */
+@keyframes shimmer {
+  0% { background-position: -200px 0; }
+  100% { background-position: 200px 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--bg-elevated) 25%, var(--bg-card) 50%, var(--bg-elevated) 75%);
+  background-size: 400px 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: 8px;
 }

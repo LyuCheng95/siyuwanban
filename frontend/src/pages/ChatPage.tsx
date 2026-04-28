@@ -149,17 +149,24 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
           style={{ background: 'none', border: 'none', fontSize: 24, cursor: 'pointer', color: 'var(--text)', padding: '0 4px' }}
         >‹</button>
 
-        <div style={{
-          width: 38, height: 38, borderRadius: '50%', flexShrink: 0,
-          background: 'linear-gradient(135deg, #3d1a4a, #7c1a6a)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
-        }}>{character.avatarEmoji}</div>
+        <div style={{ position: 'relative', flexShrink: 0 }}>
+          <div style={{
+            width: 38, height: 38, borderRadius: '50%',
+            background: 'linear-gradient(135deg, #3d1a4a, #7c1a6a)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
+            border: '2px solid rgba(255,255,255,0.1)',
+          }}>{character.avatarEmoji}</div>
+          <div className="chat-online-dot" />
+        </div>
 
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 700, fontSize: 15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {character.name}
           </div>
-          <div style={{ fontSize: 11, color: 'var(--text-2)' }}>{character.occupation}</div>
+          <div style={{ fontSize: 11, color: 'var(--text-2)', display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ade80', display: 'inline-block', boxShadow: '0 0 6px rgba(74,222,128,0.6)' }} />
+            {character.occupation}
+          </div>
         </div>
 
         {/* 看她现在的样子 */}
