@@ -2,6 +2,7 @@ import fetch from 'node-fetch';
 import FormData from 'form-data';
 import fs from 'fs';
 import path from 'path';
+import { CHARACTER_FACE } from '../characterFace';
 
 const COMFYUI_URL = process.env.COMFYUI_URL || 'http://localhost:7188';
 const IMAGE_SAVE_DIR = process.env.IMAGE_SAVE_DIR || '/var/www/siyuwanban/images';
@@ -176,7 +177,9 @@ export async function shouldGenerateImage(
   character?: { occupation: string; personality: string },
   intimacyLevel = 0
 ): Promise<{ generate: boolean; prompt?: string }> {
-  const appearance = CHARACTER_APPEARANCE[characterName] || `1girl, ${characterName}`;
+  const baseAppearance = CHARACTER_APPEARANCE[characterName] || `1girl, ${characterName}`;
+  const faceAnchor = CHARACTER_FACE[characterName];
+  const appearance = faceAnchor ? `${faceAnchor}, ${baseAppearance}` : baseAppearance;
 
   // Phase-gate explicit content in inline images to match chat progression
   let explicitRule: string;
