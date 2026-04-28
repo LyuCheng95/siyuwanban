@@ -184,7 +184,7 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
     { role: 'user' as const, content: message },
     { role: 'assistant' as const, content: cleanReply },
   ];
-  shouldGenerateImage(character.name, recentForImage).then(async ({ generate, prompt }) => {
+  shouldGenerateImage(character.name, recentForImage, character).then(async ({ generate, prompt }) => {
     if (!generate || !prompt) { res.end(); return; }
     try {
       const imageUrl = await generateSceneImage(prompt);

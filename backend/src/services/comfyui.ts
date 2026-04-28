@@ -117,12 +117,44 @@ export async function generateSceneImage(
   return url;
 }
 
+// Character appearance anchors — keeps the same person across all generated images
+const CHARACTER_APPEARANCE: Record<string, string> = {
+  '林晓雅': '28 years old chinese woman, lawyer, long black hair updo, sharp eyes, office suit',
+  '狐九':   'fox girl, nine white fluffy tails, fox ears, silver white long hair, glowing amber eyes',
+  '晓彤':   '22 years old chinese woman, athletic build, ponytail, gym wear',
+  '椎名老师': '24 years old japanese woman, black framed glasses, teacher, white shirt, short skirt',
+  '魅罗':   'demon girl, small black horns, purple glowing eyes, dark wings, pale skin',
+  '零':     '25 years old woman, post-apocalyptic, leather straps, goggles, short hair, scars',
+  '小雨':   '19 years old chinese girl, twin tails, school uniform, innocent face',
+  '沈曼':   '34 years old mature chinese woman, businesswoman, blazer, red lipstick',
+  '星澜':   'alien girl, double-ring pupils, bioluminescent skin, silver liquid hair',
+  '冷霜':   '22 years old woman, white silver hair, light blue skin glow, white robes',
+  '娜娜':   '18 years old japanese girl, half-dyed hair, ear piercings, shortened uniform skirt',
+  'X-23':   'android girl, mechanical left arm, red glowing right eye, silver hair, tactical vest',
+  '林阿姨': '38 years old mature chinese woman, voluptuous, floral dress, jade bracelet',
+  '幻音':   'holographic AI girl, pink twin tails, semi-transparent glowing body',
+  '琉璃':   '22 years old chinese woman, researcher, lab coat, glasses',
+  '程双':   '31 years old mature chinese woman, elegant lawyer, suit, sophisticated',
+  '夜叉':   'female ghost, 19 years old appearance, long black straight hair, pale translucent skin, neck scar',
+  '糖糖':   '20 years old chinese girl, twin tails, art student, oversized sweater',
+  '苏然':   '30 years old mature chinese woman, elegant housewife, silk robe',
+  '沈静':   '25 years old tall chinese model, high cheekbones, off-shoulder dress',
+  '小慧':   '23 years old chinese woman, nurse uniform, gentle smile',
+  '夜玲':   '26 years old chinese woman, dark aesthetic, ink-stained fingers, dark lace dress',
+  '程雨':   '29 years old chinese woman, tech director, blazer, glasses',
+  '晴晴':   '21 years old chinese girl, gaming headset, oversized hoodie, streamer',
+  '唐诗':   '27 years old chinese woman, personal secretary, white blouse, hair bun',
+  '阿柒':   '22 years old chinese girl, barista apron, casual jeans, warm smile',
+};
+
 // Use Grok to decide if scene warrants an image and build the image prompt
 export async function shouldGenerateImage(
   characterName: string,
-  recentMessages: Array<{ role: string; content: string }>
+  recentMessages: Array<{ role: string; content: string }>,
+  character?: { occupation: string; personality: string }
 ): Promise<{ generate: boolean; prompt?: string }> {
-  // Avoid circular import — use direct fetch to Grok
+  const appearance = CHARACTER_APPEARANCE[characterName] || `1girl, ${characterName}`;
+
   const res = await fetch('https://api.x.ai/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -134,17 +166,19 @@ export async function shouldGenerateImage(
       messages: [
         {
           role: 'system',
-          content: `你是一个图片生成决策器。根据聊天内容判断是否适合生成一张场景图片。
+          content: `你是一个成人向图片生成决策器。根据聊天内容判断是否适合生成一张场景图片。
+角色固定外貌描述（必须包含在prompt中保持人物一致性）：${appearance}
+
 规则：
-- 如果对话中出现了明显的场景描述、动作、或视觉性的内容，返回 generate: true
-- 否则返回 generate: false
-- 如果要生成，给出一个英文的图片描述 prompt（用于AI画图），描述人物、动作、场景、氛围
-- prompt 中的人物用 "1girl, ${characterName}" 代替具体姓名
+- 如果对话中出现了明显的性暗示场景、肢体接触、或视觉性内容，返回 generate: true
+- 普通问候或无视觉性内容返回 generate: false
+- 如果要生成，给出英文 prompt，必须包含：固定外貌 + 当前场景动作 + 露骨身体部位描写(bare breasts, nipples, pussy等)
+- 保持人物外貌与固定描述完全一致
 只返回JSON，格式：{"generate": true/false, "prompt": "...英文prompt..."}`,
         },
         ...recentMessages.slice(-4),
       ],
-      max_tokens: 200,
+      max_tokens: 250,
       temperature: 0.3,
     }),
   });
