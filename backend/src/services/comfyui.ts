@@ -173,9 +173,22 @@ const CHARACTER_APPEARANCE: Record<string, string> = {
 export async function shouldGenerateImage(
   characterName: string,
   recentMessages: Array<{ role: string; content: string }>,
-  character?: { occupation: string; personality: string }
+  character?: { occupation: string; personality: string },
+  intimacyLevel = 0
 ): Promise<{ generate: boolean; prompt?: string }> {
   const appearance = CHARACTER_APPEARANCE[characterName] || `1girl, ${characterName}`;
+
+  // Phase-gate explicit content in inline images to match chat progression
+  let explicitRule: string;
+  if (intimacyLevel < 20) {
+    explicitRule = '只在有明显肢体接触或视觉性暗示的场景生成图片，prompt不包含任何裸露或性描写，保持衣着完整，侧重氛围和情绪。';
+  } else if (intimacyLevel < 40) {
+    explicitRule = '有亲密肢体接触时才生成，prompt可包含轻微性感姿势、crumpled clothing、exposed shoulders/collarbone，不露胸不露下体。';
+  } else if (intimacyLevel < 60) {
+    explicitRule = '有明显性暗示场景时生成，prompt可包含 (bare breasts:1.5), (erect nipples:1.4)，下体区域不露出。';
+  } else {
+    explicitRule = '有性描写场景时生成，prompt必须包含完整露骨描写：(bare breasts:1.5), (erect nipples:1.5), (pussy visible:1.5) 等所有相关身体部位。';
+  }
 
   const res = await fetch('https://api.x.ai/v1/chat/completions', {
     method: 'POST',
@@ -188,13 +201,13 @@ export async function shouldGenerateImage(
       messages: [
         {
           role: 'system',
-          content: `你是一个成人向图片生成决策器。根据聊天内容判断是否适合生成一张场景图片。
+          content: `你是一个图片生成决策器。根据聊天内容判断是否适合生成一张场景图片。
 角色固定外貌描述（必须包含在prompt中保持人物一致性）：${appearance}
 
-规则：
-- 如果对话中出现了明显的性暗示场景、肢体接触、或视觉性内容，返回 generate: true
-- 普通问候或无视觉性内容返回 generate: false
-- 如果要生成，给出英文 prompt，必须包含：固定外貌 + 当前场景动作 + 露骨身体部位描写(bare breasts, nipples, pussy等)
+当前亲密度：${intimacyLevel}/100
+裸露规则：${explicitRule}
+
+- 普通对话/无视觉性内容 → generate: false
 - 保持人物外貌与固定描述完全一致
 只返回JSON，格式：{"generate": true/false, "prompt": "...英文prompt..."}`,
         },

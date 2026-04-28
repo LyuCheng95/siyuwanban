@@ -197,7 +197,7 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
   ];
 
   const [imageDecision, [updatedConversation, updatedUser]] = await Promise.all([
-    shouldGenerateImage(character.name, recentForImage, character),
+    shouldGenerateImage(character.name, recentForImage, character, newIntimacy),
     Promise.all([
       conversation
         ? prisma.conversation.update({
