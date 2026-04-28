@@ -19,6 +19,7 @@ export interface Character {
   speakingStyle: string;
   avatarEmoji: string;
   portraitUrl?: string | null;
+  faceUrl?: string | null;
   portraitImages?: string[];
   isPublic: boolean;
   usageCount: number;
@@ -35,6 +36,7 @@ export interface Message {
   content: string;
   imageUrl?: string;
   imagePrompt?: string;
+  imageGenerating?: boolean;
 }
 
 export interface Conversation {

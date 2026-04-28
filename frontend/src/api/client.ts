@@ -84,6 +84,12 @@ export const api = {
         },
         body: JSON.stringify({ message }),
       }),
+
+    saveImage: (characterId: string, imageUrl: string) =>
+      request<{ ok: boolean }>(`/chat/${characterId}/save-image`, {
+        method: 'POST',
+        body: JSON.stringify({ imageUrl }),
+      }),
   },
 
   marketplace: {
@@ -120,10 +126,10 @@ export const api = {
   },
 
   images: {
-    generate: (prompt: string) =>
+    generate: (prompt: string, characterName?: string) =>
       request<{ url: string }>('/images/generate', {
         method: 'POST',
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({ prompt, characterName }),
       }),
   },
 

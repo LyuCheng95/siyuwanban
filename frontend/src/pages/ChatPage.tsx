@@ -199,6 +199,9 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
   const [questionCount, setQuestionCount] = useState(0);
   const [currentPhase, setCurrentPhase] = useState(0);
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [albumImages, setAlbumImages] = useState<string[]>([]);
+  const [albumOpen, setAlbumOpen] = useState(false);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   // stat delta toasts
   const [deltaEntries, setDeltaEntries] = useState<DeltaEntry[]>([]);
@@ -220,6 +223,7 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
       if (data.openingScene)      setOpeningScene(data.openingScene);
       if (data.questionCount)     setQuestionCount(data.questionCount);
       if (data.phase != null)     setCurrentPhase(data.phase);
+      if (data.albumImages?.length) setAlbumImages(data.albumImages);
       if (data.conversation?.messages?.length) {
         setMessages(data.conversation.messages.map((m: any) => ({
           role: m.role as 'user' | 'assistant',
@@ -264,7 +268,7 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
 
   // ── 场景图生成（inline，不弹窗）──────────────────────────────────────────
   async function generateInlineImage(prompt: string) {
-    if (!character) return;
+    if (!character || !characterId) return;
     const genMsg: Message = { role: 'assistant', content: '', imageGenerating: true };
     setMessages(prev => [...prev, genMsg]);
     try {
@@ -278,6 +282,10 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
         }
         return next;
       });
+      // Save to album (fire-and-forget)
+      api.chat.saveImage(characterId, res.url).then(() => {
+        setAlbumImages(prev => prev.includes(res.url) ? prev : [...prev, res.url]);
+      }).catch(() => {});
     } catch {
       setMessages(prev => {
         const next = [...prev];
@@ -463,6 +471,16 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
           <div style={{ fontSize:9, color:'rgba(160,100,200,0.6)', letterSpacing:0.3 }}>状态</div>
         </button>
 
+        {/* Album button */}
+        {albumImages.length > 0 && (
+          <button
+            onClick={() => setAlbumOpen(true)}
+            style={{ background:'none', border:'none', cursor:'pointer', padding:'4px 6px',
+              flexShrink:0, color:'rgba(200,150,230,0.75)', fontSize:18, lineHeight:1 }}
+            title="相册"
+          >🖼</button>
+        )}
+
         {/* Credits */}
         <div className="credits-badge">
           {credits.free > 0
@@ -553,11 +571,9 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
                 </div>
               )}
               {msg.imageUrl && (
-                <div className="inline-image-wrap">
-                  <img
-                    src={msg.imageUrl} alt="场景"
-                    onClick={() => window.open(msg.imageUrl!, '_blank')}
-                  />
+                <div className="inline-image-wrap" onClick={() => setLightboxUrl(msg.imageUrl!)}>
+                  <img src={msg.imageUrl} alt="场景" />
+                  <div className="inline-image-hint">👆 点击放大</div>
                 </div>
               )}
 
@@ -703,6 +719,48 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
           </div>
         </div>
       )}
+      {/* ── Lightbox ─────────────────────────────────────────────────────── */}
+      {lightboxUrl && (
+        <div className="lightbox-overlay" onClick={() => setLightboxUrl(null)}>
+          <button className="lightbox-close" onClick={() => setLightboxUrl(null)}>✕</button>
+          <img
+            src={lightboxUrl}
+            className="lightbox-img"
+            onClick={e => e.stopPropagation()}
+          />
+          <div style={{ position:'absolute', bottom:20, left:0, right:0, textAlign:'center',
+            fontSize:12, color:'rgba(255,255,255,0.4)', pointerEvents:'none' }}>
+            点击背景关闭 · 双指缩放
+          </div>
+        </div>
+      )}
+
+      {/* ── Album Sheet ───────────────────────────────────────────────────── */}
+      {albumOpen && (
+        <div className="sheet-overlay" onClick={() => setAlbumOpen(false)}>
+          <div className="sheet" onClick={e => e.stopPropagation()}
+            style={{ maxHeight:'85vh', display:'flex', flexDirection:'column' }}>
+            <div className="sheet-handle" />
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+              marginBottom:16, flexShrink:0 }}>
+              <div style={{ fontWeight:700, fontSize:16 }}>🖼 我的相册</div>
+              <div style={{ fontSize:12, color:'var(--text-hint)' }}>{albumImages.length} 张</div>
+            </div>
+            <div style={{ overflow:'auto', flex:1,
+              display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:6 }}>
+              {albumImages.map((url, idx) => (
+                <div key={idx} style={{ aspectRatio:'3/4', borderRadius:10, overflow:'hidden',
+                  cursor:'pointer', border:'1px solid rgba(255,255,255,0.08)' }}
+                  onClick={() => { setLightboxUrl(url); setAlbumOpen(false); }}>
+                  <img src={url} alt="" style={{ width:'100%', height:'100%',
+                    objectFit:'cover', objectPosition:'top center', display:'block' }} />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Portrait Viewer（写真大图） ──────────────────────────────────── */}
       {portraitViewerOpen && (
         <div className="sheet-overlay" onClick={() => setPortraitViewerOpen(false)}>

@@ -41,6 +41,7 @@ model Character {
   speakingStyle String   @db.Text
   avatarEmoji   String   @default("🤖")
   portraitUrl    String?            // AI-generated character portrait (main cover)
+  faceUrl        String?            // Close-up face headshot, used as chat avatar
   portraitImages Json     @default("[]")  // Array of image URLs for the swipeable gallery
   openingScene   String?  @db.Text  // Seductive opening scene shown at start of conversation
   isPublic      Boolean  @default(true)

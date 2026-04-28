@@ -18,7 +18,7 @@ import urllib.request
 import subprocess
 from pathlib import Path
 
-COMFYUI_URL   = "http://127.0.0.1:7188"
+COMFYUI_URL   = "http://127.0.0.1:8188"
 SAVE_DIR      = Path("D:/SD/siyuwanban/portraits")
 SERVER_IP     = "168.144.108.9"
 SERVER_IMG_DIR = "/var/www/siyuwanban/images"

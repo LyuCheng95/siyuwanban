@@ -7,24 +7,56 @@ const COMFYUI_URL = process.env.COMFYUI_URL || 'http://localhost:7188';
 const IMAGE_SAVE_DIR = process.env.IMAGE_SAVE_DIR || '/var/www/siyuwanban/images';
 const IMAGE_PUBLIC_URL = process.env.FRONTEND_URL || 'https://www.shangzongcai.com';
 
-// Build a RealVisXL NSFW workflow for ComfyUI API
-function buildWorkflow(prompt: string, negativePrompt: string, seed: number): object {
+// ── 模型常量 ──────────────────────────────────────────────────────────────────
+const MODEL_JUGGER = 'juggernautXL_juggXIByRundiffusion.safetensors';
+const MODEL_LEOSAM = 'leosamsHelloworldXL_helloworldXL70.safetensors';
+const MODEL_NOOB   = 'noobaiXLNAIXL_epsilonPred11Version.safetensors';
+
+// ── 角色 → 模型映射（与 generateAlbum.ts 保持一致）─────────────────────────
+const CHARACTER_MODEL: Record<string, string> = {
+  // Juggernaut XI — 高端写实
+  '沈静': MODEL_JUGGER, '晓彤': MODEL_JUGGER,
+  // LEOSAM — 细腻白瘦幼
+  '椎名老师': MODEL_LEOSAM, '娜娜': MODEL_LEOSAM, '小雨': MODEL_LEOSAM,
+  '琉璃': MODEL_LEOSAM,     '小慧': MODEL_LEOSAM, '阿柒': MODEL_LEOSAM,
+  '糖糖': MODEL_LEOSAM,     '晴晴': MODEL_LEOSAM, '夜玲': MODEL_LEOSAM,
+  '唐诗': MODEL_LEOSAM,
+  // NoobAI — 二次元 Illustrious
+  'X-23': MODEL_NOOB, '幻音': MODEL_NOOB, '狐九': MODEL_NOOB,
+  '冷霜': MODEL_NOOB, '魅罗': MODEL_NOOB,
+};
+
+// ── 质量前缀 ──────────────────────────────────────────────────────────────────
+const QUALITY_REAL = '(photorealistic:1.4), (hyperrealistic:1.3), RAW photo, 8k uhd, masterpiece, (Asian beauty:1.4), (porcelain fair skin:1.5), (flawless pale white skin:1.4), (youthful:1.3), (perfect face:1.5), (explicit:1.4), (nsfw:1.4)';
+const QUALITY_NOOB_SCENE = 'masterpiece, best quality, amazing quality, very aesthetic, newest, ultra detailed, source_anime, nsfw, explicit';
+
+const NEGATIVE_REAL = '(worst quality:1.6), (low quality:1.6), bad anatomy, bad face, ugly face, deformed, blurry, watermark, text, censored, mosaic, (dark skin:1.5), (tanned skin:1.5), (yellowish skin:1.4)';
+const NEGATIVE_NOOB_SCENE = 'worst quality, bad quality, lowres, bad anatomy, bad face, ugly face, deformed, blurry, watermark, text, censored, mosaic';
+
+// ── 工作流构建 ────────────────────────────────────────────────────────────────
+function buildWorkflow(prompt: string, negativePrompt: string, seed: number, modelName?: string): object {
+  const model = modelName ?? MODEL_JUGGER;
+  const isNoob = model === MODEL_NOOB;
+  const qualityPrefix = isNoob ? QUALITY_NOOB_SCENE : QUALITY_REAL;
+  const negPrefix = isNoob ? NEGATIVE_NOOB_SCENE : NEGATIVE_REAL;
+  const cfg   = isNoob ? 6.0 : 6.5;
+  const steps = isNoob ? 28  : 30;
+
+  const fullPrompt = `${qualityPrefix}, ${prompt}`;
+  const fullNeg    = `${negPrefix}, ${negativePrompt}`;
+
   return {
     "4": {
       "class_type": "CheckpointLoaderSimple",
-      "inputs": { "ckpt_name": "realvisxlV50_v50LightningBakedvae.safetensors" }
-    },
-    "10": {
-      "class_type": "VAELoader",
-      "inputs": { "vae_name": "sdxl_vae.safetensors" }
+      "inputs": { "ckpt_name": model }
     },
     "6": {
       "class_type": "CLIPTextEncode",
-      "inputs": { "text": prompt, "clip": ["4", 1] }
+      "inputs": { "text": fullPrompt, "clip": ["4", 1] }
     },
     "7": {
       "class_type": "CLIPTextEncode",
-      "inputs": { "text": negativePrompt, "clip": ["4", 1] }
+      "inputs": { "text": fullNeg, "clip": ["4", 1] }
     },
     "5": {
       "class_type": "EmptyLatentImage",
@@ -38,16 +70,16 @@ function buildWorkflow(prompt: string, negativePrompt: string, seed: number): ob
         "negative": ["7", 0],
         "latent_image": ["5", 0],
         "seed": seed,
-        "steps": 20,
-        "cfg": 5.0,
-        "sampler_name": "euler_ancestral",
+        "steps": steps,
+        "cfg": cfg,
+        "sampler_name": "dpm_2_ancestral",
         "scheduler": "karras",
         "denoise": 1.0
       }
     },
     "8": {
       "class_type": "VAEDecode",
-      "inputs": { "samples": ["3", 0], "vae": ["10", 0] }
+      "inputs": { "samples": ["3", 0], "vae": ["4", 2] }
     },
     "9": {
       "class_type": "SaveImage",
@@ -104,13 +136,12 @@ async function downloadImage(filename: string): Promise<string> {
 // Main entry: generate image from scene description
 export async function generateSceneImage(
   scenePrompt: string,
-  negative = ''
+  negative = '',
+  characterName = ''
 ): Promise<string> {
   const seed = Math.floor(Math.random() * 2 ** 32);
-  const fullPrompt = `(photorealistic:1.3), (hyperrealistic:1.2), RAW photo, 8k uhd, masterpiece, ${scenePrompt}`;
-  const fullNegative = `ugly, deformed, bad anatomy, watermark, text, censored, cartoon, anime, ${negative}`;
-
-  const workflow = buildWorkflow(fullPrompt, fullNegative, seed);
+  const model = CHARACTER_MODEL[characterName] ?? MODEL_JUGGER;
+  const workflow = buildWorkflow(scenePrompt, negative, seed, model);
   const promptId = await queuePrompt(workflow);
   const filename = await waitForImage(promptId);
   const url = await downloadImage(filename);
@@ -119,32 +150,23 @@ export async function generateSceneImage(
 
 // Character appearance anchors — keeps the same person across all generated images
 const CHARACTER_APPEARANCE: Record<string, string> = {
-  '林晓雅': '28 years old chinese woman, lawyer, long black hair updo, sharp eyes, office suit',
-  '狐九':   'fox girl, nine white fluffy tails, fox ears, silver white long hair, glowing amber eyes',
-  '晓彤':   '22 years old chinese woman, athletic build, ponytail, gym wear',
   '椎名老师': '24 years old japanese woman, black framed glasses, teacher, white shirt, short skirt',
-  '魅罗':   'demon girl, small black horns, purple glowing eyes, dark wings, pale skin',
-  '零':     '25 years old woman, post-apocalyptic, leather straps, goggles, short hair, scars',
-  '小雨':   '19 years old chinese girl, twin tails, school uniform, innocent face',
-  '沈曼':   '34 years old mature chinese woman, businesswoman, blazer, red lipstick',
-  '星澜':   'alien girl, double-ring pupils, bioluminescent skin, silver liquid hair',
-  '冷霜':   '22 years old woman, white silver hair, light blue skin glow, white robes',
-  '娜娜':   '18 years old japanese girl, half-dyed hair, ear piercings, shortened uniform skirt',
-  'X-23':   'android girl, mechanical left arm, red glowing right eye, silver hair, tactical vest',
-  '林阿姨': '38 years old mature chinese woman, voluptuous, floral dress, jade bracelet',
-  '幻音':   'holographic AI girl, pink twin tails, semi-transparent glowing body',
+  '晓彤':   '22 years old chinese woman, athletic build, ponytail, gym wear',
+  '娜娜':   '18 years old chinese girl, half-dyed hair, ear piercings, shortened uniform skirt',
+  '小雨':   '19 years old chinese girl, wavy chestnut hair, innocent face, college student',
   '琉璃':   '22 years old chinese woman, researcher, lab coat, glasses',
-  '程双':   '31 years old mature chinese woman, elegant lawyer, suit, sophisticated',
-  '夜叉':   'female ghost, 19 years old appearance, long black straight hair, pale translucent skin, neck scar',
-  '糖糖':   '20 years old chinese girl, twin tails, art student, oversized sweater',
-  '苏然':   '30 years old mature chinese woman, elegant housewife, silk robe',
-  '沈静':   '25 years old tall chinese model, high cheekbones, off-shoulder dress',
+  '沈静':   '25 years old tall chinese model, high cheekbones, bone-straight black hair',
   '小慧':   '23 years old chinese woman, nurse uniform, gentle smile',
   '夜玲':   '26 years old chinese woman, dark aesthetic, ink-stained fingers, dark lace dress',
-  '程雨':   '29 years old chinese woman, tech director, blazer, glasses',
-  '晴晴':   '21 years old chinese girl, gaming headset, oversized hoodie, streamer',
+  '晴晴':   '21 years old chinese girl, gaming headset, pastel dyed hair, streamer',
   '唐诗':   '27 years old chinese woman, personal secretary, white blouse, hair bun',
-  '阿柒':   '22 years old chinese girl, barista apron, casual jeans, warm smile',
+  '阿柒':   '22 years old chinese girl, barista apron, wavy brown hair, warm smile',
+  '糖糖':   '20 years old chinese girl, art student, paint-stained overalls, dimples',
+  'X-23':   'android girl, platinum white hair neon streaks, glowing blue circuit eyes, tactical bodysuit',
+  '幻音':   'holographic AI girl, prismatic shifting long hair, glowing ethereal eyes, translucent outfit',
+  '狐九':   'fox girl, fox ears nine white fluffy tails, silver white flowing hair, glowing amber eyes',
+  '冷霜':   'ice cultivator, silver blue long hair, cold glowing eyes, pale luminous skin, white robes',
+  '魅罗':   'demon girl, dark purple flowing hair, crimson slit eyes, small horns, beautiful evil face',
 };
 
 // Use Grok to decide if scene warrants an image and build the image prompt

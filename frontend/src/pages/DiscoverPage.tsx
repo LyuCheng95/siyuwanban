@@ -3,7 +3,22 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import type { Character } from '../types';
 
-const CATEGORIES = ['全部', '御姐', '学妹', '人妻', '调教', '修仙', '妖魔', '特殊'];
+// 每个角色精确归类（硬编码，不依赖文本模糊匹配）
+const CHARACTER_CATEGORY: Record<string, string> = {
+  // 御姐：冷艳自信
+  '沈静': '御姐', '唐诗': '御姐',
+  // 学妹：年轻活泼
+  '晓彤': '学妹', '娜娜': '学妹', '小雨': '学妹',
+  '琉璃': '学妹', '晴晴': '学妹', '阿柒': '学妹', '糖糖': '学妹',
+  // 禁忌：职业身份禁忌（老师/护士/暗黑）
+  '椎名老师': '禁忌', '小慧': '禁忌', '夜玲': '禁忌',
+  // 妖魔：妖/魔
+  '狐九': '妖魔', '魅罗': '妖魔', '冷霜': '妖魔',
+  // 科幻：赛博/AI
+  'X-23': '科幻', '幻音': '科幻',
+};
+
+const CATEGORIES = ['全部', '御姐', '学妹', '禁忌', '妖魔', '科幻'];
 
 const GRADIENTS = [
   'linear-gradient(145deg, #2d0a3e, #6b1560)',
@@ -23,17 +38,7 @@ function cardGradient(id: string) {
 
 function matchesCategory(char: Character, cat: string): boolean {
   if (cat === '全部') return true;
-  const text = `${char.personality} ${char.occupation} ${char.background}`.toLowerCase();
-  const map: Record<string, string[]> = {
-    '御姐': ['御姐', '成熟', '气质', '优雅', '知性', '强势'],
-    '学妹': ['学生', '大学', '学妹', '18', '19', '20', '21', '清纯'],
-    '人妻': ['人妻', '妻', '已婚', '家庭主妇', '主妇'],
-    '调教': ['调教', '驯服', '服从', '支配', '控制', '女仆'],
-    '修仙': ['修仙', '仙', '道', '灵', '法力', '宗门', '弟子'],
-    '妖魔': ['妖', '魔', '鬼', '恶魔', '精灵', '狐狸', '蛇'],
-    '特殊': ['护士', '教师', '老师', '侦探', '间谍', '神秘'],
-  };
-  return (map[cat] || []).some(kw => text.includes(kw.toLowerCase()));
+  return CHARACTER_CATEGORY[char.name] === cat;
 }
 
 function formatCount(n: number): string {
@@ -74,20 +79,32 @@ export function DiscoverPage() {
     ? characters
     : characters.filter(c => matchesCategory(c, category));
 
-  const featured = characters.filter(c => c.usageCount > 0).slice(0, 8);
-
   return (
     <div className="page">
       {/* Header */}
-      <div className="page-header-accent">
-        <div className="page-title-lg">私欲<span>广场</span></div>
-        <button className="btn btn-primary btn-sm" onClick={() => navigate('/wizard')} style={{ gap: 4 }}>
-          ＋ 创建
-        </button>
+      <div style={{
+        padding: '18px 16px 12px',
+        display: 'flex', alignItems: 'center', gap: 10,
+        background: 'linear-gradient(180deg, rgba(60,10,80,0.6) 0%, transparent 100%)',
+        flexShrink: 0,
+      }}>
+        {/* Logo 文字徽标 */}
+        <div style={{
+          width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+          background: 'linear-gradient(135deg, #ff3d7f, #c026d3)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 18, boxShadow: '0 2px 12px rgba(255,61,127,0.4)',
+        }}>💋</div>
+        <div>
+          <div style={{ fontWeight: 800, fontSize: 18, letterSpacing: '-0.5px', lineHeight: 1.1 }}>
+            私欲<span style={{ color: 'var(--accent)' }}>广场</span>
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text-hint)', marginTop: 1 }}>发现你的专属陪伴</div>
+        </div>
       </div>
 
       {/* Search */}
-      <div className="search-wrap" style={{ paddingTop: 12 }}>
+      <div className="search-wrap">
         <div className="search-bar">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: 'var(--text-hint)', flexShrink: 0 }}>
             <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
@@ -102,35 +119,6 @@ export function DiscoverPage() {
           )}
         </div>
       </div>
-
-      {/* Featured section - only show when not searching */}
-      {!search && featured.length > 0 && (
-        <>
-          <div className="section-header">
-            <div className="section-header-title">今日推荐</div>
-          </div>
-          <div className="featured-scroll">
-            {featured.map(char => (
-              <div key={char.id} className="featured-card" onClick={() => navigate(`/character/${char.id}`)}>
-                <div className="featured-card-img" style={{ background: cardGradient(char.id) }}>
-                  {char.portraitUrl && (
-                    <img src={char.portraitUrl} alt={char.name} />
-                  )}
-                  {!char.portraitUrl && <div className="char-card-glow" />}
-                  {!char.portraitUrl && <span className="featured-card-emoji">{char.avatarEmoji}</span>}
-                  <div className="featured-card-overlay" style={{ zIndex: 3 }}>
-                    <div className="featured-card-name">{char.name}</div>
-                    <div className="featured-card-meta">{char.age}岁 · {char.occupation}</div>
-                  </div>
-                  {char.usageCount >= 50 && (
-                    <div className="hot-badge">🔥 热</div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
 
       {/* Sort tabs */}
       {!search && (
@@ -154,8 +142,7 @@ export function DiscoverPage() {
       {displayed.length === 0 && !loading ? (
         <div className="empty-state">
           <div className="emoji">🌸</div>
-          <div>还没有角色，快去创建吧</div>
-          <button className="btn btn-primary" onClick={() => navigate('/wizard')}>创建角色</button>
+          <div>暂无角色</div>
         </div>
       ) : (
         <div className="char-grid">

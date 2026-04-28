@@ -58,11 +58,35 @@ chatRouter.get('/:characterId', async (req: AuthRequest, res: Response): Promise
     },
     intimacy: (userMemory as any)._intimacyLevel ?? 0,
     dominance: (userMemory as any)._dominanceLevel ?? 0,
+    desire: (userMemory as any)._desireLevel ?? 0,
+    attach: (userMemory as any)._attachLevel ?? 0,
     mood: (userMemory as any)._mood ?? '期待✨',
     openingScene: character.openingScene ?? null,
     phase: (userMemory as any)._phaseIndex ?? 0,
     questionCount: (userMemory as any)._questionCount ?? 0,
+    albumImages: (userMemory as any)._albumImages ?? [],
   });
+});
+
+// POST /api/chat/:characterId/save-image — save a generated image URL to the user's album
+chatRouter.post('/:characterId/save-image', async (req: AuthRequest, res: Response): Promise<void> => {
+  const { imageUrl } = req.body as { imageUrl: string };
+  if (!imageUrl) { res.status(400).json({ error: 'imageUrl required' }); return; }
+
+  const conv = await prisma.conversation.findUnique({
+    where: { userId_characterId: { userId: req.userId!, characterId: req.params.characterId as string } },
+  });
+  if (!conv) { res.status(404).json({ error: 'conversation not found' }); return; }
+
+  const userMemory = (conv.userMemory as Record<string, unknown>) ?? {};
+  const existing: string[] = (userMemory as any)._albumImages ?? [];
+  if (!existing.includes(imageUrl)) {
+    await prisma.conversation.update({
+      where: { id: conv.id },
+      data: { userMemory: { ...userMemory, _albumImages: [...existing, imageUrl] } as object },
+    });
+  }
+  res.json({ ok: true, total: existing.length + (existing.includes(imageUrl) ? 0 : 1) });
 });
 
 // POST /api/chat/:characterId — send a message (SSE streaming)
@@ -122,11 +146,15 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
   // Parse META from full reply
   const { cleanReply, meta } = parseMeta(fullReply);
 
-  // Update intimacy + dominance levels (clamped 0-100)
+  // Update all status levels (clamped 0-100)
   const prevIntimacy = (userMemory as any)._intimacyLevel ?? 0;
   const newIntimacy = Math.max(0, Math.min(100, prevIntimacy + meta.delta));
   const prevDominance = (userMemory as any)._dominanceLevel ?? 0;
   const newDominance = Math.max(0, Math.min(100, prevDominance + meta.controlDelta));
+  const prevDesire = (userMemory as any)._desireLevel ?? 0;
+  const newDesire = Math.max(0, Math.min(100, prevDesire + meta.desireDelta));
+  const prevAttach = (userMemory as any)._attachLevel ?? 0;
+  const newAttach = Math.max(0, Math.min(100, prevAttach + meta.attachDelta));
 
   // Ratchet: merge unlocked acts (append-only, dedup)
   const existingActs: string[] = (userMemory as any)._unlockedActs ?? [];
@@ -154,6 +182,8 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
     ...userMemory,
     _intimacyLevel: newIntimacy,
     _dominanceLevel: newDominance,
+    _desireLevel: newDesire,
+    _attachLevel: newAttach,
     _mood: meta.mood,
     _unlockedActs: newUnlockedActs,
     _phaseIndex: newPhaseIndex,
@@ -202,6 +232,8 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
     suggestions: meta.suggestions,
     intimacy: newIntimacy,
     dominance: newDominance,
+    desire: newDesire,
+    attach: newAttach,
     imagePrompt: imageDecision.generate ? imageDecision.prompt : null,
     phase: newPhaseIndex,
     questionCount: newQuestionCount,
@@ -227,7 +259,14 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
     extractUserMemory(userMemory, recentMessages).then((newMemory) => {
       prisma.conversation.update({
         where: { id: updatedConversation.id },
-        data: { userMemory: { ...newMemory, _intimacyLevel: newIntimacy, _mood: meta.mood } as object },
+        data: { userMemory: {
+          ...newMemory,
+          _intimacyLevel: newIntimacy,
+          _dominanceLevel: newDominance,
+          _desireLevel: newDesire,
+          _attachLevel: newAttach,
+          _mood: meta.mood,
+        } as object },
       }).catch(() => {});
     });
   }

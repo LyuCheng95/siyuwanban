@@ -7,7 +7,7 @@ imagesRouter.use(authMiddleware);
 
 // POST /api/images/generate — manually generate a scene image
 imagesRouter.post('/generate', async (req: AuthRequest, res: Response): Promise<void> => {
-  const { prompt, negative } = req.body;
+  const { prompt, negative, characterName } = req.body;
 
   if (!prompt?.trim()) {
     res.status(400).json({ error: 'prompt required' });
@@ -15,7 +15,7 @@ imagesRouter.post('/generate', async (req: AuthRequest, res: Response): Promise<
   }
 
   try {
-    const url = await generateSceneImage(prompt, negative ?? '');
+    const url = await generateSceneImage(prompt, negative ?? '', characterName ?? '');
     res.json({ url });
   } catch (err: any) {
     console.error('[ImageGen]', err.message);
