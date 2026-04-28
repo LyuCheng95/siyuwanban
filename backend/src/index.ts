@@ -10,6 +10,7 @@ import { marketplaceRouter } from './routes/marketplace';
 import { imagesRouter } from './routes/images';
 import { botRouter } from './routes/bot';
 import { checkinRouter } from './routes/checkin';
+import { adminRouter } from './routes/admin';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -30,6 +31,7 @@ app.use('/api/images', imagesRouter);
 app.use('/api/bot', botRouter);
 app.use('/api/checkin', checkinRouter);
 
+app.use('/api/admin', adminRouter);
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
 app.listen(PORT, () => {
