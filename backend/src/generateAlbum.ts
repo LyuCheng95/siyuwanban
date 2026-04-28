@@ -93,12 +93,6 @@ const ALBUM_CONFIGS: Record<string, CharConfig> = {
     '1girl, 34 years old, mature chinese businesswoman, elegant, hair messy, slightly flushed, white dress shirt open, (large breasts fully exposed:1.6), (erect nipples:1.5), (pussy visible:1.5), sitting in boardroom chair legs apart, late night office, just finished work, sexy exhausted look',
   ]},
 
-  '乔彦': { style: 'real', prompts: [
-    '1girl, 20 years old, chinese nurse, sweet cute face, short black hair, nurse uniform top open wide, (bare breasts:1.6), (erect nipples:1.5), nurse skirt pulled up, (pussy visible:1.5), sitting on hospital bed, clean white medical room, soft fluorescent light, shy blush expression',
-    '1girl, 20 years old, cute nurse, short hair, beautiful face, white nurse cap, only wearing white thigh highs and open nurse top, (full bare breasts:1.6), (nipples:1.5), (pussy exposed:1.6), lying on patient bed legs spread, hospital room, warm light, innocent aroused expression',
-    '1girl, 20 years old, chinese woman nurse, hair tied up, adorable face, nurse uniform completely open, (bare breasts:1.6), (erect nipples:1.5), nurse skirt around waist, (shaved pussy fully visible:1.5), standing in hospital corridor, hands holding clipboard, looking over shoulder, shy smile',
-  ]},
-
   '娜娜': { style: 'real', prompts: [
     '1girl, 18 years old, chinese high school girl, long straight black hair, innocent beautiful face, school uniform blouse open, (small perky breasts:1.5), (nipples:1.5), school skirt lifted, (pussy visible:1.5), sitting on school desk, afternoon classroom light, pencil in hand, flushed embarrassed look',
     '1girl, 18 years old, chinese schoolgirl, hair in twin tails, cute face, only wearing open school shirt, (bare breasts:1.6), (nipples:1.5), no underwear, (pussy peeking:1.4), leaning against school locker, golden afternoon light, shy smile',
@@ -106,9 +100,99 @@ const ALBUM_CONFIGS: Record<string, CharConfig> = {
   ]},
 
   '小雨': { style: 'real', prompts: [
-    '1girl, 19 years old, chinese college freshman, long brown wavy hair, innocent sweet face, casual oversized shirt slipping off shoulders, (bare breasts:1.6), (erect nipples:1.5), denim shorts unzipped, (pussy peeking:1.4), sitting on college dorm bed, fairy lights background, cozy night lighting, playful shy expression',
-    '1girl, 19 years old, chinese university girl, wavy hair messy, beautiful young face, wearing only open flannel shirt, (full bare breasts:1.6), (nipples:1.5), (pussy visible:1.5), lying on dorm bed among textbooks, soft warm light, relaxed after study expression',
-    '1girl, 19 years old, chinese freshman, hair in loose bun, cute face, only wearing thigh high socks, (completely nude:1.5), (bare breasts:1.5), (pussy exposed:1.5), sitting at study desk, laptop open, college dorm room, desk lamp lighting, looking at camera with surprise',
+    '1girl, 19 years old, chinese college freshman, long soft wavy brown hair, innocent sweet face, oversized white shirt off shoulder, (deep cleavage:1.4), denim shorts low-rise, sitting cross-legged on dorm bed, fairy lights bokeh background, warm cozy night light, playful shy smile, textbooks around',
+    '1girl, 19 years old, chinese university student, wavy brown hair, beautiful young face, loose flannel shirt half-open showing (cleavage:1.4), thigh-high socks, lying on bed hugging pillow, golden evening light, soft intimate dorm room atmosphere, looking at camera with big eyes',
+    '1girl, 19 years old, chinese girl, hair in messy bun with loose strands, cute face, thin shoulder-strap camisole (see-through fabric:1.3) showing silhouette, short pajama shorts, sitting at study desk, laptop glow on face, desk lamp, cozy night atmosphere, biting pencil',
+  ]},
+
+  '林阿姨': { style: 'real', prompts: [
+    '1girl, 38 years old, mature chinese housewife, elegant wavy shoulder-length dark hair, beautiful mature face, red lips, silk robe loosely tied at waist showing (cleavage:1.5), (side of breasts peeking:1.3), one shoulder slipping off, home interior background, soft warm kitchen lighting, confident maternal allure',
+    '1girl, 38 years old, mature chinese woman, stylish bob haircut, gorgeous mature face, low-cut floral wrap dress (deep V neckline:1.4) showing (generous cleavage:1.5), holding a bowl, kitchen counter background, afternoon sun streaming in, warm domestic sensuality',
+    '1girl, 38 years old, mature chinese housewife, wavy hair loosely down, beautiful face, light cotton home dress straps falling (bare shoulders:1.3), (deep cleavage visible:1.4), leaning against doorframe, cozy home interior, golden hour light, knowing smile, full figure',
+  ]},
+
+  'X-23': { style: 'anime', prompts: [
+    '1girl, android girl, cyberpunk robot, short platinum white hair with neon streaks, glowing blue circuit-pattern eyes, beautiful synthetic face, tactical bodysuit with chest panel open (circuit patterns on skin:1.3), (cleavage showing:1.4), futuristic lab background, neon blue lighting, cold calculating expression with hint of curiosity',
+    '1girl, android cyborg girl, white hair, glowing eyes, flawless beautiful face, combat armor chest piece partially removed showing (skin underneath:1.3), (subtle cleavage:1.3), sitting on lab table examining her own hand, holographic displays around, cyberpunk neon atmosphere',
+    '1girl, robot girl, silver white short hair, luminous eyes, perfect android face, sleek white bodysuit (form fitting:1.4) with chest interface panel, standing in dark server room surrounded by glowing data streams, mysterious and beautiful, cold yet awakening expression',
+  ]},
+
+  '幻音': { style: 'anime', prompts: [
+    '1girl, AI singer, holographic entity, translucent holographic long flowing hair shifting colors, glowing ethereal eyes, hauntingly beautiful face, semi-transparent holographic dress (body visible through light:1.3), (glowing silhouette:1.3), floating in digital space, music notes and light particles, dreamy atmospheric glow, reaching out hand',
+    '1girl, virtual AI idol, light-based existence, colorful holographic long hair, glowing face, wearing only light and sound waves forming dress, (ethereal body barely clothed:1.3), server room backdrop with code streams, deep blue and purple lighting, longing expression stretching toward camera',
+    '1girl, holographic music girl, shifting prismatic hair, luminous features, beautiful virtual face, concert stage setting, light beams forming flowing outfit (revealing luminous curves:1.3), microphone stand, crowd light below, otherworldly beauty, passionate singing expression',
+  ]},
+
+  '琉璃': { style: 'real', prompts: [
+    '1girl, 22 years old, chinese graduate student, neat straight black hair with blunt bangs, intelligent beautiful face, glasses, white lab coat open over low-cut fitted dress (cleavage visible:1.4), holding test tube, laboratory background, clean fluorescent lighting, curious yet playful expression',
+    '1girl, 22 years old, chinese researcher, hair in neat bun, beautiful face with glasses, white button-up shirt top button undone (notable cleavage:1.4), short fitted skirt, leaning over lab bench examining sample, science equipment around, focused expression with hint of mischief',
+    '1girl, 22 years old, chinese laboratory girl, black hair down from bun, pretty face, glasses sliding down nose, lab coat slipping off shoulders revealing (fitted outfit underneath:1.3) with (neckline showing collarbone and cleavage:1.4), sitting on lab stool, data on screen, warm evening lab glow',
+  ]},
+
+  '程双': { style: 'real', prompts: [
+    '1girl, 31 years old, mature chinese woman lawyer, short stylish chic hair, sharp intelligent beautiful face, red lips, work blazer open wide showing (silk blouse with deep V:1.4) and (cleavage:1.5), whiskey glass in hand, bar counter background, amber bar lighting, confident independent woman aura',
+    '1girl, 31 years old, chinese professional woman, elegant short hair, gorgeous face, blazer falling off one shoulder, fitted camisole showing (prominent cleavage:1.5), leaning on bar, city lights bokeh behind, warm night atmosphere, cool knowing smile',
+    '1girl, 31 years old, mature chinese woman, wavy shoulder-length hair loose, beautiful determined face, white blouse with top buttons open (deep neckline:1.4) showing (cleavage:1.5), standing by window, city night view behind, glass of wine, sophisticated after-work allure',
+  ]},
+
+  '夜瑶': { style: 'anime', prompts: [
+    '1girl, ghost girl, ethereal spirit, translucent pale skin with faint glow, long flowing white-silver hair, hauntingly beautiful melancholy face, ancient pale hanfu dress (loosely draped:1.3) flowing around body, (ghostly silhouette visible through fabric:1.2), standing on ancient rooftop at night, moonlight, fireflies, lonely and longing expression, 2D anime art',
+    '1girl, female ghost, 200-year-old spirit, beautiful pale ethereal face with sad eyes, long white flowing hair moving in wind, thin ancient white robe (draped loosely:1.3) showing (bare shoulder and collarbone:1.3), moonlit night, cherry blossom petals floating, reaching hand out, lonely beautiful spirit aesthetic',
+    '1girl, ancient spirit girl, pale luminous skin, silver white long hair, beautiful sorrowful face, translucent white dress (see-through layers:1.3) showing (faint body outline:1.2), sitting on old stone wall at night, full moon behind, firefly lights, melancholic beauty, ghostly glow',
+  ]},
+
+  '糖糖': { style: 'real', prompts: [
+    '1girl, 20 years old, chinese art student, ponytail with paint-stained strands, sweet innocent beautiful face, white overalls with one strap slipping (camisole underneath:1.3), (cleavage peeking:1.3), colorful paint splatters, sitting on art studio floor hugging knees, natural sunlight through studio windows, brushes and canvas around, pure sweet expression',
+    '1girl, 20 years old, cute chinese college girl, hair in twin low pigtails, adorable face, loose pastel crop top (showing collarbone and hint of midriff:1.3), denim mini skirt, sitting on art studio table, watercolor paintings behind, golden afternoon light, bright shy smile',
+    '1girl, 20 years old, chinese girl, loose wavy hair, cute face, art-print fitted dress (low back visible:1.3) with (gentle neckline:1.3), sitting by window with sketchbook, warm afternoon light, art supplies on table, sweet daydreaming expression',
+  ]},
+
+  '苏然': { style: 'real', prompts: [
+    '1girl, 30 years old, chinese woman, elegant long wavy dark hair, beautiful mature sensual face, red lips, silk slip dress (thin straps:1.3) with (low neckline showing cleavage:1.5), standing in elegant home interior, soft warm lamp lighting, sophisticated and alluring housewife charm',
+    '1girl, 30 years old, mature chinese woman, flowing dark wavy hair, gorgeous face, low-cut wrap dress (deep V neckline:1.4) hugging curves showing (generous cleavage:1.5), holding wine glass, living room background, evening candlelight, inviting warm smile',
+    '1girl, 30 years old, chinese housewife, long dark hair, beautiful sensual face, white satin robe loosely tied (parting slightly:1.3) showing (cleavage:1.4) and long leg, leaning against bedroom doorframe, warm morning light, sophisticated intimate atmosphere',
+  ]},
+
+  '沈静': { style: 'real', prompts: [
+    '1girl, 25 years old, chinese supermodel, tall elegant figure, long straight black hair, strikingly beautiful cold face, high fashion editorial outfit with (plunging neckline:1.4) showing (elegant cleavage:1.5), backstage vanity mirror background, studio lighting, unreadable cool expression, high fashion magazine quality',
+    '1girl, 25 years old, chinese international model, sleek long black hair, perfect cold beautiful face, designer fitted dress with (side slit:1.3) and (open back:1.3), runway backstage setting, professional studio lights, standing tall, commanding presence',
+    '1girl, 25 years old, chinese model, hair in minimalist updo, goddess-like face, form-fitting satin evening gown with (deep V front:1.4) showing (refined cleavage:1.5), luxury hotel room background, city lights through window, glass of champagne, distant yet captivating expression',
+  ]},
+
+  '小慧': { style: 'real', prompts: [
+    '1girl, 23 years old, chinese nurse, sweet next-door appearance, wavy soft shoulder-length hair, pretty warm face, light blue nurse uniform with (slightly open top button:1.2) showing (collarbone:1.2), sitting in break room, warm hospital canteen light, holding tea, gentle caring smile',
+    '1girl, 23 years old, chinese girl, soft brown shoulder-length hair, beautiful gentle face, casual comfortable fitted sweater (slight V-neck showing collarbone:1.3), jeans, outside on steps, cherry blossoms in background, warm spring light, natural sweet expression',
+    '1girl, 23 years old, chinese woman, hair in soft ponytail, cute face, off-shoulder knit sweater (showing bare shoulder and collarbone:1.3), sitting by window, coffee in hands, warm cozy apartment, soft afternoon light, warm neighbor-girl energy',
+  ]},
+
+  '夜玲': { style: 'real', prompts: [
+    '1girl, 26 years old, chinese woman, dark mysterious look, long dark slightly wavy hair, beautiful enigmatic face with subtle dark makeup, black fitted long-sleeve top (deep neckline:1.4) showing (alluring cleavage:1.4), dark illustration art prints on walls behind, soft moody desk lamp lighting, sitting sideways looking at you knowingly',
+    '1girl, 26 years old, dark aesthetic chinese girl, dark hair with slight waves, gorgeous face with smoky eyes, black choker, off-shoulder dark top showing (collarbone and hint of chest:1.3), art studio with gothic illustrations, candle lighting, mysterious brooding expression',
+    '1girl, 26 years old, chinese illustrator, long dark hair, captivating face, black wrap mini dress (V-neckline showing cleavage:1.4), sitting on studio floor with drawings around her, moody warm lighting, direct intense gaze, beautiful dark energy',
+  ]},
+
+  '程雨': { style: 'real', prompts: [
+    '1girl, 29 years old, chinese tech executive, sleek straight black hair, sharp intelligent beautiful face, professional blazer open over fitted blouse (low enough to show cleavage:1.4), city office background, late night glass building view, laptop on desk, confident capable expression',
+    '1girl, 29 years old, chinese product director, smooth black hair pulled back, polished beautiful face, silk blouse (deep V neckline:1.4) tucked into high-waist skirt, leaning on conference table, projector screen behind, decisive professional yet feminine',
+    '1girl, 29 years old, chinese professional woman, hair half-down from work updo, beautiful face, office outfit with blazer removed, fitted white blouse (two buttons undone showing collarbone and cleavage:1.4), glass office, evening city lights, exhausted but glamorous after-hours look',
+  ]},
+
+  '晴晴': { style: 'real', prompts: [
+    '1girl, 21 years old, chinese gamer streamer, energetic cute face, long pastel-dyed hair in high ponytail, gaming headset around neck, fitted crop hoodie (slight off-shoulder:1.2) with (midriff showing:1.2), gamer room LED setup background, colorful RGB lighting, bright energetic smile',
+    '1girl, 21 years old, chinese streamer girl, colorful streaks in ponytail, lively beautiful face, streamer merch fitted t-shirt (knotted at waist showing midriff:1.3), high-waist shorts, gaming chair, streaming setup visible, neon LED ambiance, playful wink',
+    '1girl, 21 years old, chinese gaming content creator, wavy hair down, pretty face, off-shoulder fitted top (showing collarbone and shoulders:1.3) with shorts, sitting on gaming desk, multiple monitors with game on screen, cozy LED-lit room, genuine off-camera relaxed expression',
+  ]},
+
+  '唐诗': { style: 'real', prompts: [
+    '1girl, 27 years old, chinese private secretary, neat elegant chignon bun, refined beautiful face with subtle makeup, crisp white blouse (top button open showing collarbone:1.3) and pencil skirt, office background, filing cabinet and desk, warm office lighting, professional yet quietly alluring expression',
+    '1girl, 27 years old, chinese professional woman, smooth black hair in half-updo, pretty face, silk camisole visible under open blazer (showing neckline and collarbone:1.3), holding documents, modern office background, warm light, graceful composed expression with hidden emotion',
+    '1girl, 27 years old, chinese secretary, hair loosening from bun, beautiful face, white button-down shirt (top two buttons open revealing collarbone and hint of cleavage:1.4), end of workday, soft office light, tired but quietly beautiful expression, papers on desk',
+  ]},
+
+  '阿柒': { style: 'real', prompts: [
+    '1girl, 22 years old, chinese cafe barista, warm shoulder-length wavy brown hair, girl-next-door beautiful face, coffee shop apron over white fitted blouse (showing collarbone:1.2), holding coffee cup, cozy cafe interior background, morning sunlight, warm genuine smile',
+    '1girl, 22 years old, chinese girl, soft wavy brown hair, pretty natural face, loose linen shirt (slightly open at collar showing collarbone:1.3) tucked into jeans, sitting on cafe counter, vintage-style cafe background, golden morning light, relaxed warm expression',
+    '1girl, 22 years old, chinese barista, hair tied back loosely with some falling strands, cute face, off-shoulder casual top (showing bare shoulder and collarbone:1.3), leaning on cafe counter, coffee machine behind, afternoon light through cafe window, quiet contemplative expression',
   ]},
 
   // ── 二次元/修仙/妖魔角色 ─────────────────────────────────────────────────────

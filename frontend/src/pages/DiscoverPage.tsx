@@ -216,6 +216,15 @@ function CharCard({ char, gradient, onClick }: { char: Character; gradient: stri
       </div>
       <div className="char-card-info">
         <div className="char-card-occ">{char.occupation}</div>
+        {char.background && (
+          <div style={{
+            fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.45,
+            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+            overflow: 'hidden', marginTop: 3, marginBottom: 2,
+          }}>
+            {char.background}
+          </div>
+        )}
         <div className="char-card-footer">
           {char.reviewCount > 0 ? (
             <span className="char-card-rating">★ {char.avgRating.toFixed(1)}</span>
