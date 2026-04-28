@@ -146,7 +146,7 @@ export default function App() {
               <button
                 key={item.path}
                 className={`nav-item ${active ? 'active' : ''}`}
-                onClick={() => navigate(item.path)}
+                onClick={() => navigate(item.path, { replace: true })}
               >
                 {item.icon(active)}
                 <span>{item.label}</span>
