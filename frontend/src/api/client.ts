@@ -84,7 +84,11 @@ export const api = {
 
   marketplace: {
     list: (params?: { sort?: string; page?: number; search?: string }) => {
-      const q = new URLSearchParams(params as Record<string, string>).toString();
+      // Filter out undefined/null values before building query string
+      const clean = Object.fromEntries(
+        Object.entries(params ?? {}).filter(([, v]) => v !== undefined && v !== null && v !== '')
+      );
+      const q = new URLSearchParams(clean as Record<string, string>).toString();
       return request<{
         characters: import('../types').Character[];
         total: number;

@@ -57,6 +57,8 @@ export function DiscoverPage() {
       const data = await api.marketplace.list({ sort: srt, search: s || undefined, page: p });
       setCharacters(p === 1 ? data.characters : prev => [...prev, ...data.characters]);
       setTotal(data.total);
+    } catch (err) {
+      console.error('Failed to load characters:', err);
     } finally {
       setLoading(false);
     }
