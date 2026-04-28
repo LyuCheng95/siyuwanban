@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>私欲玩伴 · 管理后台</title>
+<style>
+  :root {
+    --bg: #0d0d12; --bg2: #16161f; --bg3: #1e1e2c;
+    --text: #f0f0f8; --text2: #9090b0; --hint: #505068;
+    --accent: #ff3d7f; --accent2: #c026d3;
+    --grad: linear-gradient(135deg, #ff3d7f, #c026d3);
+    --border: rgba(255,255,255,0.07);
+    --green: #4ade80; --yellow: #fbbf24; --red: #f87171;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; min-height: 100vh; }
+
+  /* ── Login ── */
+  #login { display: flex; align-items: center; justify-content: center; height: 100vh; }
+  .login-box { background: var(--bg2); border: 1px solid var(--border); border-radius: 20px; padding: 40px; width: 340px; text-align: center; }
+  .login-logo { font-size: 40px; margin-bottom: 8px; }
+  .login-title { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .login-sub { color: var(--text2); font-size: 13px; margin-bottom: 28px; }
+  .login-input { width: 100%; padding: 12px 16px; background: var(--bg3); border: 1.5px solid var(--border); border-radius: 10px; color: var(--text); font-size: 15px; outline: none; margin-bottom: 14px; }
+  .login-input:focus { border-color: rgba(255,61,127,0.4); }
+  .login-btn { width: 100%; padding: 13px; background: var(--grad); border: none; border-radius: 10px; color: white; font-size: 15px; font-weight: 600; cursor: pointer; }
+  .login-btn:hover { opacity: 0.9; }
+  .login-err { color: var(--red); font-size: 13px; margin-top: 10px; }
+
+  /* ── Shell ── */
+  #app { display: none; flex-direction: row; min-height: 100vh; }
+  .sidebar { width: 220px; flex-shrink: 0; background: var(--bg2); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 20px 0; position: sticky; top: 0; height: 100vh; }
+  .sidebar-logo { padding: 0 20px 24px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border); }
+  .sidebar-logo-icon { font-size: 28px; }
+  .sidebar-logo-text { font-size: 15px; font-weight: 700; }
+  .sidebar-logo-text small { display: block; font-size: 10px; color: var(--text2); font-weight: 400; margin-top: 1px; }
+  .nav { padding: 16px 12px 0; flex: 1; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; cursor: pointer; color: var(--text2); font-size: 14px; font-weight: 500; transition: all 0.15s; margin-bottom: 2px; border: none; background: none; width: 100%; text-align: left; }
+  .nav-item:hover { background: var(--bg3); color: var(--text); }
+  .nav-item.active { background: linear-gradient(135deg, rgba(255,61,127,0.15), rgba(192,38,211,0.15)); color: var(--accent); }
+  .nav-item .icon { font-size: 18px; width: 22px; text-align: center; }
+  .sidebar-footer { padding: 16px 20px; border-top: 1px solid var(--border); }
+  .api-key { font-size: 11px; color: var(--hint); word-break: break-all; }
+
+  .main { flex: 1; overflow: hidden; }
+  .page { display: none; padding: 28px; max-width: 1100px; }
+  .page.active { display: block; }
+
+  /* ── Page header ── */
+  .page-header { margin-bottom: 24px; }
+  .page-header h1 { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
+  .page-header p { color: var(--text2); font-size: 13px; }
+
+  /* ── Stat cards ── */
+  .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 28px; }
+  .stat-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; position: relative; overflow: hidden; }
+  .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--grad); }
+  .stat-label { font-size: 12px; color: var(--text2); font-weight: 500; margin-bottom: 8px; letter-spacing: 0.3px; }
+  .stat-value { font-size: 32px; font-weight: 800; letter-spacing: -1px; }
+  .stat-icon { position: absolute; right: 16px; top: 16px; font-size: 24px; opacity: 0.3; }
+
+  /* ── Tables ── */
+  .card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 20px; }
+  .card-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .card-title { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .card-title::before { content: ''; display: inline-block; width: 3px; height: 14px; background: var(--grad); border-radius: 2px; }
+  table { width: 100%; border-collapse: collapse; }
+  th { font-size: 11px; font-weight: 600; color: var(--hint); text-transform: uppercase; letter-spacing: 0.5px; padding: 10px 20px; text-align: left; border-bottom: 1px solid var(--border); }
+  td { padding: 12px 20px; border-bottom: 1px solid rgba(255,255,255,0.03); font-size: 13px; vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+
+  /* ── Badges ── */
+  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .badge-green { background: rgba(74,222,128,0.12); color: var(--green); }
+  .badge-red { background: rgba(248,113,113,0.12); color: var(--red); }
+  .badge-yellow { background: rgba(251,191,36,0.12); color: var(--yellow); }
+  .badge-purple { background: rgba(192,38,211,0.12); color: #d946ef; }
+
+  /* ── Avatar ── */
+  .char-avatar { width: 38px; height: 38px; border-radius: 8px; object-fit: cover; object-position: top; background: linear-gradient(135deg, #3d1a4a, #7c1a6a); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+  .char-name-cell { display: flex; align-items: center; gap: 12px; }
+
+  /* ── Search ── */
+  .search-row { display: flex; gap: 10px; padding: 14px 20px; border-bottom: 1px solid var(--border); }
+  .search-input { flex: 1; padding: 9px 14px; background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13px; outline: none; }
+  .search-input:focus { border-color: rgba(255,61,127,0.4); }
+  .btn { padding: 9px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; border: none; cursor: pointer; }
+  .btn-primary { background: var(--grad); color: white; }
+  .btn-ghost { background: var(--bg3); color: var(--text2); border: 1px solid var(--border); }
+  .btn-danger { background: rgba(248,113,113,0.15); color: var(--red); border: 1px solid rgba(248,113,113,0.25); }
+
+  /* ── Log viewer ── */
+  .log-box { background: #0a0a0f; border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.8; height: 420px; overflow-y: auto; color: #9090b0; }
+  .log-box .log-user { color: #4ade80; }
+  .log-box .log-ai { color: #c084fc; }
+  .log-box .log-meta { color: #60a5fa; }
+  .log-box .log-time { color: #505068; }
+
+  /* ── Refresh / loading ── */
+  .refresh-btn { padding: 7px 14px; background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; color: var(--text2); font-size: 12px; cursor: pointer; }
+  .refresh-btn:hover { color: var(--text); }
+  .loading { color: var(--hint); font-size: 13px; padding: 40px; text-align: center; }
+  .spinning { animation: spin 1s linear infinite; display: inline-block; }
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+  /* ── User list ── */
+  .user-tg { font-size: 11px; color: var(--hint); margin-top: 2px; }
+  .credits-cell { display: flex; gap: 6px; }
+  .credit-pill { padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .credit-free { background: rgba(74,222,128,0.12); color: var(--green); }
+  .credit-paid { background: rgba(251,191,36,0.12); color: var(--yellow); }
+
+  /* ── Image preview ── */
+  .portrait-thumb { width: 38px; height: 50px; border-radius: 6px; object-fit: cover; object-position: top; display: block; }
+  .portrait-placeholder { width: 38px; height: 50px; border-radius: 6px; background: var(--bg3); display: flex; align-items: center; justify-content: center; font-size: 20px; }
+
+  /* ── Conv logs ── */
+  .msg-bubble { padding: 8px 12px; border-radius: 12px; margin: 4px 0; max-width: 80%; font-size: 13px; line-height: 1.5; }
+  .msg-user { background: linear-gradient(135deg, rgba(255,61,127,0.2), rgba(192,38,211,0.2)); border: 1px solid rgba(255,61,127,0.2); margin-left: auto; }
+  .msg-ai { background: var(--bg3); border: 1px solid var(--border); }
+  .msg-role { font-size: 10px; color: var(--hint); margin-bottom: 4px; }
+
+  /* ── Responsive ── */
+  @media (max-width: 768px) {
+    .stat-grid { grid-template-columns: 1fr 1fr; }
+    .sidebar { width: 60px; }
+    .nav-item span { display: none; }
+    .sidebar-logo-text, .sidebar-footer { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Login -->
+<div id="login">
+  <div class="login-box">
+    <div class="login-logo">🔐</div>
+    <div class="login-title">管理后台</div>
+    <div class="login-sub">私欲玩伴 · Admin Dashboard</div>
+    <input class="login-input" type="password" id="keyInput" placeholder="输入管理员密钥" onkeydown="if(event.key==='Enter')doLogin()"/>
+    <button class="login-btn" onclick="doLogin()">进入后台</button>
+    <div class="login-err" id="loginErr"></div>
+  </div>
+</div>
+
+<!-- App -->
+<div id="app">
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-icon">💋</div>
+      <div class="sidebar-logo-text">私欲玩伴<small>Admin · v1.0</small></div>
+    </div>
+    <div class="nav">
+      <button class="nav-item active" onclick="showPage('stats')" id="nav-stats"><span class="icon">📊</span><span>总览</span></button>
+      <button class="nav-item" onclick="showPage('characters')" id="nav-characters"><span class="icon">👤</span><span>角色管理</span></button>
+      <button class="nav-item" onclick="showPage('users')" id="nav-users"><span class="icon">👥</span><span>用户列表</span></button>
+      <button class="nav-item" onclick="showPage('logs')" id="nav-logs"><span class="icon">💬</span><span>对话记录</span></button>
+    </div>
+    <div class="sidebar-footer">
+      <div class="api-key" id="keyDisplay"></div>
+    </div>
+  </div>
+
+  <div class="main">
+    <!-- Stats -->
+    <div class="page active" id="page-stats">
+      <div class="page-header">
+        <h1>📊 数据总览</h1>
+        <p>实时统计，点击刷新获取最新数据</p>
+      </div>
+      <div class="stat-grid" id="statGrid">
+        <div class="loading"><span class="spinning">⟳</span> 加载中...</div>
+      </div>
+      <div id="topCharsCard"></div>
+    </div>
+
+    <!-- Characters -->
+    <div class="page" id="page-characters">
+      <div class="page-header">
+        <h1>👤 角色管理</h1>
+        <p>查看和管理所有角色，检查封面图状态</p>
+      </div>
+      <div class="card">
+        <div class="search-row">
+          <input class="search-input" id="charSearch" placeholder="搜索角色名..." onkeydown="if(event.key==='Enter')loadChars()"/>
+          <button class="btn btn-primary" onclick="loadChars()">搜索</button>
+          <button class="btn btn-ghost" onclick="document.getElementById('charSearch').value='';loadChars()">全部</button>
+        </div>
+        <div id="charsTable"><div class="loading"><span class="spinning">⟳</span> 加载中...</div></div>
+      </div>
+    </div>
+
+    <!-- Users -->
+    <div class="page" id="page-users">
+      <div class="page-header">
+        <h1>👥 用户列表</h1>
+        <p>最近注册的用户，点击查看对话记录</p>
+      </div>
+      <div class="card">
+        <div id="usersTable"><div class="loading"><span class="spinning">⟳</span> 加载中...</div></div>
+      </div>
+    </div>
+
+    <!-- Logs -->
+    <div class="page" id="page-logs">
+      <div class="page-header">
+        <h1>💬 对话记录</h1>
+        <p>查看用户与角色的对话内容</p>
+      </div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="search-row">
+          <input class="search-input" id="tgIdInput" placeholder="Telegram ID（留空=最新用户）"/>
+          <button class="btn btn-primary" onclick="loadLogs()">查询</button>
+        </div>
+      </div>
+      <div id="logsContent"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const BASE = location.origin;
+let ADMIN_KEY = '';
+
+// ── Auth ─────────────────────────────────────────────────────────────────────
+async function doLogin() {
+  const key = document.getElementById('keyInput').value.trim();
+  if (!key) return;
+  try {
+    const r = await fetch(`${BASE}/api/admin/stats?key=${key}`);
+    if (r.status === 403) { document.getElementById('loginErr').textContent = '密钥错误'; return; }
+    ADMIN_KEY = key;
+    document.getElementById('login').style.display = 'none';
+    document.getElementById('app').style.display = 'flex';
+    document.getElementById('keyDisplay').textContent = '🔑 ' + key;
+    loadStats();
+    loadChars();
+    loadUsers();
+  } catch(e) {
+    document.getElementById('loginErr').textContent = '无法连接服务器: ' + e.message;
+  }
+}
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  document.getElementById('nav-' + name).classList.add('active');
+  if (name === 'logs' && !document.getElementById('logsContent').innerHTML.trim()) loadLogs();
+}
+
+// ── API helpers ───────────────────────────────────────────────────────────────
+async function api(path) {
+  const sep = path.includes('?') ? '&' : '?';
+  const r = await fetch(`${BASE}/api/admin${path}${sep}key=${ADMIN_KEY}`);
+  return r.json();
+}
+
+function timeAgo(dateStr) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const m = Math.floor(diff/60000);
+  if (m < 1) return '刚刚';
+  if (m < 60) return m + '分钟前';
+  const h = Math.floor(m/60);
+  if (h < 24) return h + '小时前';
+  return Math.floor(h/24) + '天前';
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Stats page ────────────────────────────────────────────────────────────────
+async function loadStats() {
+  const d = await api('/stats');
+  const c = d.counts;
+  document.getElementById('statGrid').innerHTML = `
+    <div class="stat-card"><div class="stat-icon">👥</div><div class="stat-label">用户总数</div><div class="stat-value">${c.users}</div></div>
+    <div class="stat-card"><div class="stat-icon">👤</div><div class="stat-label">角色总数</div><div class="stat-value">${c.characters}</div></div>
+    <div class="stat-card"><div class="stat-icon">💬</div><div class="stat-label">对话总数</div><div class="stat-value">${c.conversations}</div></div>
+    <div class="stat-card"><div class="stat-icon">📨</div><div class="stat-label">消息总数</div><div class="stat-value">${c.messages}</div></div>
+  `;
+  const rows = d.topChars.map(c => `
+    <tr>
+      <td><div class="char-name-cell">
+        ${c.hasPortrait ? `<img class="portrait-thumb" src="${esc(c.portraitUrl)}" onerror="this.style.display='none'"/>` : `<div class="portrait-placeholder">${c.age <= 22 ? '🌸' : '💋'}</div>`}
+        <div><div style="font-weight:600">${esc(c.name)}</div><div style="color:var(--hint);font-size:11px">${esc(c.occupation)}</div></div>
+      </div></td>
+      <td>${c.age}岁</td>
+      <td>${c.usageCount}</td>
+      <td>${c.avgRating > 0 ? `⭐ ${c.avgRating.toFixed(1)}` : '<span style="color:var(--hint)">—</span>'}</td>
+      <td>${c.hasPortrait ? `<span class="badge badge-green">✓ ${c.portraitImages} 张</span>` : `<span class="badge badge-red">✗ 无图</span>`}</td>
+    </tr>`).join('');
+  document.getElementById('topCharsCard').innerHTML = `
+    <div class="card">
+      <div class="card-header"><div class="card-title">热门角色 Top 10</div><button class="refresh-btn" onclick="loadStats()">🔄 刷新</button></div>
+      <table>
+        <thead><tr><th>角色</th><th>年龄</th><th>使用次数</th><th>评分</th><th>封面图</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+// ── Characters page ───────────────────────────────────────────────────────────
+async function loadChars() {
+  const q = document.getElementById('charSearch')?.value?.trim() || '';
+  document.getElementById('charsTable').innerHTML = '<div class="loading"><span class="spinning">⟳</span> 加载中...</div>';
+  const chars = await api('/characters' + (q ? `?name=${encodeURIComponent(q)}` : ''));
+  if (!chars.length) { document.getElementById('charsTable').innerHTML = '<div class="loading">没有找到角色</div>'; return; }
+  const rows = chars.map(c => {
+    const imgs = Array.isArray(c.portraitImages) ? c.portraitImages : [];
+    const thumbs = imgs.slice(0,3).map(url => `<img class="portrait-thumb" src="${esc(url)}" style="margin-right:4px;cursor:pointer" onclick="window.open('${esc(url)}','_blank')" onerror="this.style.display='none'"/>`).join('');
+    return `<tr>
+      <td><div class="char-name-cell">
+        ${imgs.length ? thumbs : `<div class="portrait-placeholder">${c.avatarEmoji||'👤'}</div>`}
+        <div><div style="font-weight:600">${esc(c.name)}</div><div style="color:var(--hint);font-size:11px">${esc(c.occupation)}</div></div>
+      </div></td>
+      <td>${c.age}岁</td>
+      <td>${c.usageCount} 次</td>
+      <td>${imgs.length ? `<span class="badge badge-green">✓ ${imgs.length} 张</span>` : `<span class="badge badge-red">✗ 无图</span>`}</td>
+      <td>${c.isPublic ? '<span class="badge badge-green">公开</span>' : '<span class="badge badge-yellow">私密</span>'}</td>
+      <td style="color:var(--hint);font-size:11px">${timeAgo(c.createdAt)}</td>
+      <td><button class="btn btn-danger" style="font-size:11px;padding:5px 10px" onclick="deleteChar('${c.id}','${esc(c.name)}')">删除</button></td>
+    </tr>`;
+  }).join('');
+  document.getElementById('charsTable').innerHTML = `<table>
+    <thead><tr><th>角色 / 封面图</th><th>年龄</th><th>使用</th><th>图片</th><th>状态</th><th>创建</th><th></th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+async function deleteChar(id, name) {
+  if (!confirm(`确定删除「${name}」？此操作不可撤销`)) return;
+  const r = await fetch(`${BASE}/api/admin/character/${id}?key=${ADMIN_KEY}`, { method: 'DELETE' });
+  const d = await r.json();
+  if (d.ok) { alert('已删除'); loadChars(); loadStats(); }
+}
+
+// ── Users page ────────────────────────────────────────────────────────────────
+async function loadUsers() {
+  document.getElementById('usersTable').innerHTML = '<div class="loading"><span class="spinning">⟳</span> 加载中...</div>';
+  const d = await api('/stats');
+  const rows = d.recentUsers.map(u => `<tr>
+    <td><div style="font-weight:600">${esc(u.firstName||'—')}</div><div class="user-tg">@${esc(u.username||'—')}</div></td>
+    <td style="font-family:monospace;font-size:12px;color:var(--hint)">${esc(u.telegramId)}</td>
+    <td><div class="credits-cell">
+      <span class="credit-pill credit-free">🪙 ${u.freeCredits}</span>
+      ${u.paidCredits > 0 ? `<span class="credit-pill credit-paid">💎 ${u.paidCredits}</span>` : ''}
+    </div></td>
+    <td style="color:var(--hint);font-size:12px">${timeAgo(u.createdAt)}</td>
+    <td><button class="btn btn-ghost" style="font-size:11px;padding:5px 10px" onclick="viewUserLogs('${esc(u.telegramId)}')">查看对话</button></td>
+  </tr>`).join('');
+  document.getElementById('usersTable').innerHTML = `<table>
+    <thead><tr><th>用户</th><th>Telegram ID</th><th>余额</th><th>注册</th><th></th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+function viewUserLogs(tgId) {
+  document.getElementById('tgIdInput').value = tgId;
+  showPage('logs');
+  loadLogs();
+}
+
+// ── Logs page ─────────────────────────────────────────────────────────────────
+async function loadLogs() {
+  const tgId = document.getElementById('tgIdInput')?.value?.trim() || '';
+  document.getElementById('logsContent').innerHTML = '<div class="loading"><span class="spinning">⟳</span> 加载中...</div>';
+  const d = await api('/logs' + (tgId ? `?telegramId=${encodeURIComponent(tgId)}` : ''));
+  if (d.error) { document.getElementById('logsContent').innerHTML = `<div class="loading" style="color:var(--red)">${esc(d.error)}</div>`; return; }
+
+  const userCard = `<div class="card" style="margin-bottom:16px">
+    <div class="card-header"><div class="card-title">用户信息</div></div>
+    <div style="padding:16px 20px;display:flex;gap:24px;font-size:13px">
+      <div><div style="color:var(--hint);font-size:11px;margin-bottom:4px">姓名</div><div style="font-weight:600">${esc(d.user.firstName||'—')}</div></div>
+      <div><div style="color:var(--hint);font-size:11px;margin-bottom:4px">Telegram ID</div><div style="font-family:monospace">${esc(d.user.telegramId)}</div></div>
+      <div><div style="color:var(--hint);font-size:11px;margin-bottom:4px">金币</div><div style="color:var(--green)">🪙 ${d.user.freeCredits}</div></div>
+      <div><div style="color:var(--hint);font-size:11px;margin-bottom:4px">钻石</div><div style="color:var(--yellow)">💎 ${d.user.paidCredits}</div></div>
+    </div>
+  </div>`;
+
+  const convCards = d.conversations.map(conv => {
+    const msgs = conv.lastMessages.map(m => `
+      <div class="msg-bubble ${m.role === 'user' ? 'msg-user' : 'msg-ai'}">
+        <div class="msg-role">${m.role === 'user' ? '🙋 用户' : `🤖 ${esc(conv.character)}`}</div>
+        ${esc(m.content)}
+      </div>`).join('');
+    return `<div class="card" style="margin-bottom:12px">
+      <div class="card-header">
+        <div class="card-title">${esc(conv.character)}</div>
+        <div style="font-size:12px;color:var(--hint)">${conv.totalTurns} 轮 · ${timeAgo(conv.updatedAt)}</div>
+      </div>
+      <div style="padding:16px 20px;display:flex;flex-direction:column">${msgs || '<div style="color:var(--hint);font-size:13px">暂无消息</div>'}</div>
+      <div style="padding:0 20px 16px">
+        <button class="btn btn-ghost" style="font-size:12px" onclick="loadFullConv('${conv.id}', '${esc(conv.character)}', this)">📜 查看完整对话</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('logsContent').innerHTML = userCard + (convCards || '<div class="loading">没有对话记录</div>');
+}
+
+async function loadFullConv(convId, charName, btn) {
+  btn.disabled = true; btn.textContent = '加载中...';
+  const msgs = await api(`/logs?convId=${convId}`);
+  const card = btn.closest('.card');
+  const msgsDiv = card.querySelector('.msg-bubble')?.parentElement || card.querySelector('[style*="flex-direction:column"]');
+  if (!msgsDiv) { btn.disabled = false; return; }
+  msgsDiv.innerHTML = msgs.map(m => `
+    <div class="msg-bubble ${m.role === 'user' ? 'msg-user' : 'msg-ai'}">
+      <div class="msg-role">${m.role === 'user' ? '🙋 用户' : `🤖 ${esc(charName)}`} <span style="color:var(--hint);font-size:10px;margin-left:6px">${new Date(m.createdAt).toLocaleString('zh-CN',{hour:'2-digit',minute:'2-digit',month:'short',day:'numeric'})}</span></div>
+      ${esc(m.content)}
+    </div>`).join('');
+  btn.textContent = '✓ 已加载全部 ' + msgs.length + ' 条消息';
+}
+</script>
+</body>
+</html>
