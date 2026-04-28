@@ -93,7 +93,7 @@ export function CharacterProfilePage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)', paddingBottom: 100 }}>
+    <div className="page" style={{ background: 'var(--bg)', paddingBottom: 100 }}>
       {/* Cover image / carousel hero */}
       <div className="portrait-carousel">
         {images.length > 0 ? (
