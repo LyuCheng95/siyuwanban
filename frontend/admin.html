@@ -141,6 +141,19 @@
   .gallery-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; padding: 14px 16px; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); }
   .gallery-sel-count { font-size: 13px; color: var(--text2); flex: 1; }
 
+  /* ── Regen queue ── */
+  .regen-queue-panel { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 20px; }
+  .regen-queue-title { font-weight: 700; font-size: 14px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; }
+  .regen-job { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 13px; }
+  .regen-job:last-child { border-bottom: none; }
+  .regen-job-name { font-weight: 600; flex: 1; }
+  .regen-job-info { font-size: 11px; color: var(--hint); }
+  .regen-add-card { background: var(--bg3); border: 1px solid rgba(255,61,127,0.2); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 16px; }
+  .regen-add-title { font-weight: 700; font-size: 14px; margin-bottom: 10px; color: var(--accent); }
+  .regen-add-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .regen-char-label { font-weight: 600; flex: 1; }
+  .regen-count-sel { background: var(--bg2); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 5px 10px; font-size: 13px; cursor: pointer; }
+
   /* ── Responsive ── */
   @media (max-width: 768px) {
     .stat-grid { grid-template-columns: 1fr 1fr; }
@@ -237,6 +250,18 @@
         <button class="btn btn-ghost" onclick="loadGallery()">🔄 刷新</button>
       </div>
       <div id="galleryContent"><div class="loading"><span class="spinning">⟳</span> 加载中...</div></div>
+      <div id="regenQueuePanel" style="display:none">
+        <div class="regen-queue-panel">
+          <div class="regen-queue-title">
+            <span>🔄 重新生成队列</span>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px" onclick="loadRegenQueue()">刷新</button>
+              <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px" onclick="clearDoneJobs()">清空已完成</button>
+            </div>
+          </div>
+          <div id="regenJobList"><div style="color:var(--hint);font-size:13px">队列为空</div></div>
+        </div>
+      </div>
     </div>
 
     <!-- Logs -->
@@ -285,6 +310,7 @@ function showPage(name) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('page-' + name).classList.add('active');
   document.getElementById('nav-' + name).classList.add('active');
+  if (name !== 'gallery') { clearTimeout(regenQueuePollTimer); regenQueuePollTimer = null; }
   if (name === 'logs' && !document.getElementById('logsContent').innerHTML.trim()) loadLogs();
   if (name === 'gallery') loadGallery();
 }
@@ -374,6 +400,7 @@ async function deleteChar(id, name) {
   const r = await fetch(`${BASE}/api/admin/character/${id}?key=${ADMIN_KEY}`, { method: 'DELETE' });
   const d = await r.json();
   if (d.ok) { alert('已删除'); loadChars(); loadStats(); }
+  else alert(`删除失败：${d.error || '未知错误'}`);
 }
 
 // ── Users page ────────────────────────────────────────────────────────────────
@@ -442,6 +469,8 @@ async function loadLogs() {
 
 // ── Gallery page ──────────────────────────────────────────────────────────────
 const gallerySelected = new Map(); // url -> { charId, charName }
+const charNameToId = new Map();    // charName -> charId (populated in loadGallery)
+let regenQueuePollTimer = null;
 
 function galleryUpdateToolbar() {
   const n = gallerySelected.size;
@@ -497,10 +526,11 @@ async function galleryDeleteSelected() {
     } catch { fail += urls.length; }
   }
   btn.textContent = '🗑 删除选中';
+  const affectedNames = [...byChar.values()].map(v => v.charName);
   gallerySelected.clear();
   galleryUpdateToolbar();
-  alert(`已删除 ${ok} 张${fail ? `，失败 ${fail} 张` : ''}`);
   loadGallery();
+  if (ok > 0) showRegenCommands(affectedNames, ok, fail);
 }
 
 async function loadGallery() {
@@ -509,6 +539,11 @@ async function loadGallery() {
   document.getElementById('galleryContent').innerHTML = '<div class="loading"><span class="spinning">⟳</span> 加载中...</div>';
   const chars = await api('/characters');
   if (!chars.length) { document.getElementById('galleryContent').innerHTML = '<div class="loading">没有角色数据</div>'; return; }
+
+  // populate name→id map
+  charNameToId.clear();
+  chars.forEach(c => charNameToId.set(c.name, c.id));
+
   const blocks = chars.map(c => {
     const imgs = Array.isArray(c.portraitImages) ? c.portraitImages : [];
     if (!imgs.length) return '';
@@ -530,6 +565,117 @@ async function loadGallery() {
     </div>`;
   }).join('');
   document.getElementById('galleryContent').innerHTML = blocks || '<div class="loading">所有角色都没有图片</div>';
+
+  // show queue panel and load queue
+  await loadRegenQueue();
+}
+
+async function showRegenCommands(affectedNames, ok, fail) {
+  // Build "add to queue" card for affected characters
+  const rows = affectedNames.map(name => {
+    const safeId = 'regenCount_' + name.replace(/[^a-zA-Z0-9]/g, '_');
+    return `<div class="regen-add-row">
+      <span class="regen-char-label">${esc(name)}</span>
+      <select class="regen-count-sel" id="${safeId}">
+        <option value="1">1 张</option>
+        <option value="2">2 张</option>
+        <option value="3" selected>3 张</option>
+        <option value="5">5 张</option>
+      </select>
+      <button class="btn btn-primary" style="padding:6px 14px;font-size:12px"
+        onclick="addRegenJob('${esc(name)}', document.getElementById('${safeId}').value, this)">加入队列</button>
+    </div>`;
+  }).join('');
+
+  const card = document.createElement('div');
+  card.className = 'regen-add-card';
+  card.innerHTML = `
+    <div class="regen-add-title">🎨 重新生成 — 已删除 ${ok} 张图片${fail > 0 ? `（${fail} 张失败）` : ''}</div>
+    <div style="color:var(--text2);font-size:12px;margin-bottom:12px">以下角色图片已更新，可加入重新生成队列（需本地 Worker 运行）：</div>
+    ${rows}
+  `;
+
+  const content = document.getElementById('galleryContent');
+  content.insertBefore(card, content.firstChild);
+
+  // show queue panel
+  await loadRegenQueue();
+}
+
+async function addRegenJob(charName, count, btn) {
+  btn.disabled = true; btn.textContent = '添加中...';
+  const charId = charNameToId.get(charName);
+  try {
+    const r = await fetch(`${BASE}/api/admin/regen-queue?key=${ADMIN_KEY}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ charId, charName, count: parseInt(count) }),
+    });
+    const d = await r.json();
+    if (d.id) {
+      btn.textContent = '✓ 已加入';
+      btn.style.opacity = '0.5';
+      await loadRegenQueue();
+    } else {
+      btn.disabled = false; btn.textContent = '加入队列';
+      alert('加入失败：' + (d.error || '未知错误'));
+    }
+  } catch (e) {
+    btn.disabled = false; btn.textContent = '加入队列';
+    alert('请求失败：' + e.message);
+  }
+}
+
+const STATUS_BADGE = {
+  pending:    '<span class="badge badge-yellow">⏳ 等待中</span>',
+  processing: '<span class="badge badge-purple"><span class="spinning">⟳</span> 生成中</span>',
+  done:       '<span class="badge badge-green">✓ 完成</span>',
+  failed:     '<span class="badge badge-red">✗ 失败</span>',
+};
+
+async function loadRegenQueue() {
+  try {
+    const jobs = await api('/regen-queue');
+    const panel = document.getElementById('regenQueuePanel');
+    const list  = document.getElementById('regenJobList');
+    panel.style.display = '';
+
+    if (!jobs.length) {
+      list.innerHTML = '<div style="color:var(--hint);font-size:13px;padding:4px 0">队列为空</div>';
+      return;
+    }
+
+    list.innerHTML = jobs.map(j => `
+      <div class="regen-job">
+        <div class="regen-job-name">${esc(j.charName)}</div>
+        <div class="regen-job-info">${j.count}张 · ${new Date(j.createdAt).toLocaleTimeString('zh-CN')}</div>
+        ${STATUS_BADGE[j.status] || `<span class="badge">${esc(j.status)}</span>`}
+        ${j.status === 'done' ? `<span style="color:var(--green);font-size:11px">${j.completedImages || 0}张已上传</span>` : ''}
+        ${j.status === 'failed' ? `<span style="color:var(--red);font-size:11px" title="${esc(j.error||'')}">⚠</span>` : ''}
+        <button onclick="deleteRegenJob('${j.id}',this)" style="background:none;border:none;color:var(--hint);cursor:pointer;font-size:14px;padding:2px 6px">✕</button>
+      </div>`).join('');
+
+    // auto-refresh if any job is processing
+    clearTimeout(regenQueuePollTimer);
+    if (jobs.some(j => j.status === 'pending' || j.status === 'processing')) {
+      regenQueuePollTimer = setTimeout(loadRegenQueue, 5000);
+    }
+  } catch (e) {
+    console.error('loadRegenQueue error', e);
+  }
+}
+
+async function deleteRegenJob(id, btn) {
+  btn.disabled = true;
+  await fetch(`${BASE}/api/admin/regen-queue/${id}?key=${ADMIN_KEY}`, { method: 'DELETE' });
+  await loadRegenQueue();
+}
+
+async function clearDoneJobs() {
+  const jobs = await api('/regen-queue');
+  for (const j of jobs.filter(j => j.status === 'done' || j.status === 'failed')) {
+    await fetch(`${BASE}/api/admin/regen-queue/${j.id}?key=${ADMIN_KEY}`, { method: 'DELETE' });
+  }
+  await loadRegenQueue();
 }
 
 async function loadFullConv(convId, charName, btn) {

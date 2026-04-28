@@ -3,6 +3,9 @@
  * 用法: GET /api/admin/stats?key=YOUR_ADMIN_KEY
  */
 import { Router, Request, Response } from 'express';
+import { randomUUID } from 'crypto';
+import fs from 'fs';
+import path from 'path';
 import { prisma } from '../utils/prisma';
 
 export const adminRouter = Router();
@@ -128,11 +131,22 @@ adminRouter.get('/logs', async (req: Request, res: Response): Promise<void> => {
   });
 });
 
-// DELETE /api/admin/character/:id?key=... — 删除角色
+// DELETE /api/admin/character/:id?key=... — 删除角色（级联清理关联数据）
 adminRouter.delete('/character/:id', async (req: Request, res: Response): Promise<void> => {
   if (!checkKey(req, res)) return;
-  await prisma.character.delete({ where: { id: req.params.id } }).catch(() => {});
-  res.json({ ok: true });
+  const { id } = req.params;
+  try {
+    // 先删 Message（通过 Conversation），再删 Conversation、Review，最后删 Character
+    const convIds = (await prisma.conversation.findMany({ where: { characterId: id }, select: { id: true } }))
+      .map(c => c.id);
+    if (convIds.length) await prisma.message.deleteMany({ where: { conversationId: { in: convIds } } });
+    await prisma.conversation.deleteMany({ where: { characterId: id } });
+    await prisma.review.deleteMany({ where: { characterId: id } });
+    await prisma.character.delete({ where: { id } });
+    res.json({ ok: true });
+  } catch (e: any) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
 });
 
 // POST /api/admin/character/:id/remove-images?key=... — 批量删除角色图片
@@ -154,6 +168,82 @@ adminRouter.post('/character/:id/remove-images', async (req: Request, res: Respo
     select: { id: true, name: true, portraitImages: true, portraitUrl: true },
   });
   res.json({ ok: true, remaining: (updated.portraitImages as string[]).length, portraitUrl: updated.portraitUrl });
+});
+
+// ── Regen queue (in-memory; clears on server restart) ────────────────────────
+interface RegenJob {
+  id: string;
+  charId: string;
+  charName: string;
+  count: number;
+  status: 'pending' | 'processing' | 'done' | 'failed';
+  createdAt: string;
+  error?: string;
+  completedImages?: number;
+}
+const regenQueue: RegenJob[] = [];
+
+// GET /api/admin/regen-queue?key=...
+adminRouter.get('/regen-queue', (req: Request, res: Response): void => {
+  if (!checkKey(req, res)) return;
+  res.json(regenQueue);
+});
+
+// POST /api/admin/regen-queue?key=... — { charName, count?, charId? }
+adminRouter.post('/regen-queue', async (req: Request, res: Response): Promise<void> => {
+  if (!checkKey(req, res)) return;
+  let { charId, charName, count } = req.body as { charId?: string; charName?: string; count?: number };
+  if (!charName && !charId) { res.status(400).json({ error: 'charName or charId required' }); return; }
+  if (!charId && charName) {
+    const char = await prisma.character.findFirst({ where: { name: charName }, select: { id: true } });
+    if (char) charId = char.id;
+  }
+  if (!charId) { res.status(404).json({ error: 'character not found' }); return; }
+  const job: RegenJob = {
+    id: randomUUID(), charId, charName: charName || charId,
+    count: count || 3, status: 'pending', createdAt: new Date().toISOString(),
+  };
+  regenQueue.push(job);
+  res.json(job);
+});
+
+// PATCH /api/admin/regen-queue/:id?key=... — worker updates status/progress
+adminRouter.patch('/regen-queue/:id', (req: Request, res: Response): void => {
+  if (!checkKey(req, res)) return;
+  const job = regenQueue.find(j => j.id === req.params.id);
+  if (!job) { res.status(404).json({ error: 'job not found' }); return; }
+  const allowed = ['status', 'error', 'completedImages'] as const;
+  for (const k of allowed) if (req.body[k] !== undefined) (job as any)[k] = req.body[k];
+  res.json(job);
+});
+
+// DELETE /api/admin/regen-queue/:id?key=...
+adminRouter.delete('/regen-queue/:id', (req: Request, res: Response): void => {
+  if (!checkKey(req, res)) return;
+  const idx = regenQueue.findIndex(j => j.id === req.params.id);
+  if (idx === -1) { res.status(404).json({ error: 'job not found' }); return; }
+  regenQueue.splice(idx, 1);
+  res.json({ ok: true });
+});
+
+// POST /api/admin/regen-upload?key=... — worker uploads generated image
+adminRouter.post('/regen-upload', async (req: Request, res: Response): Promise<void> => {
+  if (!checkKey(req, res)) return;
+  const { filename, imageBase64, charId } = req.body as { filename: string; imageBase64: string; charId?: string };
+  if (!filename || !imageBase64) { res.status(400).json({ error: 'filename and imageBase64 required' }); return; }
+
+  const SAVE_DIR = process.env.IMAGE_SAVE_DIR || '/var/www/siyuwanban/images';
+  const safeName = path.basename(filename); // no path traversal
+  const savePath = path.join(SAVE_DIR, safeName);
+
+  try {
+    const buffer = Buffer.from(imageBase64, 'base64');
+    fs.mkdirSync(SAVE_DIR, { recursive: true });
+    fs.writeFileSync(savePath, buffer);
+    res.json({ ok: true, savedTo: savePath });
+  } catch (e: any) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
 });
 
 // POST /api/admin/set-portrait?key=... — 手动设置角色图片
