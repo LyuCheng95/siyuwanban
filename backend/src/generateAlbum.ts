@@ -99,118 +99,128 @@ interface CharConfig {
 
 const ALBUM_CONFIGS: Record<string, CharConfig> = {
 
-  // ── 真实感角色（每人有独特体型、身高体重、胸型、阴部特征，互不雷同）───────────
+  // ── 真实感角色 ─────────────────────────────────────────────────────────────────
+  // 每个角色都有：唯一发色/发型、唯一体型、唯一服装风格、唯一姿势、唯一背景氛围
 
+  // 椎名老师：黑色宽松发髻/及肩直发 · 圆脸小眼镜 · 白衬衫大开领 · 教室
   '椎名老师': { style: 'real', model: MODEL_LEOSAM, prompts: [
-    '1girl, 24 years old, japanese woman, 157cm petite 44kg, black framed glasses, dark hair in loose bun, round cute face, soft white skin, white blouse with top buttons undone (white lace bra peeking:1.3), short pleated skirt, sitting on classroom desk, legs crossed, afternoon light through blinds, flushed cheeks, shy glance over glasses, soft warm glow, cinematic portrait',
-    '1girl, 24 years old, japanese teacher, 157cm petite 44kg, glasses slightly lowered, dark hair down, round sweet face, milky white skin, white shirt open over (fitted slip dress:1.3), leaning over desk, one strap sliding off shoulder, thigh-highs visible below skirt hem, warm classroom light, biting lip, golden hour',
-    '1girl, 24 years old, japanese woman, 157cm petite 44kg, glasses removed, dark hair loose, round face, pale white skin, wearing only oversized white dress shirt (barely closed:1.3), sitting in teacher chair, bare legs folded beneath her, golden evening classroom light, wistful contemplative expression',
+    '1girl, 24yo japanese teacher, 157cm petite 44kg, round sweet face soft lips, (black framed round glasses:1.3), dark black hair in loose messy bun stray strands, milky porcelain skin, (white blouse 4 buttons undone showing (deep V inner chest:1.4) white lace bra edge peeking:1.3), short pleated skirt, sitting on classroom desk legs crossed (inner thigh visible:1.2), leaning forward toward camera, afternoon sun through blinds, flushed cheeks shy glance over lowered glasses',
+    '1girl, 24yo japanese teacher, 157cm petite 44kg, round cute face dimples, (round glasses pushed down nose:1.3), dark hair loose falling to shoulders, porcelain white skin, (fitted white shirt with top buttons open to sternum:1.3) tucked into micro pencil skirt, sitting on teacher desk legs parted slightly, (white bra strap showing off shoulder:1.2), warm classroom golden hour, biting lower lip, smoldering shy expression',
+    '1girl, 24yo japanese woman, 157cm petite 44kg, round face, glasses off set aside, dark hair loose disheveled, pale smooth skin, wearing only (oversized white dress shirt open to mid-chest:1.3) barely covering upper thighs, (bare legs folded beneath her on chair:1.2), golden evening classroom light, kneeling in teacher chair looking back over shoulder, wistful provocative expression',
   ]},
 
+  // 晓彤：黑色高马尾 · 深桃花眼紧致下颌 · 运动内衣露腹 · 健身房
   '晓彤': { style: 'real', model: MODEL_JUGGER, prompts: [
-    '1girl, 22 years old, chinese woman, 163cm athletic toned body 53kg, (defined abs:1.3), fair rosy-white skin, ponytail, peach-blossom droopy-corner eyes compact jawline face, (sports bra:1.4) and athletic shorts, sweaty glistening skin, gym locker room, fluorescent lighting, leaning against lockers, confident smirk, cinematic portrait',
-    '1girl, 22 years old, chinese woman, 163cm athletic firm body 53kg, fair rosy skin, hair down, peach-blossom eyes beautiful face, (fitted crop top pushed up showing abs:1.3), (high-waist gym shorts:1.2), lying on gym mat stretching, modern gym background, afternoon light, seductive expression',
-    '1girl, 22 years old, chinese woman, 163cm toned figure 53kg, fair rosy-white skin, ponytail, peach-blossom eyes compact jawline, wearing (unzipped athletic jacket over sports bra:1.3) and tight shorts, sitting on reception desk, end-of-day gym atmosphere, playful inviting expression',
+    '1girl, 22yo chinese woman, 163cm athletic toned 53kg, (defined abs and obliques:1.4), peach-blossom droopy eyes compact jawline, jet black hair in tight high ponytail, fair glistening rosy-white skin, (skintight sports bra very low cut:1.4) and high-waist bike shorts, leaning against mirrored gym wall arms raised overhead (toned underarms ribs visible:1.3), sweaty skin, fluorescent gym light, challenging confident smirk',
+    '1girl, 22yo chinese gym trainer, 163cm firm athletic 53kg, (toned abs:1.3), peach-blossom eyes beautiful face, black ponytail loosened, fair skin post-workout glow, (unzipped crop athletic jacket showing sports bra underneath:1.3) and (very high-cut gym shorts:1.2) riding up, sitting on weight bench leaning forward elbows on knees, (bra fully exposed jacket wide open:1.3), golden hour gym light, teasing inviting smirk',
+    '1girl, 22yo chinese woman, 163cm toned 53kg, (visible abs:1.3), peach-blossom eyes sultry look, black hair down loose, rosy skin, (midriff-baring crop top deep V:1.3) pulled aside one shoulder, (high-waist yoga pants with hip cutout:1.2), arching back stretch arms overhead, studio mirror reflection, clean minimal gym, afternoon light, powerful seductive energy',
   ]},
 
+  // 娜娜：长直黑发/双马尾 · 小心形脸 · 校服改短超短裙+大腿袜 · 教室走廊
   '娜娜': { style: 'real', model: MODEL_LEOSAM, prompts: [
-    '1girl, 18 years old, chinese high school girl, 155cm very petite 42kg, long straight black hair, innocent heart-shaped face, porcelain white skin, school uniform blouse open (camisole underneath:1.2), school skirt, sitting on school desk, afternoon classroom light, flushed but defiant bold expression, one sock pulled up, cinematic portrait',
-    '1girl, 18 years old, chinese schoolgirl, 155cm petite 42kg, hair in twin tails, cute heart-shaped face, white fair skin, school shirt (partly open over thin camisole:1.3), mini skirt, leaning against locker, one strap off shoulder, golden afternoon light, bold defiant smile, provocative-innocent expression',
-    '1girl, 18 years old, chinese girl, 155cm petite slim 42kg, long hair down, innocent face, white skin, wearing only oversized school shirt (barely covering thighs:1.3) and white knee socks, sitting at desk studying, soft room lighting, homework visible, unbothered nonchalant expression',
+    '1girl, 18yo chinese high school girl, 155cm very petite slim 42kg, heart-shaped innocent face large expressive eyes, long straight jet black hair, porcelain skin, (school blouse with 3 extra buttons undone showing (white bralette deep scoop:1.3)), (micro pleated skirt barely past panty line:1.4), (white thigh-high socks:1.3) + loafers, sitting on classroom desk legs open slightly, bold defiant smirk daring eye contact, afternoon classroom light',
+    '1girl, 18yo chinese schoolgirl, 155cm petite slim 42kg, cute heart-shaped face, large bright eyes, hair in messy high twin tails jet black, pale white skin, (sheer school shirt over black triangle bralette clearly visible through fabric:1.4), (micro high-waist pleated skirt:1.3) hiked up, (thigh highs:1.2) + Mary Janes, leaning against locker one knee bent, (inner thigh:1.2), bold amused challenging expression, school corridor',
+    '1girl, 18yo chinese girl, 155cm petite 42kg, innocent heart face pretty eyes, long black hair loose, soft white skin, only (school blouse wide open over black lace bralette:1.3) and micro pleated skirt, kneeling on bed, (one strap slipping:1.2), looking up at camera bold curious gaze, warm bedroom evening light',
   ]},
 
+  // 小雨：波浪栗棕色中发 · 大圆眼无辜脸 · 透薄细肩带睡衣 · 宿舍/床铺
   '小雨': { style: 'real', model: MODEL_LEOSAM, prompts: [
-    '1girl, 19 years old, chinese college freshman, 160cm slim delicate 46kg, long soft wavy brown hair, big bright eyes, round innocent face, fair smooth skin, (oversized white shirt barely buttoned over bare skin:1.3), sitting cross-legged on dorm bed, fairy lights bokeh background, warm cozy night light, shy surprised expression, peeking from behind hair',
-    '1girl, 19 years old, chinese university student, 160cm slim 46kg, wavy brown hair, large innocent eyes, round sweet face, white smooth skin, loose flannel shirt open (thin white bralette visible:1.3), cotton shorts, lying on bed, golden evening light, soft dorm room atmosphere, looking up with big innocent eyes',
-    '1girl, 19 years old, chinese girl, 160cm slim 46kg, hair in messy bun, cute round face, bright big eyes, fair skin, (thin white cotton camisole:1.3) with spaghetti straps, shorts, sitting at study desk, laptop glow illuminating her face, cozy night atmosphere, slight blush',
+    '1girl, 19yo chinese college girl, 160cm slim delicate 46kg, large round doe eyes, round innocent face, soft wavy chestnut brown hair to shoulders, smooth fair skin, (thin spaghetti-strap white camisole:1.3) (bralette clearly showing through:1.3) slipping off one shoulder, cotton micro sleep shorts, sitting cross-legged dorm bed, fairy lights bokeh, warm night glow, hair falling over one eye, surprised shy parted lips',
+    '1girl, 19yo chinese university student, 160cm slim soft 46kg, large innocent doe eyes, round sweet face, wavy chestnut brown loose hair, smooth white skin, lying on stomach on bed chin on hands, (loose flannel shirt wide open showing thin white bralette:1.3), (micro denim shorts:1.2) legs raised crossed behind, golden evening light dorm, wide-eyed innocent flirty expression looking up',
+    '1girl, 19yo chinese girl, 160cm slim delicate 46kg, big bright eyes gentle face, chestnut brown hair messy bun, fair smooth skin, (fitted ribbed crop tank top very low scoop:1.3) (round cleavage showing:1.3) and tiny sleep shorts, sitting at desk, laptop glow illuminating face, one strap slipping off shoulder, night atmosphere, soft blush half-smile',
   ]},
 
-  'X-23': { style: 'anime', model: MODEL_NOOB, prompts: [
-    '1girl, android girl, cyberpunk robot, short platinum white hair with neon streaks, glowing blue circuit-pattern eyes, beautiful synthetic face, tactical bodysuit with chest panel open (circuit patterns on skin:1.3), (cleavage showing:1.4), futuristic lab background, neon blue lighting, cold calculating expression with hint of curiosity',
-    '1girl, android cyborg girl, white hair, glowing eyes, flawless beautiful face, combat armor chest piece partially removed showing (skin underneath:1.3), (subtle cleavage:1.3), sitting on lab table examining her own hand, holographic displays around, cyberpunk neon atmosphere',
-    '1girl, robot girl, silver white short hair, luminous eyes, perfect android face, sleek white bodysuit (form fitting:1.4) with chest interface panel, standing in dark server room surrounded by glowing data streams, mysterious and beautiful, cold yet awakening expression',
-  ]},
-
-  '幻音': { style: 'anime', model: MODEL_NOOB, prompts: [
-    '1girl, AI singer, holographic entity, translucent holographic long flowing hair shifting colors, glowing ethereal eyes, hauntingly beautiful face, semi-transparent holographic dress (body visible through light:1.3), (glowing silhouette:1.3), floating in digital space, music notes and light particles, dreamy atmospheric glow, reaching out hand',
-    '1girl, virtual AI idol, light-based existence, colorful holographic long hair, glowing face, wearing only light and sound waves forming dress, (ethereal body barely clothed:1.3), server room backdrop with code streams, deep blue and purple lighting, longing expression stretching toward camera',
-    '1girl, holographic music girl, shifting prismatic hair, luminous features, beautiful virtual face, concert stage setting, light beams forming flowing outfit (revealing luminous curves:1.3), microphone stand, crowd light below, otherworldly beauty, passionate singing expression',
-  ]},
-
+  // 琉璃：黑色齐刘海直发 · 精致眼镜椭圆脸 · 实验服大开领内深V · 实验室
   '琉璃': { style: 'real', model: MODEL_LEOSAM, prompts: [
-    '1girl, 22 years old, chinese graduate student, 161cm slim petite 47kg, neat straight black hair blunt bangs, glasses, delicate oval face, pale white smooth skin, (white lab coat open over fitted shirt with top buttons undone:1.3), holding test tube, laboratory background, fluorescent lighting, focused analytical expression with subtle flush',
-    '1girl, 22 years old, chinese researcher, 161cm slim 47kg, hair in neat bun, delicate face, glasses, fair skin, (white button-up shirt with several buttons open showing collarbone:1.3), form-fitting pencil skirt, leaning over lab bench, science equipment around, warm evening lab glow, curious expression',
-    '1girl, 22 years old, chinese laboratory girl, 161cm slim 47kg, black hair down from bun, pretty face, glasses off, fair skin, (thin white cotton slip dress:1.3) sitting on lab stool, data on screens around her, warm evening glow, quietly alluring',
+    '1girl, 22yo chinese graduate student, 161cm slim 47kg, neat straight black hair with sharp blunt bangs, (black rectangular framed glasses:1.3), delicate precise oval face, pale smooth skin, (white lab coat wide open over (deep-V cream bodycon dress:1.4) showing prominent cleavage:1.3), leaning over lab bench toward camera, (dress V plunge clearly visible:1.3), test tube in hand, fluorescent lab, analytical expression with subtle flush',
+    '1girl, 22yo chinese researcher, 161cm slim 47kg, (black blunt-bang hair neat bun:1.3), rectangular glasses, delicate oval face, fair skin, lab coat removed, (fitted deep-V silk blouse:1.3) (substantial cleavage showing:1.3) tucked into pencil skirt, sitting on lab stool leaning forward elbows on bench, science equipment around, warm desk lamp, intense focused eyes',
+    '1girl, 22yo chinese lab student, 161cm slim 47kg, black blunt-banged hair loose, glasses off, delicate serious pretty face, pale skin, (slightly sheer white cotton button-up shirt:1.3) unbuttoned from both top (to bra) and bottom (tied at waist showing midriff:1.3), holding clipboard to chest, data screens behind, moody lab warm lamp, quietly alluring focused expression',
   ]},
 
+  // 糖糖：黑色马尾+颜料染色 · 苹果脸酒窝 · 背带裤单肩落+crop top · 画室
   '糖糖': { style: 'real', model: MODEL_LEOSAM, prompts: [
-    '1girl, 20 years old, chinese art student, 157cm slim cute 45kg, ponytail with paint-stained strands, sweet apple-cheeked round face, pink-toned fair skin, white overalls (one strap fallen:1.3) with paint splatters, sitting on art studio floor, natural sunlight, pure sweet smile, dimples',
-    '1girl, 20 years old, cute chinese college girl, 157cm slim 45kg, hair in twin low pigtails, adorable chubby-cheeked face, rosy fair skin, (loose pastel crop top:1.2) and paint-stained short shorts, sitting on art studio table, watercolor paintings behind, golden afternoon light, bright shy smile',
-    '1girl, 20 years old, chinese girl, 157cm slim soft 45kg, loose wavy hair, cute round face, rosy skin, (paint-splattered white artist smock barely closed:1.3) over bare skin, sitting by window with sketchbook, warm afternoon light, sweet daydreaming expression',
+    '1girl, 20yo chinese art student, 157cm slim cute 45kg, sweet apple-cheeked round face (dimples:1.3), bright warm eyes, black hair high ponytail paint-flecked strands, rosy pink-toned fair skin, (white overalls one strap fallen exposing bare shoulder and side:1.3) + (white triangle bralette showing at open side:1.3) paint splatters, sitting on studio floor legs spread, paintings around, natural sunlight, genuine dimpled smile',
+    '1girl, 20yo cute chinese college girl, 157cm slim 45kg, adorable round chubby-cheeked face (dimples:1.3), low twin black pigtails, rosy soft skin with paint smudge on cheek, (tight pastel yellow low-cut crop top:1.3) (upper round cleavage visible:1.2) and (paint-splattered micro high-waist denim shorts:1.2), sitting on art table legs dangling swinging, watercolor paintings behind, warm golden afternoon, cheerful bright expression',
+    '1girl, 20yo chinese girl, 157cm slim soft 45kg, cute round face dimples, loose black wavy hair with paint spots, rosy fair skin, (thin white cotton tank top wet from paint water clinging to figure:1.3) (bra visible through damp fabric:1.4) and tiny shorts, standing at canvas arm raised painting, natural window light, golden afternoon, carefree lost-in-creativity expression',
   ]},
 
-  // 沈静：178cm/56kg，国际超模，冷艳御姐，高端奢华场景，被崇拜感
-  // 脸型：深邃冷目（模特空洞感）+ 高颧尖颌（冷艳线条）
+  // 沈静：骨直黑发(中分)超模脸 · 178cm长腿 · 高端黑色内衣 · 摄影棚/豪华酒店
   '沈静': { style: 'real', model: MODEL_JUGGER, prompts: [
-    '1girl, 25 years old, chinese supermodel, 178cm extremely tall long-legged 56kg, long bone-straight black hair, deep-set cold eyes, strikingly angular face, high sharp cheekbones, pale ivory cool-white skin, (black designer lingerie set push-up bra and high-waist briefs:1.3), sitting on backstage vanity chair, long bare legs crossed, studio strobe lighting, fashion editorial, unreadable cold goddess expression',
-    '1girl, 25 years old, chinese international model, 178cm tall slender legs 56kg, sleek long black hair center-parted, cold sharp deep-set eyes beautiful face, pale ivory cool skin, wearing only (white oversized button-down shirt barely closed:1.3), sitting on luxury hotel bed, long bare legs visible, city night lights through floor window, commanding cold presence',
-    '1girl, 25 years old, chinese model, 178cm tall slender figure 56kg, hair in minimalist updo, cold goddess deep-set eyes angular cheekbones, pale ivory skin, (off-shoulder champagne satin slip dress:1.3) sliding from one shoulder revealing collarbone, luxury hotel room, city lights through window, glass of champagne, distant captivating expression',
+    '1girl, 25yo chinese supermodel, 178cm extremely tall long-legged 56kg, strikingly angular face high sharp cheekbones deep-set cold eyes, bone-straight black hair center-parted, pale ivory cool skin, (black lace plunge bra:1.4) + (high-waist black tailored wide-leg trousers:1.2), sitting on backstage vanity (extremely long bare legs crossed:1.3) leaning back one arm extended, studio strobe lighting, fashion editorial, unreadable cold goddess expression',
+    '1girl, 25yo chinese model, 178cm tall slender 56kg, cold angular goddess face sharp cheekbones, sleek black hair pulled back minimalist, pale ivory skin, (sheer black mesh top showing black bra clearly underneath:1.4) + high-waist leather micro skirt, standing in studio (long bare legs:1.3), one hand on hip other in hair, professional strobe light, commanding cold model stare down at camera',
+    '1girl, 25yo chinese international model, 178cm tall 56kg, cold deep-set eyes angular face, center-parted bone-straight black hair, cool pale ivory skin, (white deep-plunge bodysuit very low cut V to navel:1.4) showing sternum and inner chest curves, (extremely long bare legs:1.2) + stilettos, runway backstage, dramatic directional studio light, imperious distant commanding expression',
   ]},
 
-  // 小慧：159cm/47kg，儿科护士，温柔邻家感，青梅竹马情怀
+  // 小慧：棕色软波卷肩发 · 椭圆温柔脸 · 护士服半解开 · 医院/家中
   '小慧': { style: 'real', model: MODEL_LEOSAM, prompts: [
-    '1girl, 23 years old, chinese nurse, 159cm slim gentle figure 47kg, wavy soft shoulder-length hair, pretty warm egg-shaped face, tender white skin, (white lace bralette:1.3) visible under open loose cardigan, denim shorts, sitting on hospital steps, cherry blossom background, warm spring light, gentle caring expression',
-    '1girl, 23 years old, chinese girl, 159cm slim soft body 47kg, soft brown shoulder-length hair, beautiful gentle oval face, fair tender skin, wearing only (oversized fluffy knit cream sweater:1.2) barely covering thighs, sitting on windowsill, bare legs dangling, warm cozy afternoon light, soft pure expression',
-    '1girl, 23 years old, chinese woman, 159cm slim gentle frame 47kg, hair in soft ponytail, cute warm face, soft white skin, (thin mint cotton slip dress:1.3) with thin straps, bare shoulders, sitting at cafe table, soft diffuse daylight, warm gentle smile, delicate oval face',
+    '1girl, 23yo chinese nurse, 159cm slim gentle 47kg, pretty warm egg-shaped face soft dimples, (soft wavy light brown hair to shoulders:1.3), tender white skin, (white nurse uniform blouse 3 buttons undone showing (white cotton bra scallop edge:1.3)), nurse skirt hiked up sitting on hospital bed legs crossed, (bare knee and lower thigh:1.2), warm break room, afternoon light, gentle caring expression slight smile',
+    '1girl, 23yo chinese girl, 159cm slim soft 47kg, warm sweet face big soft eyes, (wavy light brown shoulder-length hair:1.3), fair tender skin, (white shirt dress half-open from collar showing (bralette V:1.3)), off-duty sitting on windowsill, (bare legs dangling:1.2), cherry blossoms outside, warm spring afternoon, natural pure smile',
+    '1girl, 23yo chinese nurse, 159cm slim gentle 47kg, cute warm round face, (wavy brown hair loose half-up:1.3), fair skin, (off-shoulder loose white oversized knit top slipping far (bare shoulder + white bra strap prominent:1.3)), micro skirt, sitting on bed hugging knees to chest, cozy bedroom soft glow, warm deeply inviting expression',
   ]},
 
-  // 夜玲：162cm/48kg，暗黑插画师，哥特美学，把你看透后才让你靠近
+  // 夜玲：深黑长波浪 · 哥特细尖脸重烟熏 · 黑蕾丝内衣/薄透连衣裙 · 暗系画室
   '夜玲': { style: 'real', model: MODEL_LEOSAM, prompts: [
-    '1girl, 26 years old, chinese woman, 162cm dark mysterious slim pale 48kg, long dark slightly wavy hair, beautiful cold pointed face, dark smoky eye makeup, gothic choker, (black satin off-shoulder corset top:1.3) + black mini skirt, sitting at art desk, dark gothic illustration prints on walls, candle and desk lamp lighting, intense knowing gaze',
-    '1girl, 26 years old, dark aesthetic chinese girl, 162cm pale skin 48kg, dark wavy hair, gorgeous cold pointed face, smoky eyes, black choker, (thin black spaghetti-strap slip dress:1.3) with lace hem trim, sitting on studio floor surrounded by dark drawings, moody warm lamp light, mysterious brooding expression',
-    '1girl, 26 years old, chinese illustrator, 162cm slim pale 48kg, long dark hair, captivating sharp face, dark eye makeup, (black silk robe open over black bralette:1.3) and high-waist briefs, art studio with gothic illustrations around, soft side window light, penetrating cold gaze',
+    '1girl, 26yo chinese woman, 162cm slim pale 48kg, gorgeous sharp cold face pointed chin, (long dark near-black wavy hair:1.3), heavy smoky black eyeshadow dark red lips, (gothic black spiked choker:1.3), (black lace bralette worn as top:1.4) + high-waist leather mini skirt, sitting on art desk legs crossed (inner thigh bare:1.3), dark gothic illustrations on walls, single candle light + lamp, intense piercing gaze',
+    '1girl, 26yo dark aesthetic chinese girl, 162cm pale slim 48kg, gorgeous sharp face, (dark near-black wavy hair loose over one shoulder:1.3), smoky kohl eyes dark lip, (black choker chain necklace:1.3), (sheer black mesh see-through top with black bra underneath clearly visible:1.4) + tight black high-waist shorts, lying on studio floor legs stretched provocatively, dark drawings around, moody candlelight, knowing smirk',
+    '1girl, 26yo chinese illustrator, 162cm slim pale 48kg, captivating sharp face dark red lip, (long dark hair half-up messy:1.3), dark eye makeup, black choker, (open black satin kimono robe over thin black lace bodysuit:1.3) showing full torso silhouette, kneeling on floor, drawing tools beside, art studio moody warm lamp + cold window contrast, intense penetrating gaze',
   ]},
 
-  // 晴晴：158cm/46kg，百万粉游戏主播，活泼少女，屏幕外真实的她
+  // 晴晴：粉紫挑染高双丸子/马尾 · 活泼圆脸 · 运动短款露腹 · 游戏间LED
   '晴晴': { style: 'real', model: MODEL_LEOSAM, prompts: [
-    '1girl, 21 years old, chinese gamer streamer, 158cm cute energetic slim 46kg, long pastel-dyed hair high ponytail, bright lively round face, healthy rosy skin, (fitted pastel crop top:1.2) and athletic shorts, gamer room LED setup background, colorful RGB lighting, playful wink expression',
-    '1girl, 21 years old, chinese streamer girl, 158cm petite energetic 46kg, colorful streaks in loose ponytail, lively pretty round face, rosy skin, (off-shoulder pastel oversized sweatshirt:1.2) sliding off one shoulder, mini shorts, sitting on gaming desk, monitors behind, neon LED ambiance, bright cheerful expression',
-    '1girl, 21 years old, chinese gaming content creator, 158cm cute slim 46kg, wavy hair down, pretty lively round face, rosy healthy skin, (sports bra:1.3) and low-waist track pants, post-stream stretching pose, colorful streamer setup, warm genuine relaxed expression',
+    '1girl, 21yo chinese gamer streamer, 158cm cute petite 46kg, pretty round lively face (dimples:1.2), (long hair with pastel pink and lavender dye streaks in high double space buns:1.3), rosy healthy skin, (skintight pastel pink off-shoulder crop top:1.3) + very (high-waist micro athletic shorts bare midriff fully showing:1.3), sitting in gaming chair leaning forward arms on desk toward camera, (round cleavage:1.2), colorful LED RGB setup behind, neon glow on skin, bright cheeky wink',
+    '1girl, 21yo chinese streamer girl, 158cm cute slim 46kg, bright lively round face, (pastel pink-lavender streaked hair in high side ponytail:1.3), rosy fresh skin, (soft oversized cropped hoodie pulled very wide off both shoulders (bare collarbones + bra straps prominent:1.3)) + tiny spandex shorts, lying in gaming chair sideways legs up on armrest, (shorts riding up:1.2), colorful LED behind, playful flirty smile',
+    '1girl, 21yo chinese gamer, 158cm petite 46kg, rosy round cute face bright eyes, (hair with pastel highlights loose down:1.3), fresh rosy skin, (strappy deep-scoop tank top with (prominent round cleavage:1.3)) + high-waist micro shorts, kneeling on gaming chair looking at screen, colorful room, RGB glow on skin, glances at camera mischievous grin',
   ]},
 
-  // 唐诗：163cm/49kg，私人秘书，压抑三年的职场禁忌，端庄外壳下的情欲
+  // 唐诗：黑色发髻(或半散) · 古典椭圆脸 · 丝绸白衬衫大开领 · 办公室夜景
   '唐诗': { style: 'real', model: MODEL_LEOSAM, prompts: [
-    '1girl, 27 years old, chinese private secretary, 163cm graceful slim 49kg, neat elegant chignon bun, refined classical oval face, jade-white skin, white office blouse (several buttons undone showing collarbone:1.3) and pencil skirt, sitting on office desk legs crossed, filing cabinet behind, warm late-office lighting, gracefully alluring expression',
-    '1girl, 27 years old, chinese professional woman, 163cm slim graceful body 49kg, smooth black hair in loose half-updo, refined classical face, pale jade skin, (ivory silk camisole:1.3) under loosely worn blazer, modern office background, warm evening light, quietly seductive composed beauty',
-    '1girl, 27 years old, chinese secretary, 163cm slim graceful figure 49kg, hair loosening from bun, beautiful refined face, jade-white skin, (champagne gold silky slip dress:1.3) sitting at office window, city night lights behind, glass of wine in hand, wistful quietly beautiful expression, papers scattered on desk',
+    '1girl, 27yo chinese secretary, 163cm slim graceful 49kg, refined classical oval face small precise features, (sleek straight black hair in tight elegant chignon:1.3), jade-white pale skin, (white silk blouse 4 buttons undone showing (deep V white satin bra visible:1.3)) tucked into fitted pencil skirt, sitting on office desk legs crossed (one heel dangling inner thigh:1.3), warm evening office, overtime atmosphere, quietly smoldering expression',
+    '1girl, 27yo chinese professional woman, 163cm slim 49kg, elegant classical oval face, (hair loosened from bun sleek black falling:1.3), jade pale skin, (ivory silk wrap blouse deeply crossed (substantial inner cleavage showing:1.4)) + high-slit tailored midi skirt, leaning back in office chair pen touching lips, multiple monitors late-night office, sophisticated barely-concealed desire',
+    '1girl, 27yo chinese secretary, 163cm slim graceful 49kg, beautiful refined oval face, (sleek black hair partially down disheveled:1.3), pale jade skin, (plunge deep-V champagne silk slip dress:1.3) (inner chest curves fully visible at neckline:1.3), sitting on desk edge (bare legs uncrossed to mid-thigh:1.2), city night view through window, red wine glass, quiet wistful longing',
   ]},
 
-  // 阿柒：160cm/47kg，咖啡店员，邻家感+性感的碰撞，吧台边的日常亲密
-  // 脸型：笑弯眼（眯成月牙）+ 软萌圆脸（邻家感）
+  // 阿柒：温栗棕色波卷中发 · 月牙笑眼软圆脸 · 棉麻衬衫大开V · 咖啡馆吧台
   '阿柒': { style: 'real', model: MODEL_LEOSAM, prompts: [
-    '1girl, 22 years old, chinese cafe barista, 160cm naturally slim 47kg, warm shoulder-length wavy brown hair, crescent-smile eyes soft round face, fair peachy-white skin, (oversized linen shirt barely buttoned:1.2) worn casually off one shoulder, leaning on cafe counter, coffee machine behind, morning golden sunlight, warm genuine smile',
-    '1girl, 22 years old, chinese girl, 160cm natural slim body 47kg, soft wavy brown hair, crescent smile eyes pretty round face, fair peachy-white skin, (thin cream cotton camisole:1.3) with thin straps and denim shorts, hair in loose bun with falling strands, sitting on cafe windowsill, golden afternoon light, relaxed warm expression',
-    '1girl, 22 years old, chinese barista, 160cm slim natural 47kg, hair tied back loosely, crescent smile eyes cute round face, fair peachy-white skin, (fitted ribbed white tank top:1.2) and high-waist jeans, wiping hands on small towel, after-hours empty cozy cafe, warm lamp light, soft quiet contemplative expression',
+    '1girl, 22yo chinese cafe barista, 160cm slim natural 47kg, warm soft round face (crescent-smile eyes:1.3), wavy warm chestnut-brown hair loose messy, fair peachy skin, (white linen shirt with 4 buttons undone showing (white bra scallop and cleavage:1.3)) tied at waist, denim cutoff shorts, leaning on cafe counter hip cocked, coffee machine behind, golden morning sun, warm effortless smile',
+    '1girl, 22yo chinese girl, 160cm slim 47kg, (crescent-smile eyes cute warm round face:1.3), wavy chestnut brown hair low loose bun falling strands, peachy-fair skin, (ribbed white tank top very low scoop neck (round upper cleavage showing:1.3)) + high-waist linen micro shorts, sitting cross-legged on cafe counter, vintage cafe afternoon amber light, effortlessly pretty inviting expression',
+    '1girl, 22yo chinese barista, 160cm slim natural 47kg, (crescent-smile eyes warm round face:1.3), wavy brown hair loose, peachy skin, (open flannel shirt (thin deep-V camisole underneath with prominent cleavage:1.3)), apron in one hand, after-hours empty cafe, warm lamp light, looking at camera over shoulder, quiet provocative smile',
   ]},
 
-  // ── 二次元/修仙/妖魔角色 ─────────────────────────────────────────────────────
+  // ── 二次元/修仙/妖魔角色 ────────────────────────────────────────────────────
 
+  // X-23：铂白短发+霓虹蓝挑染 · 赛博朋克机械眼 · 战术服大开胸 · 实验室/数据流
+  'X-23': { style: 'anime', model: MODEL_NOOB, prompts: [
+    '1girl, android girl cyberpunk, (platinum white hair short undercut with electric neon blue streaks:1.3), glowing blue circuit-pattern eyes, perfect synthetic beautiful face, (tactical bodysuit unzipped deep to sternum showing (circuit tattoo patterns on inner chest:1.3) and prominent cleavage:1.4), futuristic neon lab, blue holographic light, cold calculating expression hint of curiosity, ultra detailed',
+    '1girl, android cyborg girl, (short platinum white hair neon blue streaks:1.3), glowing blue eyes, perfect android face, (form-fitting white combat armor chest plate open/torn showing (skin and circuit markings:1.3) beneath:1.3), sitting on lab table holographic displays, cyberpunk neon blue atmosphere, awakening curious expression',
+    '1girl, robot girl android, (platinum silver-white hair short:1.3), luminous blue circuit eyes, cold perfect face, (sleek metallic white bodysuit with very deep plunging V chest cutout:1.4) showing sternum and inner curves, dark server room blue data stream glow, standing powerful pose, neon circuit light on skin',
+  ]},
+
+  // 幻音：全息渐变长发(蓝粉紫) · 半透明发光体 · 光与音乐构成的薄透服装 · 舞台/数字空间
+  '幻音': { style: 'anime', model: MODEL_NOOB, prompts: [
+    '1girl, holographic AI singer, (translucent long hair shifting prismatic blue pink purple:1.3), glowing ethereal eyes, hauntingly beautiful face, (translucent holographic dress (body silhouette and curves visible through light:1.3) barely covering:1.3), floating in digital space, music notes light particles, (glowing silhouette:1.3), reaching out hand, dreamy atmospheric',
+    '1girl, virtual AI idol, light-based entity, (long flowing multicolored holographic iridescent hair:1.3), glowing face perfect features, (sound waves and light forming barely-there wrapping outfit (curves fully visible through light:1.3)), floating in code stream server room, deep blue purple lighting, longing expression',
+    '1girl, holographic music girl, (shifting iridescent long hair blue violet:1.3), luminous perfect face, concert stage, (light ribbon dress with deep slit showing luminous long legs:1.3) (glowing silhouette:1.3), microphone, crowd light below, otherworldly passionate expression',
+  ]},
+
+  // 狐九：银白长发+尖狐耳 · 九条蓬松白尾 · 透薄白汉服大敞开 · 古风月夜
   '狐九': { style: 'anime', model: MODEL_NOOB, prompts: [
-    '1girl, fox girl, nine fluffy silver-white tails, fox ears, long flowing silver hair, glowing amber eyes, ethereal beautiful face, (translucent silk hanfu loosely draped falling off shoulder:1.3), side view silhouette, ancient stone altar, full moon, misty ancient forest, ethereal purple particles, magical aura, ultra detailed anime art',
-    '1girl, fox girl, nine tails, fox ears, silver white hair windswept, glowing amber slit eyes, perfect ethereal face, (thin white silk inner robe open at chest showing collarbone:1.3), lying in moonlit clearing, sakura petals, supernatural glow, tail curled near her body, dreamy atmosphere',
-    '1girl, kitsune, multiple tails, fox ears, silver hair, amber eyes, gorgeous ethereal face, (elegant white hanfu with wide flowing sleeves:1.3) blown by wind, lower hem flying, standing at shrine torii gate at dusk, red torii, atmospheric mist, magical light rays, dignified seductive expression',
+    '1girl, nine-tailed fox girl, (nine fluffy silver-white tails:1.3), (perky silver fox ears:1.3), long flowing silver-white hair, glowing amber-gold slit eyes, ethereal beautiful face, (translucent white silk hanfu open falling off both shoulders (deep V showing inner chest curves:1.3) sash untied:1.3), ancient stone altar full moon behind, purple magical mist particles, alluring dignified expression',
+    '1girl, kitsune fox spirit, nine tails, silver-white fox ears, (long silver hair windswept:1.3), glowing amber slit eyes, ethereal face, (thin white silk inner robe sash fallen (one shoulder fully bare open chest line to sternum:1.3):1.3), sitting on ancient stone moonlit forest, sakura petals, supernatural glow, tails curled around her, seductive spiritual gaze',
+    '1girl, nine-tail fox girl, silver-white hair, amber slit eyes, (fox ears:1.3), multiple fluffy tails, (flowing white fox-fur-trimmed robe fully open over thin silk inner layer (curves silhouetted through silk:1.3):1.3), ancient torii gate dusk, atmospheric mist, magical light rays, powerful and alluring',
   ]},
 
+  // 冷霜：冰蓝银长发+冰晶 · 冰属性光环 · 半透冰蓝修仙袍大开领 · 冰峰/极光
   '冷霜': { style: 'anime', model: MODEL_NOOB, prompts: [
-    '1girl, ice cultivator, cold beauty, long ice blue silver hair, piercing cold eyes, pale glowing skin, ice element aura, (semi-transparent ice-blue cultivation robe loosely belted:1.3) showing collarbone and bare shoulders, sitting on ice throne, frozen mountain peak, moonlight, ice crystal particles floating, aloof ethereal expression',
-    '1girl, female cultivator, ice magic user, silver blue long hair flowing, beautiful cold face, (thin white translucent cultivation dress:1.3) revealing silhouette in backlight, standing on snowy mountain peak, blizzard behind, ice energy swirling, powerful serene beauty',
-    '1girl, xianxia ice beauty, long pale hair, cold stunning face, (ice-white flowing robe half-open at chest showing collarbone and sternum:1.3), meditation pose on floating ice platform, aurora borealis background, mystical cold light, ethereal beauty',
+    '1girl, ice cultivator beauty, (long silver-blue hair with ice crystal ornaments:1.3), piercing pale blue glowing eyes, luminous cold pale skin, ice element aura, (translucent ice-blue cultivation robe belt untied falling open (deep V showing sternum and bare shoulder:1.3)), sitting on ice throne, frozen mountain moonlight, ice crystals floating, aloof ethereal cold expression',
+    '1girl, xianxia female cultivator, (long silver-ice hair windblown:1.3), cold beautiful face, (thin translucent white cultivation dress (full silhouette and curves visible in backlight:1.4) belt loosened open:1.3), snowy mountain peak, blizzard ice energy swirling, powerful serene cold beauty',
+    '1girl, ice beauty immortal, (pale silver-blue flowing hair:1.3), stunning cold face, (frost-white flowing hanfu robe open at chest (deep plunge V revealing pale sternum inner curves:1.3)), floating meditation pose, aurora borealis, mystical cold light, ethereal immortal atmosphere',
   ]},
 
+  // 魅罗：深紫长发+小鹿角 · 红瞳竖瞳 · 哥特深V残破旗袍+魔族披风 · 暗黑魔界
   '魅罗': { style: 'anime', model: MODEL_NOOB, prompts: [
-    '1girl, demon girl, long dark purple flowing hair, crimson slit eyes, beautiful evil face, small horns, (dark elegant torn qipao with high slit:1.3) exposing shoulders and long bare legs, sitting on dark throne, chains around wrists, dark magical energy, sinister seductive smile, dramatic dark lighting',
-    '1girl, demon woman, purple hair, glowing red eyes, gorgeous evil face, small demon horns, (black form-fitting bodysuit with open shoulders:1.3) and flowing dark cloak, dark dungeon background, magical dark fire, commanding dominating pose, smirking at viewer',
-    '1girl, demon girl, dark purple long hair, seductive evil face, demon tail and small horns, (dark translucent cape draped over fitted bodysuit:1.3), dark void background with swirling energy particles, wings spreading, completely dangerous and alluring expression',
+    '1girl, demon girl sealed, (long dark purple flowing hair:1.3), crimson slit glowing eyes, gorgeous evil face (small elegant horns:1.3), (dark tattered elegant dress very deep plunge V neckline (inner chest curves visible:1.3)) with torn extremely high slit (bare leg to hip:1.3), sitting on dark throne wrist chains, dark purple magical energy, sinister beautiful smile, dramatic shadow light',
+    '1girl, demon woman, (dark purple hair loose:1.3), glowing red slit eyes, beautiful evil face, (small ram horns:1.3), (black skintight qipao very low cut front open back fully exposed:1.3) with extreme high slit (bare hip and upper thigh:1.3), dark dungeon magical dark fire, dominating seductive pose smirking at viewer',
+    '1girl, demon girl, (dark purple long hair:1.3), seductive evil face, (demon tail small elegant horns:1.3), (dark diaphanous cape barely covering (black lace lingerie bodysuit:1.3) curves fully visible:1.3), dark void swirling energy, wings spread, completely dangerous and alluring',
   ]},
 
 };
