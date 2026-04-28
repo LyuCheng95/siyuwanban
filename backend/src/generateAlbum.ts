@@ -316,7 +316,7 @@ async function generateOne(charName: string, count: number, systemUserId: string
     style = 'real';
   }
 
-  const modelFile = config?.model ?? (style === 'anime' ? MODEL_ANIME : MODEL_REAL);
+  const modelFile = config?.model ?? (style === 'anime' ? MODEL_ANIME : MODEL_JUGGER);
   const modelLabel = modelFile.replace('.safetensors', '').split('_')[0];
   console.log(`\n🎨 [${charName}]  模型：${modelLabel}`);
 
