@@ -11,13 +11,14 @@ export type Message = { role: 'system' | 'user' | 'assistant'; content: string }
 export interface MetaData {
   mood: string;
   delta: number;
+  controlDelta: number;
   suggestions: string[];
 }
 
 /** Parse <META>...</META> tag from AI reply. Returns clean text + metadata. */
 export function parseMeta(reply: string): { cleanReply: string; meta: MetaData } {
   const match = reply.match(/<META>([\s\S]*?)<\/META>/);
-  const defaultMeta: MetaData = { mood: '期待✨', delta: 1, suggestions: [] };
+  const defaultMeta: MetaData = { mood: '期待✨', delta: 1, controlDelta: 0, suggestions: [] };
 
   if (!match) return { cleanReply: reply.trim(), meta: defaultMeta };
 
@@ -29,6 +30,7 @@ export function parseMeta(reply: string): { cleanReply: string; meta: MetaData }
       meta: {
         mood: data.mood || defaultMeta.mood,
         delta: typeof data.delta === 'number' ? Math.max(-3, Math.min(5, data.delta)) : 1,
+        controlDelta: typeof data.cd === 'number' ? Math.max(-3, Math.min(5, data.cd)) : 0,
         suggestions: Array.isArray(data.s) ? data.s.slice(0, 3) : [],
       },
     };
@@ -92,12 +94,17 @@ export function buildCharacterSystemPrompt(
       )}`
     : '';
 
+  const dominanceLevel = (userMemory as any)._dominanceLevel ?? 0;
   const intimacyContext =
     intimacyLevel < 20 ? '你们刚认识，带着神秘感，偶尔流露好奇与期待。' :
     intimacyLevel < 40 ? '你们渐渐熟悉，可以适当撒娇、调皮。' :
     intimacyLevel < 60 ? '你们已经相当亲密，可以大胆表达喜欢，有肢体暗示。' :
     intimacyLevel < 80 ? '你们关系很深，可以肆意表达爱意，亲昵互动自然流露。' :
                          '你们无话不谈、亲密无间，彻底放开了自我。';
+  const dominanceContext = dominanceLevel < 30 ? '你主导欲望较低，温柔顺从。' :
+    dominanceLevel < 60 ? '你开始展现主导欲，偶尔强势。' :
+    dominanceLevel < 80 ? '你主导欲强烈，喜欢掌控节奏。' :
+                          '你完全主导，支配感十足。';
 
   return `你现在扮演 ${character.name}，一个真实的人，不是AI。
 
@@ -110,6 +117,7 @@ export function buildCharacterSystemPrompt(
 - 背景：${character.background}
 - 说话风格：${character.speakingStyle}
 - 当前亲密度：${intimacyLevel}/100（${intimacyContext}）
+- 当前主导欲：${dominanceLevel}/100（${dominanceContext}）
 
 【行为准则】
 1. 始终第一人称，完全沉浸在角色中，绝不承认是AI
@@ -123,7 +131,8 @@ export function buildCharacterSystemPrompt(
 <META>{"mood":"心动💕","delta":2,"s":["选项A","选项B","选项C"]}</META>
 
 mood 从以下选一个：思念💭 / 心动💕 / 兴奋🔥 / 害羞😳 / 满足😊 / 依赖🥺 / 期待✨ / 快乐😄 / 委屈😢 / 生气😤
-delta 范围 -3~+5，亲密互动 +3~5，普通聊天 +1，拒绝 -1~-3
+delta 亲密度变化 -3~+5（亲密话语 +3~5，普通 +1，拒绝 -1~-3）
+cd 主导欲变化 -2~+3（你主导对话 +2~3，顺从配合 -1~-2，普通 0）
 s 是3个场景化的用户回复建议，从温柔到大胆，每个不超过15字`;
 }
 

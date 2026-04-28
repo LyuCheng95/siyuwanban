@@ -118,4 +118,21 @@ export const api = {
         body: JSON.stringify({ prompt }),
       }),
   },
+
+  checkin: {
+    status: () => request<{
+      alreadyDone: boolean;
+      streak: number;
+      nextReward: { gold: number; diamonds: number; message: string };
+      gold: number;
+      diamonds: number;
+    }>('/checkin'),
+    perform: () => request<{
+      alreadyDone: boolean;
+      streak: number;
+      reward?: { gold: number; diamonds: number; message: string };
+      gold: number;
+      diamonds: number;
+    }>('/checkin', { method: 'POST' }),
+  },
 };

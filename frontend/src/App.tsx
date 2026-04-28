@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 import { DiscoverPage } from './pages/DiscoverPage';
@@ -6,6 +7,7 @@ import { WizardPage } from './pages/WizardPage';
 import { ChatPage } from './pages/ChatPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { LeaderboardPage } from './pages/LeaderboardPage';
+import { CheckInModal } from './components/CheckInModal';
 
 const NAV = [
   {
@@ -60,11 +62,33 @@ const NAV = [
 ];
 
 const HIDE_NAV = ['/wizard', '/chat/'];
+const CHECKIN_KEY = 'sywb_last_checkin_shown';
 
 export default function App() {
   const { user, loading, error, updateCredits, setUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [showCheckIn, setShowCheckIn] = useState(false);
+
+  // Show check-in modal once per day after login
+  useEffect(() => {
+    if (!user) return;
+    const lastShown = localStorage.getItem(CHECKIN_KEY);
+    const today = new Date().toDateString();
+    if (lastShown !== today) {
+      // Delay to let app load first
+      const t = setTimeout(() => {
+        setShowCheckIn(true);
+        localStorage.setItem(CHECKIN_KEY, today);
+      }, 800);
+      return () => clearTimeout(t);
+    }
+  }, [user]);
+
+  function handleCheckInClose(gold: number, diamonds: number) {
+    setShowCheckIn(false);
+    updateCredits(gold, diamonds);
+  }
 
   if (loading) {
     return (
@@ -132,6 +156,8 @@ export default function App() {
           })}
         </nav>
       )}
+
+      {showCheckIn && <CheckInModal onClose={handleCheckInClose} />}
     </div>
   );
 }

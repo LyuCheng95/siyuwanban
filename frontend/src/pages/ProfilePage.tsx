@@ -57,23 +57,29 @@ export function ProfilePage({ user, setUser }: Props) {
         </div>
       </div>
 
-      {/* Credits card */}
+      {/* Currency card */}
       <div className="card" style={{ background: 'linear-gradient(135deg, #7c3aed22, #a855f722)', marginBottom: 16 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <div style={{ fontSize: 13, color: 'var(--text-hint)' }}>剩余对话次数</div>
-            <div style={{ fontSize: 28, fontWeight: 700, marginTop: 2 }}>
-              {user.freeCredits + user.paidCredits}
-              <span style={{ fontSize: 14, fontWeight: 400, color: 'var(--text-hint)', marginLeft: 4 }}>次</span>
-            </div>
-            <div style={{ fontSize: 12, color: 'var(--text-hint)', marginTop: 2 }}>
-              💚 免费 {user.freeCredits} · ⭐ 已购 {user.paidCredits}
-            </div>
+        <div style={{ display: 'flex', gap: 12, marginBottom: 14 }}>
+          <div style={{
+            flex: 1, background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.25)',
+            borderRadius: 12, padding: '12px', textAlign: 'center',
+          }}>
+            <div style={{ fontSize: 24, fontWeight: 800, color: '#fbbf24' }}>{user.freeCredits}</div>
+            <div style={{ fontSize: 11, color: 'var(--text-hint)', marginTop: 2 }}>💛 金币</div>
+            <div style={{ fontSize: 10, color: 'var(--text-hint)', marginTop: 1 }}>签到获取</div>
           </div>
-          <button className="btn btn-primary" onClick={() => setShowPayment(true)}>
-            购买次数
-          </button>
+          <div style={{
+            flex: 1, background: 'rgba(96,165,250,0.1)', border: '1px solid rgba(96,165,250,0.25)',
+            borderRadius: 12, padding: '12px', textAlign: 'center',
+          }}>
+            <div style={{ fontSize: 24, fontWeight: 800, color: '#60a5fa' }}>{user.paidCredits}</div>
+            <div style={{ fontSize: 11, color: 'var(--text-hint)', marginTop: 2 }}>💎 钻石</div>
+            <div style={{ fontSize: 10, color: 'var(--text-hint)', marginTop: 1 }}>充值获取</div>
+          </div>
         </div>
+        <button className="btn btn-primary btn-full" onClick={() => setShowPayment(true)}>
+          💎 充值钻石
+        </button>
       </div>
 
       {/* Payment sheet */}

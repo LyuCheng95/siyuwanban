@@ -9,6 +9,7 @@ import { paymentRouter } from './routes/payments';
 import { marketplaceRouter } from './routes/marketplace';
 import { imagesRouter } from './routes/images';
 import { botRouter } from './routes/bot';
+import { checkinRouter } from './routes/checkin';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -27,6 +28,7 @@ app.use('/api/payments', paymentRouter);
 app.use('/api/marketplace', marketplaceRouter);
 app.use('/api/images', imagesRouter);
 app.use('/api/bot', botRouter);
+app.use('/api/checkin', checkinRouter);
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 

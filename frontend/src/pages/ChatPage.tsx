@@ -45,6 +45,8 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [mood, setMood] = useState<string>('期待✨');
   const [intimacy, setIntimacy] = useState<number>(0);
+  const [dominance, setDominance] = useState<number>(0);
+  const [statusOpen, setStatusOpen] = useState(false);
 
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -54,6 +56,7 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
       setCharacter(data.character);
       setCredits(data.credits);
       if (data.intimacy != null) setIntimacy(data.intimacy);
+      if (data.dominance != null) setDominance(data.dominance);
       if (data.mood) setMood(data.mood);
       if (data.conversation?.messages?.length) {
         setMessages(data.conversation.messages.map((m: any) => ({
@@ -133,6 +136,7 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
             } else if (data.type === 'meta') {
               setMood(data.mood || '期待✨');
               setIntimacy(data.intimacy ?? intimacy);
+              setDominance(data.dominance ?? dominance);
               setSuggestions(data.suggestions || []);
 
             } else if (data.type === 'done') {
@@ -204,6 +208,19 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{mood}</span>
           </div>
         </div>
+
+        {/* Status panel toggle */}
+        <button
+          onClick={() => setStatusOpen(true)}
+          style={{
+            background: 'var(--gradient-soft)', border: '1px solid var(--border-accent)',
+            borderRadius: 8, padding: '4px 8px', cursor: 'pointer', flexShrink: 0,
+            display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'center',
+          }}
+        >
+          <div style={{ fontSize: 9, color: 'var(--accent)', fontWeight: 700, letterSpacing: 0.5 }}>状态</div>
+          <div style={{ fontSize: 10, color: 'var(--text-2)' }}>{intimacy}💛</div>
+        </button>
 
         <button className="portrait-btn" onClick={generatePortrait} title="看她现在的样子">📸</button>
 
@@ -306,6 +323,56 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
         </button>
       </div>
 
+      {/* Status Panel */}
+      {statusOpen && (
+        <div className="sheet-overlay" onClick={() => setStatusOpen(false)}>
+          <div className="sheet" onClick={e => e.stopPropagation()} style={{ maxHeight: '70vh' }}>
+            <div className="sheet-handle" />
+            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span>{character.avatarEmoji}</span> {character.name} 的状态
+            </div>
+
+            {/* 好感度 */}
+            <StatusBar label="💛 好感度" value={intimacy} color={intimacyColor(intimacy)} sublabel={intimacyLabel(intimacy)} />
+
+            {/* 控制欲 */}
+            <StatusBar label="🔥 控制欲" value={dominance}
+              color={dominance < 40 ? 'linear-gradient(90deg,#6366f1,#8b5cf6)' : dominance < 70 ? 'linear-gradient(90deg,#f59e0b,#ef4444)' : 'linear-gradient(90deg,#ef4444,#dc2626)'}
+              sublabel={dominance < 30 ? '温顺' : dominance < 60 ? '主动' : dominance < 80 ? '强势' : '支配'}
+            />
+
+            {/* 当前心情 */}
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 12, color: 'var(--text-hint)', marginBottom: 8 }}>💭 当前心情</div>
+              <div style={{
+                background: 'var(--gradient-soft)', border: '1px solid var(--border-accent)',
+                borderRadius: 12, padding: '10px 14px', fontSize: 15, fontWeight: 600, color: 'var(--accent)',
+              }}>
+                {mood}
+              </div>
+            </div>
+
+            {/* 亲密度标签 */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 12, color: 'var(--text-hint)', marginBottom: 8 }}>🌸 关系阶段</div>
+              <div style={{
+                display: 'inline-block', background: intimacyColor(intimacy),
+                borderRadius: 20, padding: '6px 16px', fontSize: 13, fontWeight: 700, color: 'white',
+              }}>
+                {intimacyLabel(intimacy)}
+              </div>
+              {intimacy < 100 && (
+                <div style={{ fontSize: 11, color: 'var(--text-hint)', marginTop: 6 }}>
+                  还需 {100 - intimacy} 点好感升级关系
+                </div>
+              )}
+            </div>
+
+            <button className="btn btn-secondary btn-full" onClick={() => setStatusOpen(false)}>关闭</button>
+          </div>
+        </div>
+      )}
+
       {/* Portrait sheet */}
       {portraitOpen && (
         <div className="sheet-overlay" onClick={() => { if (!portraitLoading) setPortraitOpen(false); }}>
@@ -349,6 +416,26 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function StatusBar({ label, value, color, sublabel }: { label: string; value: number; color: string; sublabel: string }) {
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+        <div style={{ fontSize: 13, fontWeight: 600 }}>{label}</div>
+        <div style={{ fontSize: 12, color: 'var(--text-hint)' }}>{sublabel} · {value}/100</div>
+      </div>
+      <div style={{ height: 8, background: 'var(--bg-elevated)', borderRadius: 4, overflow: 'hidden' }}>
+        <div style={{
+          height: '100%', width: `${value}%`,
+          background: color,
+          borderRadius: 4,
+          transition: 'width 0.6s ease',
+          boxShadow: '0 0 6px rgba(255,61,127,0.3)',
+        }} />
+      </div>
     </div>
   );
 }

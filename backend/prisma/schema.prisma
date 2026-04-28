@@ -14,8 +14,10 @@ model User {
   firstName     String?
   lastName      String?
   photoUrl      String?
-  freeCredits   Int      @default(5)   // free turns remaining
-  paidCredits   Int      @default(0)   // purchased turns
+  freeCredits   Int      @default(100)  // 金币 (gold coins, free currency)
+  paidCredits   Int      @default(0)   // 钻石 (diamonds, paid currency)
+  lastCheckIn   DateTime?              // last daily check-in timestamp
+  checkInStreak Int      @default(0)   // consecutive check-in days
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 

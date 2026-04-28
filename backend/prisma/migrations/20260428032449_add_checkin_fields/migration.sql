@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN     "checkInStreak" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "lastCheckIn" TIMESTAMP(3),
+ALTER COLUMN "freeCredits" SET DEFAULT 100;

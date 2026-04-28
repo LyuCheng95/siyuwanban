@@ -34,6 +34,7 @@ chatRouter.get('/:characterId', async (req: AuthRequest, res: Response): Promise
       paid: user?.paidCredits ?? 0,
     },
     intimacy: (userMemory as any)._intimacyLevel ?? 0,
+    dominance: (userMemory as any)._dominanceLevel ?? 0,
     mood: (userMemory as any)._mood ?? '期待✨',
   });
 });
@@ -95,19 +96,22 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
   // Parse META from full reply
   const { cleanReply, meta } = parseMeta(fullReply);
 
-  // Update intimacy level (clamped 0-100)
+  // Update intimacy + dominance levels (clamped 0-100)
   const prevIntimacy = (userMemory as any)._intimacyLevel ?? 0;
   const newIntimacy = Math.max(0, Math.min(100, prevIntimacy + meta.delta));
+  const prevDominance = (userMemory as any)._dominanceLevel ?? 0;
+  const newDominance = Math.max(0, Math.min(100, prevDominance + meta.controlDelta));
 
   // Send replace event so frontend shows clean text
   res.write(`data: ${JSON.stringify({ type: 'replace', text: cleanReply })}\n\n`);
 
-  // Send meta event with suggestions, mood, intimacy
+  // Send meta event with suggestions, mood, intimacy, dominance
   res.write(`data: ${JSON.stringify({
     type: 'meta',
     mood: meta.mood,
     suggestions: meta.suggestions,
     intimacy: newIntimacy,
+    dominance: newDominance,
   })}\n\n`);
 
   // Persist conversation with clean reply
@@ -120,6 +124,7 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
   const updatedUserMemory = {
     ...userMemory,
     _intimacyLevel: newIntimacy,
+    _dominanceLevel: newDominance,
     _mood: meta.mood,
   };
 
