@@ -1,30 +1,30 @@
 import { Router, Response } from 'express';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
 import { prisma } from '../utils/prisma';
-import { buildCharacterSystemPrompt, chatStream, extractUserMemory, Message } from '../services/grok';
+import { buildCharacterSystemPrompt, chatStream, extractUserMemory, parseMeta, Message } from '../services/grok';
 import { generateSceneImage, shouldGenerateImage } from '../services/comfyui';
 
 export const chatRouter = Router();
 chatRouter.use(authMiddleware);
 
-const FREE_TURNS = 5;
-const CONTEXT_WINDOW = 30; // keep last N messages in context
+const CONTEXT_WINDOW = 30;
 
 // GET /api/chat/:characterId — get or create conversation
 chatRouter.get('/:characterId', async (req: AuthRequest, res: Response): Promise<void> => {
   const { characterId } = req.params;
 
-  const character = await prisma.character.findUnique({ where: { id: characterId } });
+  const character = await prisma.character.findUnique({ where: { id: characterId as string } });
   if (!character) { res.status(404).json({ error: 'Character not found' }); return; }
 
   const conversation = await prisma.conversation.findUnique({
-    where: { userId_characterId: { userId: req.userId!, characterId } },
+    where: { userId_characterId: { userId: req.userId!, characterId: characterId as string } },
     include: {
       messages: { orderBy: { createdAt: 'asc' }, take: 50 },
     },
   });
 
   const user = await prisma.user.findUnique({ where: { id: req.userId! } });
+  const userMemory = (conversation?.userMemory as Record<string, unknown>) ?? {};
 
   res.json({
     conversation: conversation ?? null,
@@ -33,6 +33,8 @@ chatRouter.get('/:characterId', async (req: AuthRequest, res: Response): Promise
       free: user?.freeCredits ?? 0,
       paid: user?.paidCredits ?? 0,
     },
+    intimacy: (userMemory as any)._intimacyLevel ?? 0,
+    mood: (userMemory as any)._mood ?? '期待✨',
   });
 });
 
@@ -43,26 +45,22 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
 
   if (!message?.trim()) { res.status(400).json({ error: 'message required' }); return; }
 
-  // Load user and check credits
   const user = await prisma.user.findUnique({ where: { id: req.userId! } });
   if (!user) { res.status(401).json({ error: 'User not found' }); return; }
 
   // TODO: re-enable payment check before launch
   // if (user.freeCredits <= 0 && user.paidCredits <= 0) {
-  //   res.status(402).json({ error: 'No credits', needPayment: true });
-  //   return;
+  //   res.status(402).json({ error: 'No credits' }); return;
   // }
 
-  // Load character
-  const character = await prisma.character.findUnique({ where: { id: characterId } });
+  const character = await prisma.character.findUnique({ where: { id: characterId as string } });
   if (!character) { res.status(404).json({ error: 'Character not found' }); return; }
   if (!character.isPublic && character.creatorId !== req.userId!) {
     res.status(403).json({ error: 'Private character' }); return;
   }
 
-  // Get or create conversation
-  let conversation = await prisma.conversation.findUnique({
-    where: { userId_characterId: { userId: req.userId!, characterId } },
+  const conversation = await prisma.conversation.findUnique({
+    where: { userId_characterId: { userId: req.userId!, characterId: characterId as string } },
   });
 
   const existingContext = (conversation?.contextJson as Message[]) ?? [];
@@ -77,28 +75,53 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
     { role: 'user', content: message },
   ];
 
-  // SSE streaming response
+  // SSE headers
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
 
+  // Stream chunks to client — client hides <META> from display in real time
   let fullReply = '';
   try {
     fullReply = await chatStream(messages, (chunk) => {
       res.write(`data: ${JSON.stringify({ type: 'chunk', text: chunk })}\n\n`);
     });
-  } catch (err) {
+  } catch {
     res.write(`data: ${JSON.stringify({ type: 'error', message: 'AI error' })}\n\n`);
     res.end();
     return;
   }
 
-  // Persist conversation
+  // Parse META from full reply
+  const { cleanReply, meta } = parseMeta(fullReply);
+
+  // Update intimacy level (clamped 0-100)
+  const prevIntimacy = (userMemory as any)._intimacyLevel ?? 0;
+  const newIntimacy = Math.max(0, Math.min(100, prevIntimacy + meta.delta));
+
+  // Send replace event so frontend shows clean text
+  res.write(`data: ${JSON.stringify({ type: 'replace', text: cleanReply })}\n\n`);
+
+  // Send meta event with suggestions, mood, intimacy
+  res.write(`data: ${JSON.stringify({
+    type: 'meta',
+    mood: meta.mood,
+    suggestions: meta.suggestions,
+    intimacy: newIntimacy,
+  })}\n\n`);
+
+  // Persist conversation with clean reply
   const newContext: Message[] = [
     ...existingContext,
     { role: 'user', content: message },
-    { role: 'assistant', content: fullReply },
+    { role: 'assistant', content: cleanReply },
   ];
+
+  const updatedUserMemory = {
+    ...userMemory,
+    _intimacyLevel: newIntimacy,
+    _mood: meta.mood,
+  };
 
   const [updatedConversation, updatedUser] = await Promise.all([
     conversation
@@ -107,40 +130,38 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
           data: {
             contextJson: newContext as object[],
             totalTurns: { increment: 1 },
+            userMemory: updatedUserMemory as object,
           },
         })
       : prisma.conversation.create({
           data: {
             userId: req.userId!,
-            characterId,
+            characterId: characterId as string,
             contextJson: newContext as object[],
             totalTurns: 1,
-            userMemory: {},
+            userMemory: updatedUserMemory as object,
           },
         }),
-    // TODO: re-enable credit deduction before launch
     Promise.resolve(user),
     prisma.character.update({
-      where: { id: characterId },
+      where: { id: characterId as string },
       data: { usageCount: { increment: 1 } },
     }),
-    prisma.message.create({
-      data: {
-        conversationId: conversation?.id ?? '',  // will be updated after create
-        role: 'user',
-        content: message,
-      },
-    }).catch(() => {}), // non-critical
   ]);
 
-  // Save assistant message
-  await prisma.message.create({
-    data: {
-      conversationId: updatedConversation.id,
-      role: 'assistant',
-      content: fullReply,
-    },
+  // Save messages to DB
+  await prisma.message.createMany({
+    data: [
+      { conversationId: updatedConversation.id, role: 'user', content: message },
+      { conversationId: updatedConversation.id, role: 'assistant', content: cleanReply },
+    ],
   }).catch(() => {});
+
+  // Send done event
+  res.write(`data: ${JSON.stringify({
+    type: 'done',
+    credits: { free: updatedUser.freeCredits, paid: updatedUser.paidCredits },
+  })}\n\n`);
 
   // Periodically extract user memory (every 5 turns)
   if (updatedConversation.totalTurns % 5 === 0) {
@@ -148,30 +169,22 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
     extractUserMemory(userMemory, recentMessages).then((newMemory) => {
       prisma.conversation.update({
         where: { id: updatedConversation.id },
-        data: { userMemory: newMemory as object },
+        data: { userMemory: { ...newMemory, _intimacyLevel: newIntimacy, _mood: meta.mood } as object },
       }).catch(() => {});
     });
   }
 
-  // Send done event first so UI can update credits immediately
-  res.write(`data: ${JSON.stringify({
-    type: 'done',
-    credits: { free: updatedUser.freeCredits, paid: updatedUser.paidCredits },
-  })}\n\n`);
-
-  // Async: decide if scene warrants image generation (non-blocking)
+  // Async: scene image generation
   const recentForImage = [
-    { role: 'user', content: message },
-    { role: 'assistant', content: fullReply },
+    { role: 'user' as const, content: message },
+    { role: 'assistant' as const, content: cleanReply },
   ];
   shouldGenerateImage(character.name, recentForImage).then(async ({ generate, prompt }) => {
     if (!generate || !prompt) { res.end(); return; }
     try {
       const imageUrl = await generateSceneImage(prompt);
       res.write(`data: ${JSON.stringify({ type: 'image', url: imageUrl })}\n\n`);
-    } catch (err: any) {
-      console.error('[ImageGen]', err.message);
-    }
+    } catch {}
     res.end();
   }).catch(() => res.end());
 });

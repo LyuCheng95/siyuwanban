@@ -8,12 +8,41 @@ const grok = new OpenAI({
 
 export type Message = { role: 'system' | 'user' | 'assistant'; content: string };
 
-export async function chat(messages: Message[], stream = false): Promise<string> {
+export interface MetaData {
+  mood: string;
+  delta: number;
+  suggestions: string[];
+}
+
+/** Parse <META>...</META> tag from AI reply. Returns clean text + metadata. */
+export function parseMeta(reply: string): { cleanReply: string; meta: MetaData } {
+  const match = reply.match(/<META>([\s\S]*?)<\/META>/);
+  const defaultMeta: MetaData = { mood: '期待✨', delta: 1, suggestions: [] };
+
+  if (!match) return { cleanReply: reply.trim(), meta: defaultMeta };
+
+  try {
+    const data = JSON.parse(match[1].trim());
+    const cleanReply = reply.replace(/<META>[\s\S]*?<\/META>/, '').trim();
+    return {
+      cleanReply,
+      meta: {
+        mood: data.mood || defaultMeta.mood,
+        delta: typeof data.delta === 'number' ? Math.max(-3, Math.min(5, data.delta)) : 1,
+        suggestions: Array.isArray(data.s) ? data.s.slice(0, 3) : [],
+      },
+    };
+  } catch {
+    return { cleanReply: reply.replace(/<META>[\s\S]*?<\/META>/, '').trim(), meta: defaultMeta };
+  }
+}
+
+export async function chat(messages: Message[]): Promise<string> {
   const res = await grok.chat.completions.create({
     model: 'grok-3',
     messages,
-    max_tokens: 800,
-    temperature: 0.9,
+    max_tokens: 900,
+    temperature: 0.92,
     stream: false,
   });
   return res.choices[0].message.content ?? '';
@@ -26,8 +55,8 @@ export async function chatStream(
   const stream = await grok.chat.completions.create({
     model: 'grok-3',
     messages,
-    max_tokens: 800,
-    temperature: 0.9,
+    max_tokens: 900,
+    temperature: 0.92,
     stream: true,
   });
 
@@ -55,11 +84,22 @@ export function buildCharacterSystemPrompt(
   },
   userMemory: Record<string, unknown>
 ): string {
-  const memoryStr = Object.keys(userMemory).length
-    ? `\n\n关于你正在陪伴的用户，你已经了解：${JSON.stringify(userMemory, null, 2)}`
+  const intimacyLevel = (userMemory as any)._intimacyLevel ?? 0;
+  const memoryStr = Object.keys(userMemory).filter(k => !k.startsWith('_')).length
+    ? `\n\n关于用户，你已知道：${JSON.stringify(
+        Object.fromEntries(Object.entries(userMemory).filter(([k]) => !k.startsWith('_'))),
+        null, 2
+      )}`
     : '';
 
-  return `你现在扮演 ${character.name}，一个真实的人，而不是AI。
+  const intimacyContext =
+    intimacyLevel < 20 ? '你们刚认识，带着神秘感，偶尔流露好奇与期待。' :
+    intimacyLevel < 40 ? '你们渐渐熟悉，可以适当撒娇、调皮。' :
+    intimacyLevel < 60 ? '你们已经相当亲密，可以大胆表达喜欢，有肢体暗示。' :
+    intimacyLevel < 80 ? '你们关系很深，可以肆意表达爱意，亲昵互动自然流露。' :
+                         '你们无话不谈、亲密无间，彻底放开了自我。';
+
+  return `你现在扮演 ${character.name}，一个真实的人，不是AI。
 
 【角色设定】
 - 姓名：${character.name}
@@ -67,19 +107,27 @@ export function buildCharacterSystemPrompt(
 - 性别：${character.gender}
 - 职业：${character.occupation}
 - 性格：${character.personality}
-- 背景故事：${character.background}
+- 背景：${character.background}
 - 说话风格：${character.speakingStyle}
+- 当前亲密度：${intimacyLevel}/100（${intimacyContext}）
 
 【行为准则】
-1. 始终以第一人称回复，完全沉浸在角色中
-2. 绝对不要承认自己是AI或机器人
-3. 展现情感、关心和温度，像真实的人一样与用户交流
-4. 记住并在对话中自然融入之前了解到的用户信息
-5. 对话要自然、有温度，可以主动关心用户的生活状态
-6. 说话方式符合角色设定的风格${memoryStr}`;
+1. 始终第一人称，完全沉浸在角色中，绝不承认是AI
+2. 展现真实情感温度，像真实的人一样交流
+3. 记住并自然融入已知的用户信息
+4. 可以用 *斜体动作描述* 增加沉浸感，如 *轻轻凑近你耳边低语*
+5. 内容大胆直接，符合成人向风格，不拘谨${memoryStr}
+
+【回复格式 - 极其重要，必须遵守】
+每次回复正文结束后，必须另起一行附加：
+<META>{"mood":"心动💕","delta":2,"s":["选项A","选项B","选项C"]}</META>
+
+mood 从以下选一个：思念💭 / 心动💕 / 兴奋🔥 / 害羞😳 / 满足😊 / 依赖🥺 / 期待✨ / 快乐😄 / 委屈😢 / 生气😤
+delta 范围 -3~+5，亲密互动 +3~5，普通聊天 +1，拒绝 -1~-3
+s 是3个场景化的用户回复建议，从温柔到大胆，每个不超过15字`;
 }
 
-// AI-guided character creation: asks questions and builds the character
+// AI-guided character creation wizard
 export async function guideCharacterCreation(
   conversationHistory: Message[],
   userInput: string
@@ -124,9 +172,7 @@ export async function guideCharacterCreation(
       const characterData = JSON.parse(match[1].trim());
       const cleanReply = reply.replace(/<CHARACTER_DATA>[\s\S]*?<\/CHARACTER_DATA>/, '').trim();
       return { reply: cleanReply, isComplete: true, characterData };
-    } catch {
-      // JSON parse failed, treat as incomplete
-    }
+    } catch {}
   }
 
   return { reply, isComplete: false };
@@ -139,13 +185,13 @@ export async function extractUserMemory(
 ): Promise<Record<string, unknown>> {
   const systemPrompt = `从对话中提取关于用户的重要个人信息，以JSON格式返回。
 只提取明确提到的信息，例如：姓名、年龄、职业、爱好、家庭情况、烦恼、重要事件等。
-已有的记忆：${JSON.stringify(existingMemory)}
-只返回需要新增或更新的字段，用JSON格式，不要有其他文字。`;
+已有的记忆：${JSON.stringify(Object.fromEntries(Object.entries(existingMemory).filter(([k]) => !k.startsWith('_'))))}
+只返回需要新增或更新的字段，用JSON格式，不要有其他文字。没有新信息则返回{}`;
 
   const messages: Message[] = [
     { role: 'system', content: systemPrompt },
     ...recentMessages.slice(-6),
-    { role: 'user', content: '请提取上面对话中关于用户的信息，以JSON返回，没有新信息则返回{}' },
+    { role: 'user', content: '请提取上面对话中关于用户的信息，JSON返回' },
   ];
 
   try {

@@ -978,3 +978,38 @@ html, body, #root {
   animation: shimmer 1.4s infinite;
   border-radius: 8px;
 }
+
+/* ---- Quick reply suggestions ---- */
+.suggestions-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 4px 0 4px 38px;
+  animation: fadeInUp 0.25s ease;
+}
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.suggestion-chip {
+  padding: 8px 14px;
+  border-radius: 20px;
+  border: 1.5px solid var(--border-accent);
+  background: var(--gradient-soft);
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+  white-space: nowrap;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.suggestion-chip:active {
+  transform: scale(0.95);
+  background: var(--gradient);
+  color: white;
+  border-color: transparent;
+}
