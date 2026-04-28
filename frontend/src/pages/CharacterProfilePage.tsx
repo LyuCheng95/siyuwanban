@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import type { Character, Review } from '../types';
@@ -31,6 +31,8 @@ export function CharacterProfilePage() {
   const [submitting, setSubmitting] = useState(false);
   const [canReview, setCanReview] = useState(false);
   const [imgError, setImgError] = useState(false);
+  const [activeSlide, setActiveSlide] = useState(0);
+  const carouselRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!characterId) return;
@@ -73,50 +75,98 @@ export function CharacterProfilePage() {
   }
 
   const tags = tagList(character.personality);
-  const hasPortrait = character.portraitUrl && !imgError;
+  // Build image list: prioritize portraitImages array, fall back to single portraitUrl
+  const rawImages: string[] = Array.isArray(character.portraitImages) && character.portraitImages.length > 0
+    ? character.portraitImages
+    : (character.portraitUrl && !imgError ? [character.portraitUrl] : []);
+  const images = rawImages;
+
+  function handleCarouselScroll() {
+    if (!carouselRef.current) return;
+    const { scrollLeft, offsetWidth } = carouselRef.current;
+    setActiveSlide(Math.round(scrollLeft / offsetWidth));
+  }
+
+  function goToSlide(idx: number) {
+    if (!carouselRef.current) return;
+    carouselRef.current.scrollTo({ left: idx * carouselRef.current.offsetWidth, behavior: 'smooth' });
+  }
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', paddingBottom: 100 }}>
-      {/* Cover image / hero */}
-      <div style={{ position: 'relative', height: 420, overflow: 'hidden' }}>
-        {hasPortrait ? (
-          <img
-            src={character.portraitUrl!}
-            alt={character.name}
-            onError={() => setImgError(true)}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }}
-          />
+      {/* Cover image / carousel hero */}
+      <div className="portrait-carousel">
+        {images.length > 0 ? (
+          <>
+            <div
+              className="portrait-carousel-track"
+              ref={carouselRef}
+              onScroll={handleCarouselScroll}
+            >
+              {images.map((src, i) => (
+                <div key={i} className="portrait-carousel-slide">
+                  <img
+                    src={src}
+                    alt={`${character.name} ${i + 1}`}
+                    onError={() => { if (i === 0) setImgError(true); }}
+                  />
+                  {/* Per-slide gradient overlay */}
+                  <div style={{
+                    position: 'absolute', inset: 0,
+                    background: 'linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, transparent 35%, rgba(13,13,18,0.8) 75%, #0d0d12 100%)',
+                    zIndex: 2,
+                  }} />
+                </div>
+              ))}
+            </div>
+            {/* Slide counter */}
+            {images.length > 1 && (
+              <div className="portrait-carousel-counter">{activeSlide + 1} / {images.length}</div>
+            )}
+            {/* Dot indicators */}
+            {images.length > 1 && (
+              <div className="portrait-carousel-dots">
+                {images.map((_, i) => (
+                  <div
+                    key={i}
+                    className={`portrait-carousel-dot ${i === activeSlide ? 'active' : ''}`}
+                    onClick={() => goToSlide(i)}
+                  />
+                ))}
+              </div>
+            )}
+          </>
         ) : (
           <div style={{
             width: '100%', height: '100%',
             background: 'linear-gradient(160deg, #1a0a2e 0%, #3d1a4a 40%, #7c1a6a 70%, #c026d3 100%)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 100,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 110,
           }}>
             {character.avatarEmoji}
           </div>
         )}
-        {/* Gradient overlay */}
-        <div style={{
-          position: 'absolute', inset: 0,
-          background: 'linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, transparent 40%, rgba(13,13,18,0.85) 75%, #0d0d12 100%)',
-        }} />
+        {/* Gradient overlay for text readability when no images */}
+        {images.length === 0 && (
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 50%, #0d0d12 100%)', zIndex: 2 }} />
+        )}
         {/* Back button */}
         <button
           onClick={() => navigate(-1)}
           style={{
             position: 'absolute', top: 16, left: 16, zIndex: 10,
-            background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.15)',
-            borderRadius: '50%', width: 36, height: 36,
+            background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)',
+            borderRadius: '50%', width: 38, height: 38,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             color: '#fff', fontSize: 20, cursor: 'pointer',
+            backdropFilter: 'blur(6px)',
           }}
         >‹</button>
-        {/* Name at bottom of image */}
-        <div style={{ position: 'absolute', bottom: 16, left: 16, right: 16 }}>
-          <div style={{ fontSize: 28, fontWeight: 800, color: '#fff', textShadow: '0 2px 12px rgba(0,0,0,0.8)' }}>
+        {/* Name at bottom of hero */}
+        <div style={{ position: 'absolute', bottom: 18, left: 16, right: 16, zIndex: 5 }}>
+          <div style={{ fontSize: 30, fontWeight: 800, color: '#fff', textShadow: '0 2px 16px rgba(0,0,0,0.9)' }}>
             {character.name}
           </div>
-          <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', marginTop: 4 }}>
+          <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.72)', marginTop: 4 }}>
             {character.age}岁 · {character.occupation}
           </div>
         </div>

@@ -153,12 +153,22 @@ html, body, #root {
 
 /* Redesigned character card image area */
 .char-card-img {
-  height: 155px;
+  height: 210px;
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
+}
+/* Portrait photo fill */
+.char-card-img img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+  z-index: 1;
 }
 /* Ambient glow behind emoji */
 .char-card-glow {
@@ -170,7 +180,7 @@ html, body, #root {
 }
 /* Large emoji */
 .char-card-emoji {
-  font-size: 60px;
+  font-size: 64px;
   position: relative;
   z-index: 2;
   filter: drop-shadow(0 6px 20px rgba(0,0,0,0.6));
@@ -180,8 +190,8 @@ html, body, #root {
 .char-card-overlay {
   position: absolute;
   bottom: 0; left: 0; right: 0;
-  background: linear-gradient(transparent, rgba(0,0,0,0.85));
-  padding: 28px 10px 8px;
+  background: linear-gradient(transparent, rgba(0,0,0,0.92));
+  padding: 40px 10px 8px;
   z-index: 3;
 }
 .char-card-overlay-name {
@@ -197,12 +207,12 @@ html, body, #root {
 }
 /* Bottom info section */
 .char-card-info {
-  padding: 8px 10px 10px;
+  padding: 7px 10px 9px;
 }
 .char-card-occ {
   font-size: 11px;
   color: var(--text-2);
-  margin-bottom: 5px;
+  margin-bottom: 4px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -232,6 +242,68 @@ html, body, #root {
   padding: 3px 8px;
   border-radius: 20px;
   letter-spacing: 0.3px;
+}
+
+/* ---- Portrait carousel (profile page) ---- */
+.portrait-carousel {
+  position: relative;
+  height: 460px;
+  overflow: hidden;
+}
+.portrait-carousel-track {
+  display: flex;
+  height: 100%;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.portrait-carousel-track::-webkit-scrollbar { display: none; }
+.portrait-carousel-slide {
+  flex: 0 0 100%;
+  height: 100%;
+  scroll-snap-align: start;
+  position: relative;
+}
+.portrait-carousel-slide img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+  display: block;
+}
+.portrait-carousel-dots {
+  position: absolute;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 5px;
+  z-index: 5;
+}
+.portrait-carousel-dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.4);
+  transition: all 0.2s;
+}
+.portrait-carousel-dot.active {
+  background: white;
+  width: 14px;
+  border-radius: 3px;
+}
+.portrait-carousel-counter {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 5;
+  background: rgba(0,0,0,0.5);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 20px;
+  padding: 3px 10px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.85);
+  backdrop-filter: blur(4px);
 }
 
 .char-card-body {
@@ -885,11 +957,21 @@ html, body, #root {
   border: 1px solid rgba(255,255,255,0.08);
 }
 .featured-card-img {
-  height: 170px;
+  height: 200px;
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
+  overflow: hidden;
+}
+.featured-card-img img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+  z-index: 1;
 }
 .featured-card-emoji {
   font-size: 54px;
@@ -900,9 +982,19 @@ html, body, #root {
 .featured-card-overlay {
   position: absolute;
   bottom: 0; left: 0; right: 0;
-  background: linear-gradient(transparent, rgba(0,0,0,0.9));
-  padding: 32px 8px 8px;
+  background: linear-gradient(transparent, rgba(0,0,0,0.92));
+  padding: 40px 8px 9px;
   z-index: 3;
+}
+/* Top gradient scrim for featured cards (makes badge readable over photos) */
+.featured-card-img::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 48px;
+  background: linear-gradient(rgba(0,0,0,0.35), transparent);
+  z-index: 2;
+  pointer-events: none;
 }
 .featured-card-name {
   font-size: 13px;

@@ -19,6 +19,7 @@ export interface Character {
   speakingStyle: string;
   avatarEmoji: string;
   portraitUrl?: string | null;
+  portraitImages?: string[];
   isPublic: boolean;
   usageCount: number;
   avgRating: number;

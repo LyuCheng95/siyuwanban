@@ -113,9 +113,12 @@ export function DiscoverPage() {
             {featured.map(char => (
               <div key={char.id} className="featured-card" onClick={() => navigate(`/character/${char.id}`)}>
                 <div className="featured-card-img" style={{ background: cardGradient(char.id) }}>
-                  <div className="char-card-glow" />
-                  <span className="featured-card-emoji">{char.avatarEmoji}</span>
-                  <div className="featured-card-overlay">
+                  {char.portraitUrl && (
+                    <img src={char.portraitUrl} alt={char.name} />
+                  )}
+                  {!char.portraitUrl && <div className="char-card-glow" />}
+                  {!char.portraitUrl && <span className="featured-card-emoji">{char.avatarEmoji}</span>}
+                  <div className="featured-card-overlay" style={{ zIndex: 3 }}>
                     <div className="featured-card-name">{char.name}</div>
                     <div className="featured-card-meta">{char.age}岁 · {char.occupation}</div>
                   </div>
@@ -187,13 +190,25 @@ export function DiscoverPage() {
 
 function CharCard({ char, gradient, onClick }: { char: Character; gradient: string; onClick: () => void }) {
   const isHot = char.usageCount >= 50;
+  const [imgErr, setImgErr] = useState(false);
+  const hasPortrait = char.portraitUrl && !imgErr;
 
   return (
     <div className="char-card" onClick={onClick}>
       {isHot && <div className="hot-badge">🔥 热</div>}
       <div className="char-card-img" style={{ background: gradient }}>
-        <div className="char-card-glow" />
-        <span className="char-card-emoji">{char.avatarEmoji}</span>
+        {hasPortrait ? (
+          <img
+            src={char.portraitUrl!}
+            alt={char.name}
+            onError={() => setImgErr(true)}
+          />
+        ) : (
+          <>
+            <div className="char-card-glow" />
+            <span className="char-card-emoji">{char.avatarEmoji}</span>
+          </>
+        )}
         <div className="char-card-overlay">
           <div className="char-card-overlay-name">{char.name}</div>
           <div className="char-card-overlay-age">{char.age}岁</div>

@@ -45,6 +45,7 @@ marketplaceRouter.get('/', async (req: AuthRequest, res: Response): Promise<void
         background: true,
         avatarEmoji: true,
         portraitUrl: true,
+        portraitImages: true,
         usageCount: true,
         avgRating: true,
         reviewCount: true,
