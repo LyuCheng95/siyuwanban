@@ -1195,7 +1195,7 @@ async function createCharacter() {
   const missing = ['name','occupation','personality','background','speakingStyle'].filter(k => !body[k]);
   if (!body.age || body.age < 18) missing.push('age (≥18)');
   if (missing.length) {
-    result.className = 'form-result error'; result.style.display = '';
+    result.className = 'form-result error'; result.style.display = 'block';
     result.textContent = '请填写必填项：' + missing.join('、');
     return;
   }
@@ -1210,18 +1210,18 @@ async function createCharacter() {
     });
     const d = await r.json();
     if (d.ok) {
-      result.className = 'form-result success'; result.style.display = '';
+      result.className = 'form-result success'; result.style.display = 'block';
       result.innerHTML = `✓ 角色「${esc(d.character.name)}」已创建（ID: <code style="font-family:monospace">${d.character.id}</code>）<br>
         <span style="color:var(--text2);font-size:12px">下一步：在 storyPhases.ts 添加剧情脚本，然后运行自检</span>
         <br><button class="btn btn-ghost" style="margin-top:8px;font-size:12px"
           onclick="showPage('characters');loadChars()">前往角色列表 → 运行自检</button>`;
       loadChars(); loadStats();
     } else {
-      result.className = 'form-result error'; result.style.display = '';
+      result.className = 'form-result error'; result.style.display = 'block';
       result.textContent = '创建失败：' + (d.error || '未知错误');
     }
   } catch(e) {
-    result.className = 'form-result error'; result.style.display = '';
+    result.className = 'form-result error'; result.style.display = 'block';
     result.textContent = '请求失败：' + e.message;
   }
   btn.disabled = false; btn.textContent = '创建角色';
@@ -1357,7 +1357,7 @@ async function saveBaselineForm() {
   }));
   const totalWeight = criteria.reduce((s, c) => s + c.weight, 0);
   if (totalWeight !== 100) {
-    result.className = 'form-result error'; result.style.display = '';
+    result.className = 'form-result error'; result.style.display = 'block';
     result.textContent = `权重之和必须为 100（当前：${totalWeight}）`;
     return;
   }
@@ -1373,11 +1373,11 @@ async function saveBaselineForm() {
       body: JSON.stringify(baseline),
     });
     _baselineData = baseline;
-    result.className = 'form-result success'; result.style.display = '';
+    result.className = 'form-result success'; result.style.display = 'block';
     result.textContent = '✓ 已保存，下次自检将使用新标准';
     setTimeout(() => result.style.display = 'none', 3000);
   } catch(e) {
-    result.className = 'form-result error'; result.style.display = '';
+    result.className = 'form-result error'; result.style.display = 'block';
     result.textContent = '保存失败：' + e.message;
   }
 }
