@@ -10,6 +10,8 @@ import { prisma } from '../utils/prisma';
 import { chat, parseMeta, buildCharacterSystemPrompt, type Message } from '../services/grok';
 import { generateSceneImage, shouldGenerateImage } from '../services/comfyui';
 import { runCharacterQA, generateStoryPhases, getBaseline, saveBaseline, DEFAULT_BASELINE } from '../services/characterQA';
+import { STORY_PHASES } from '../services/storyPhases';
+import { genericPhases } from '../services/characterScripts';
 
 export const adminRouter = Router();
 
@@ -84,10 +86,17 @@ adminRouter.get('/characters', async (req: Request, res: Response): Promise<void
     },
   });
 
-  res.json(chars.map(c => ({
-    ...c,
-    portraitImages: c.portraitImages as string[],
-  })));
+  res.json(chars.map(c => {
+    // storyPhases: DB value (AI-generated) → hardcoded STORY_PHASES → null
+    const phases = (c.storyPhases as string[] | null)
+      ?? (STORY_PHASES[c.name] as string[] | undefined)
+      ?? null;
+    return {
+      ...c,
+      portraitImages: c.portraitImages as string[],
+      storyPhases: phases,
+    };
+  }));
 });
 
 // GET /api/admin/logs?key=...&userId=... — 查某用户的最近对话
