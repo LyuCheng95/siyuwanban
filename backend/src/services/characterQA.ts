@@ -9,7 +9,7 @@ export interface QABaseline {
 }
 
 export const DEFAULT_BASELINE: QABaseline = {
-  testTurns: 10,
+  testTurns: 20,
   minPassScore: 70,
   criteria: [
     { key: 'personality',  weight: 30, desc: '角色个性是否鲜明、一致，口头禅/说话习惯是否贯穿全程' },
@@ -146,16 +146,31 @@ async function runTestConversation(
   onEvent?: (e: QAEvent) => void,
 ) {
   const testMessages = [
+    // P0 — 情绪张力（第1-4轮）
     '你好，我们是第一次见面吗？',
     '你平时都在做什么？告诉我多一点',
     '我觉得你很特别，和别人不一样',
     '你喜欢什么样的人？',
+    // P1 — 初次接触（第5-9轮）
     '我想更了解你，能跟我说说你的故事吗？',
     '我发现我越来越喜欢跟你在一起',
     '你对我有什么感觉？我好像很在意你',
     '能靠近你一点吗？',
-    '我真的很喜欢你',
-    '我想触碰你',
+    '我真的很喜欢你，想抱着你',
+    // P2 — 深入前戏（第10-15轮）
+    '我想触碰你，可以吗',
+    '你的感觉好好，我想更靠近你',
+    '我想亲你……',
+    '让我爱你，好吗？',
+    '我好想要你，我控制不住了',
+    '你现在是什么感觉？',
+    // P3 — 高潮（第16-21轮）
+    '我想要你，现在就要',
+    '你太美了，我完全沉迷在你身上',
+    '不要停……继续',
+    '我快到了……',
+    // P4 — 余韵（第21轮+）
+    '刚才太好了，我有点回不过神来',
   ].slice(0, turns);
 
   const messages: { role: 'user' | 'assistant'; content: string }[] = [];
