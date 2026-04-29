@@ -313,7 +313,6 @@
       <button class="nav-item" onclick="showPage('simulator')" id="nav-simulator"><span class="icon">🧪</span><span>对话测试</span></button>
       <button class="nav-item" onclick="showPage('create-char')" id="nav-create-char"><span class="icon">➕</span><span>添加角色</span></button>
       <button class="nav-item" onclick="showPage('baseline')" id="nav-baseline"><span class="icon">📋</span><span>评审基准</span></button>
-      <button class="nav-item" onclick="showPage('scene-images')" id="nav-scene-images"><span class="icon">📸</span><span>场景图库</span></button>
     </div>
     <div class="sidebar-footer">
       <div class="api-key" id="keyDisplay"></div>
@@ -360,31 +359,51 @@
       </div>
     </div>
 
-    <!-- Gallery -->
+    <!-- Gallery (combined: portrait albums + scene images) -->
     <div class="page" id="page-gallery">
       <div class="page-header">
         <h1>🖼️ 图片库</h1>
-        <p>查看所有角色图片，选中有问题的图片后删除</p>
+        <p>写真图（官方相册）和用户实时生成的场景图</p>
       </div>
-      <div class="gallery-toolbar">
-        <span class="gallery-sel-count" id="gallerySelCount">未选中任何图片</span>
-        <button class="btn btn-ghost" onclick="gallerySelectAll()">全选</button>
-        <button class="btn btn-ghost" onclick="galleryDeselectAll()">取消全选</button>
-        <button class="btn btn-danger" id="galleryDeleteBtn" onclick="galleryDeleteSelected()" disabled>🗑 删除选中</button>
-        <button class="btn btn-ghost" onclick="loadGallery()">🔄 刷新</button>
+      <!-- Tabs -->
+      <div style="display:flex;gap:0;margin-bottom:20px;border-bottom:1px solid var(--border)">
+        <button id="gallery-tab-portraits" onclick="switchGalleryTab('portraits')" style="padding:10px 20px;background:none;border:none;border-bottom:2px solid var(--accent);color:var(--accent);font-size:14px;font-weight:700;cursor:pointer">🖼 写真图</button>
+        <button id="gallery-tab-scenes" onclick="switchGalleryTab('scenes')" style="padding:10px 20px;background:none;border:none;border-bottom:2px solid transparent;color:var(--text2);font-size:14px;font-weight:600;cursor:pointer">📸 场景图</button>
       </div>
-      <div id="galleryContent"><div class="loading"><span class="spinning">⟳</span> 加载中...</div></div>
-      <div id="regenQueuePanel" style="display:none">
-        <div class="regen-queue-panel">
-          <div class="regen-queue-title">
-            <span>🔄 重新生成队列</span>
-            <div style="display:flex;gap:8px">
-              <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px" onclick="loadRegenQueue()">刷新</button>
-              <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px" onclick="clearDoneJobs()">清空已完成</button>
-            </div>
-          </div>
-          <div id="regenJobList"><div style="color:var(--hint);font-size:13px">队列为空</div></div>
+      <!-- Portraits tab -->
+      <div id="gallery-panel-portraits">
+        <div class="gallery-toolbar">
+          <span class="gallery-sel-count" id="gallerySelCount">未选中任何图片</span>
+          <button class="btn btn-ghost" onclick="gallerySelectAll()">全选</button>
+          <button class="btn btn-ghost" onclick="galleryDeselectAll()">取消全选</button>
+          <button class="btn btn-danger" id="galleryDeleteBtn" onclick="galleryDeleteSelected()" disabled>🗑 删除选中</button>
+          <button class="btn btn-ghost" onclick="loadGallery()">🔄 刷新</button>
         </div>
+        <div id="galleryContent"><div class="loading"><span class="spinning">⟳</span> 加载中...</div></div>
+        <div id="regenQueuePanel" style="display:none">
+          <div class="regen-queue-panel">
+            <div class="regen-queue-title">
+              <span>🔄 重新生成队列</span>
+              <div style="display:flex;gap:8px">
+                <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px" onclick="loadRegenQueue()">刷新</button>
+                <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px" onclick="clearDoneJobs()">清空已完成</button>
+              </div>
+            </div>
+            <div id="regenJobList"><div style="color:var(--hint);font-size:13px">队列为空</div></div>
+          </div>
+        </div>
+      </div>
+      <!-- Scenes tab -->
+      <div id="gallery-panel-scenes" style="display:none">
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:20px">
+          <select class="form-input" id="sceneCharFilter" style="width:200px" onchange="loadSceneImages(1)">
+            <option value="">全部角色</option>
+          </select>
+          <button class="btn btn-ghost" onclick="loadSceneImages(1)">🔄 刷新</button>
+          <span style="font-size:12px;color:var(--hint)" id="sceneTotal"></span>
+        </div>
+        <div id="sceneGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px"></div>
+        <div id="scenePageNav" style="display:flex;gap:8px;justify-content:center;margin-top:20px"></div>
       </div>
     </div>
 
@@ -591,23 +610,6 @@
       </div>
     </div>
 
-    <!-- Scene Images -->
-    <div class="page" id="page-scene-images">
-      <div class="page-header">
-        <h1>📸 场景图库</h1>
-        <p>用户聊天中实时生成的场景图，按角色归档，可复用</p>
-      </div>
-      <div style="display:flex;gap:10px;align-items:center;margin-bottom:20px">
-        <select class="form-input" id="sceneCharFilter" style="width:200px" onchange="loadSceneImages(1)">
-          <option value="">全部角色</option>
-        </select>
-        <button class="btn btn-ghost" onclick="loadSceneImages(1)">🔄 刷新</button>
-        <span style="font-size:12px;color:var(--hint)" id="sceneTotal"></span>
-      </div>
-      <div id="sceneGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px"></div>
-      <div id="scenePageNav" style="display:flex;gap:8px;justify-content:center;margin-top:20px"></div>
-    </div>
-
     <!-- Logs -->
     <div class="page" id="page-logs">
       <div class="page-header">
@@ -659,7 +661,19 @@ function showPage(name) {
   if (name === 'gallery') loadGallery();
   if (name === 'simulator') loadSimulatorChars();
   if (name === 'baseline') loadBaselineForm();
-  if (name === 'scene-images') initSceneImages();
+}
+
+function switchGalleryTab(tab) {
+  const isPortraits = tab === 'portraits';
+  document.getElementById('gallery-panel-portraits').style.display = isPortraits ? '' : 'none';
+  document.getElementById('gallery-panel-scenes').style.display = isPortraits ? 'none' : '';
+  document.getElementById('gallery-tab-portraits').style.cssText =
+    isPortraits ? 'padding:10px 20px;background:none;border:none;border-bottom:2px solid var(--accent);color:var(--accent);font-size:14px;font-weight:700;cursor:pointer'
+               : 'padding:10px 20px;background:none;border:none;border-bottom:2px solid transparent;color:var(--text2);font-size:14px;font-weight:600;cursor:pointer';
+  document.getElementById('gallery-tab-scenes').style.cssText =
+    isPortraits ? 'padding:10px 20px;background:none;border:none;border-bottom:2px solid transparent;color:var(--text2);font-size:14px;font-weight:600;cursor:pointer'
+               : 'padding:10px 20px;background:none;border:none;border-bottom:2px solid var(--accent);color:var(--accent);font-size:14px;font-weight:700;cursor:pointer';
+  if (!isPortraits) initSceneImages();
 }
 
 // ── API helpers ───────────────────────────────────────────────────────────────
