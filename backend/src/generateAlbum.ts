@@ -224,6 +224,15 @@ const ALBUM_CONFIGS: Record<string, CharConfig> = {
     '1girl, demon girl, (dark purple long hair:1.3), seductive evil face, (demon tail small elegant horns:1.3), (dark diaphanous cape barely covering (black lace lingerie bodysuit:1.3) curves fully visible:1.3), dark void swirling energy, wings spread, completely dangerous and alluring',
   ]},
 
+  // 桃桃：粉色双马尾 · 甜系萌妹 · 反差腹黑 · NoobAI风格
+  '桃桃': { style: 'anime', model: MODEL_NOOB, prompts: [
+    '1girl, (pink twin tails:1.4), (big bright sparkling round eyes:1.4), (cute dimples:1.3), petite slim figure, fair white smooth skin, (pastel pink off-shoulder crop top:1.2) and (high-waist white pleated skirt:1.2) with bare midriff, sitting on campus bench, cherry blossoms background, soft afternoon light, sweet innocent smile, school bag beside her, slightly tilted head',
+    '1girl, (pink twin tails:1.4), (big sparkling eyes:1.3), (rosy apple cheeks:1.3), petite figure, (cozy oversized pastel hoodie slipping off one bare shoulder:1.3) short enough to show hip curve, white thigh-highs, dorm room warm lighting, holding plushie, sitting cross-legged on bed, soft pouty lips, looking up at viewer with playful glint in eyes',
+    '1girl, (pink twin tails disheveled:1.3), (round sparkling eyes half-lidded:1.3), petite figure, (white cosplay bunny outfit (fitted bodysuit very low cut:1.3) with fluffy ears and pom tail:1.3), (small perky chest accentuated:1.2), hands on knees leaning forward, stage light, smiling with two dimples, one eye winking, completely unbothered expression',
+    '1girl, (pink twin tails:1.4), (sparkling eyes slightly glazed:1.3), petite slim body, (semi-sheer white crop camisole (nipple outline visible:1.3):1.2) and (tiny white panties:1.2), kneeling on soft rug, hands resting on thighs, warm bedside lamp, (soft blush spreading to chest:1.3), lips parted, shy smile hiding a secret, dimples showing',
+    '1girl, (pink twin tails loose:1.3), (big round eyes:1.3), petite figure, (white lace bralette:1.3) and (matching lace micro panties:1.3), lying on white bed, one knee raised, afternoon sunlight through sheer curtains, (fair white skin luminous:1.3), (cute dimples:1.2), one hand near lips finger touching lower lip, innocent expression with knowing eyes',
+  ]},
+
 };
 
 // ── 其他角色的通用真实感模板 ────────────────────────────────────────────────────
@@ -300,6 +309,7 @@ const CHAR_SLUG: Record<string, string> = {
   '琉璃': 'luli', '糖糖': 'tang', '沈静': 'shen', '小慧': 'hui',
   '夜玲': 'ling', '晴晴': 'qing', '唐诗': 'shi', '阿柒': 'qi',
   'X-23': 'x23', '幻音': 'huan', '狐九': 'hujiu', '冷霜': 'shuang', '魅罗': 'mei',
+  '桃桃': 'taotao',
 };
 
 async function downloadAndSave(filename: string, charName: string, idx: number): Promise<string> {
@@ -319,7 +329,7 @@ async function generateOne(charName: string, count: number, systemUserId: string
   const config = ALBUM_CONFIGS[charName];
 
   const char = await prisma.character.findFirst({
-    where: { name: charName, creatorId: systemUserId }
+    where: { name: charName }
   });
   if (!char) { console.error(`  ⚠️  找不到角色 "${charName}"，跳过`); return; }
 
