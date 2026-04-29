@@ -50,6 +50,10 @@ model Character {
   usageCount    Int      @default(0)
   avgRating     Float    @default(0)
   reviewCount   Int      @default(0)
+  qaStatus      String?           // pending | running | passed | failed
+  qaScore       Int?              // 0-100
+  qaReport      Json?             // { categories, score, summary, issues, suggestions }
+  qaRunAt       DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -59,6 +63,12 @@ model Character {
 
   @@index([isPublic, usageCount])
   @@index([avgRating])
+}
+
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
 }
 
 model Conversation {

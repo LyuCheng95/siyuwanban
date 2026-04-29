@@ -9,6 +9,7 @@ import path from 'path';
 import { prisma } from '../utils/prisma';
 import { chat, parseMeta, buildCharacterSystemPrompt, type Message } from '../services/grok';
 import { generateSceneImage, shouldGenerateImage } from '../services/comfyui';
+import { runCharacterQA, getBaseline, saveBaseline, DEFAULT_BASELINE } from '../services/characterQA';
 
 export const adminRouter = Router();
 
@@ -78,6 +79,7 @@ adminRouter.get('/characters', async (req: Request, res: Response): Promise<void
       portraitUrl: true, portraitImages: true,
       usageCount: true, avgRating: true, reviewCount: true,
       isPublic: true, createdAt: true,
+      qaStatus: true, qaScore: true, qaRunAt: true,
     },
   });
 
@@ -353,6 +355,111 @@ adminRouter.post('/set-portrait', async (req: Request, res: Response): Promise<v
     select: { id: true, name: true, portraitUrl: true, portraitImages: true },
   });
   res.json(updated);
+});
+
+// ── Character Creation (admin) ────────────────────────────────────────────────
+
+// POST /api/admin/characters/create?key=... — 创建官方角色
+adminRouter.post('/characters/create', async (req: Request, res: Response): Promise<void> => {
+  if (!checkKey(req, res)) return;
+
+  const {
+    name, age, gender, occupation, personality, background,
+    speakingStyle, avatarEmoji, openingScene, isPublic,
+  } = req.body as {
+    name: string; age: number; gender: string; occupation: string;
+    personality: string; background: string; speakingStyle: string;
+    avatarEmoji?: string; openingScene?: string; isPublic?: boolean;
+  };
+
+  if (!name || !age || !gender || !occupation || !personality || !background || !speakingStyle) {
+    res.status(400).json({ error: '缺少必填字段: name, age, gender, occupation, personality, background, speakingStyle' });
+    return;
+  }
+
+  // Get or create system user (telegramId=1)
+  const systemUser = await prisma.user.upsert({
+    where: { telegramId: BigInt(1) },
+    update: {},
+    create: {
+      telegramId: BigInt(1), username: 'system', firstName: '系统账号',
+      freeCredits: 0, paidCredits: 0,
+    },
+  });
+
+  const character = await prisma.character.create({
+    data: {
+      creatorId: systemUser.id,
+      name, age: Number(age), gender, occupation,
+      personality, background, speakingStyle,
+      avatarEmoji: avatarEmoji || '🌸',
+      openingScene: openingScene || null,
+      isPublic: isPublic !== false,
+    },
+  });
+
+  res.json({ ok: true, character });
+});
+
+// POST /api/admin/characters/:id/qa?key=... — 触发角色自检（异步，SSE）
+adminRouter.post('/characters/:id/qa', async (req: Request, res: Response): Promise<void> => {
+  if (!checkKey(req, res)) return;
+
+  const { id } = req.params;
+  const character = await prisma.character.findUnique({ where: { id }, select: { id: true, name: true, qaStatus: true } });
+  if (!character) { res.status(404).json({ error: 'Character not found' }); return; }
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  const send = (data: object) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+
+  send({ type: 'start', characterName: character.name });
+
+  try {
+    send({ type: 'progress', message: '正在模拟测试对话…' });
+    const report = await runCharacterQA(id);
+    send({ type: 'done', report });
+  } catch (e: any) {
+    send({ type: 'error', message: e.message });
+  }
+
+  res.end();
+});
+
+// GET /api/admin/characters/:id/qa?key=... — 获取已有QA报告
+adminRouter.get('/characters/:id/qa', async (req: Request, res: Response): Promise<void> => {
+  if (!checkKey(req, res)) return;
+  const char = await prisma.character.findUnique({
+    where: { id: req.params.id },
+    select: { id: true, name: true, qaStatus: true, qaScore: true, qaReport: true, qaRunAt: true },
+  });
+  if (!char) { res.status(404).json({ error: 'not found' }); return; }
+  res.json(char);
+});
+
+// GET /api/admin/baseline?key=... — 获取评审基准
+adminRouter.get('/baseline', async (req: Request, res: Response): Promise<void> => {
+  if (!checkKey(req, res)) return;
+  const baseline = await getBaseline();
+  res.json(baseline);
+});
+
+// PUT /api/admin/baseline?key=... — 更新评审基准
+adminRouter.put('/baseline', async (req: Request, res: Response): Promise<void> => {
+  if (!checkKey(req, res)) return;
+  const baseline = req.body;
+  if (!baseline.criteria || !Array.isArray(baseline.criteria)) {
+    res.status(400).json({ error: 'criteria array required' }); return;
+  }
+  await saveBaseline(baseline);
+  res.json({ ok: true });
+});
+
+// GET /api/admin/baseline/default?key=... — 获取默认基准（重置用）
+adminRouter.get('/baseline/default', (req: Request, res: Response): void => {
+  if (!checkKey(req, res)) return;
+  res.json(DEFAULT_BASELINE);
 });
 
 // ── Conversation Simulator ────────────────────────────────────────────────────

@@ -207,12 +207,44 @@
   .sim-phase-dot { flex: 1; height: 8px; border-radius: 4px; background: var(--bg3); transition: background 0.3s; }
   .sim-phase-dot.reached { background: var(--grad); }
 
+  /* ── Create character form ── */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group.full { grid-column: 1 / -1; }
+  .form-label { font-size: 11px; color: var(--text2); font-weight: 600; letter-spacing: 0.3px; text-transform: uppercase; }
+  .form-label .req { color: var(--accent); margin-left: 2px; }
+  .form-input { padding: 10px 14px; background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13px; outline: none; }
+  .form-input:focus { border-color: rgba(255,61,127,0.4); }
+  .form-textarea { padding: 10px 14px; background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13px; outline: none; resize: vertical; min-height: 80px; font-family: inherit; }
+  .form-textarea:focus { border-color: rgba(255,61,127,0.4); }
+  .form-hint { font-size: 11px; color: var(--hint); margin-top: 2px; }
+  .form-submit { display: flex; align-items: center; gap: 12px; margin-top: 20px; }
+  .form-result { padding: 12px 16px; border-radius: 10px; font-size: 13px; margin-top: 14px; display: none; }
+  .form-result.success { background: rgba(74,222,128,0.1); border: 1px solid rgba(74,222,128,0.25); color: var(--green); }
+  .form-result.error { background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.25); color: var(--red); }
+
+  /* ── QA / baseline ── */
+  .badge-running { background: rgba(96,165,250,0.12); color: #60a5fa; }
+  .qa-score-ring { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 50%; font-size: 13px; font-weight: 800; border: 2px solid transparent; }
+  .qa-score-pass { border-color: var(--green); color: var(--green); background: rgba(74,222,128,0.08); }
+  .qa-score-fail { border-color: var(--red); color: var(--red); background: rgba(248,113,113,0.08); }
+  .qa-score-none { border-color: var(--hint); color: var(--hint); background: transparent; }
+  .qa-report-panel { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; margin-top: 16px; }
+  .qa-cat-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 13px; }
+  .qa-cat-label { width: 80px; color: var(--text2); font-size: 12px; }
+  .qa-cat-bar-wrap { flex: 1; height: 8px; background: var(--bg2); border-radius: 4px; overflow: hidden; }
+  .qa-cat-bar { height: 100%; border-radius: 4px; background: var(--grad); transition: width 0.4s; }
+  .qa-cat-score { width: 36px; text-align: right; font-weight: 700; font-size: 13px; }
+  .baseline-criterion { background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin-bottom: 10px; }
+  .baseline-crit-row { display: grid; grid-template-columns: 80px 60px 1fr; gap: 10px; align-items: center; }
+
   /* ── Responsive ── */
   @media (max-width: 768px) {
     .stat-grid { grid-template-columns: 1fr 1fr; }
     .sidebar { width: 60px; }
     .nav-item span { display: none; }
     .sidebar-logo-text, .sidebar-footer { display: none; }
+    .form-grid { grid-template-columns: 1fr; }
   }
 </style>
 </head>
@@ -244,6 +276,8 @@
       <button class="nav-item" onclick="showPage('logs')" id="nav-logs"><span class="icon">💬</span><span>对话记录</span></button>
       <button class="nav-item" onclick="showPage('gallery')" id="nav-gallery"><span class="icon">🖼️</span><span>图片库</span></button>
       <button class="nav-item" onclick="showPage('simulator')" id="nav-simulator"><span class="icon">🧪</span><span>对话测试</span></button>
+      <button class="nav-item" onclick="showPage('create-char')" id="nav-create-char"><span class="icon">➕</span><span>添加角色</span></button>
+      <button class="nav-item" onclick="showPage('baseline')" id="nav-baseline"><span class="icon">📋</span><span>评审基准</span></button>
     </div>
     <div class="sidebar-footer">
       <div class="api-key" id="keyDisplay"></div>
@@ -408,6 +442,119 @@
       </div>
     </div>
 
+    <!-- Create Character -->
+    <div class="page" id="page-create-char">
+      <div class="page-header">
+        <h1>➕ 添加官方角色</h1>
+        <p>填写基础信息，创建后可立即运行自检</p>
+      </div>
+      <div class="card" style="padding:24px">
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">姓名<span class="req">*</span></label>
+            <input class="form-input" id="cf-name" placeholder="例：椎名老师"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">年龄<span class="req">*</span></label>
+            <input class="form-input" id="cf-age" type="number" placeholder="25" min="18" max="45"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">性别<span class="req">*</span></label>
+            <select class="form-input" id="cf-gender">
+              <option value="女">女</option>
+              <option value="男">男</option>
+              <option value="未知">未知</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">职业<span class="req">*</span></label>
+            <input class="form-input" id="cf-occupation" placeholder="例：高中数学老师"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">头像 Emoji</label>
+            <input class="form-input" id="cf-emoji" placeholder="🌸" maxlength="4"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">是否公开</label>
+            <select class="form-input" id="cf-public">
+              <option value="true">公开（上架广场）</option>
+              <option value="false">私密（仅内部测试）</option>
+            </select>
+          </div>
+          <div class="form-group full">
+            <label class="form-label">性格描述<span class="req">*</span></label>
+            <textarea class="form-textarea" id="cf-personality" placeholder="温柔、知性、外表端庄内心压抑，对喜欢的人会不自觉脸红…" rows="3"></textarea>
+          </div>
+          <div class="form-group full">
+            <label class="form-label">背景故事<span class="req">*</span></label>
+            <textarea class="form-textarea" id="cf-background" placeholder="从小成绩优异，立志成为老师。独自在城市生活三年，心里一直藏着一段无法言说的感情…" rows="3"></textarea>
+          </div>
+          <div class="form-group full">
+            <label class="form-label">说话风格 / 口头禅<span class="req">*</span></label>
+            <textarea class="form-textarea" id="cf-speaking" placeholder="语气轻柔带斯文，紧张时声音变细；习惯叫对方「你」而不是名字；偶尔会说「诶，这样不好吧……」" rows="3"></textarea>
+          </div>
+          <div class="form-group full">
+            <label class="form-label">开场白（可选）</label>
+            <textarea class="form-textarea" id="cf-opening" placeholder="「……你来了。」她抬起头，镜片后的眼睛微微发亮，随即低下头去，「我以为……算了，坐吧。」" rows="3"></textarea>
+            <div class="form-hint">用户进入聊天界面时看到的第一句话，留空则由 AI 自动生成</div>
+          </div>
+        </div>
+        <div class="form-submit">
+          <button class="btn btn-primary" onclick="createCharacter()" id="createCharBtn" style="padding:11px 28px;font-size:14px">创建角色</button>
+          <span style="font-size:12px;color:var(--hint)">创建后请补充剧情脚本（storyPhases.ts）和图片生成配置</span>
+        </div>
+        <div class="form-result" id="createCharResult"></div>
+      </div>
+    </div>
+
+    <!-- Baseline Settings -->
+    <div class="page" id="page-baseline">
+      <div class="page-header">
+        <h1>📋 评审基准</h1>
+        <p>设定 AI 自检时的评分维度、权重和及格线，影响所有后续自检结果</p>
+      </div>
+      <div class="card" style="padding:24px;margin-bottom:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+          <div style="font-size:15px;font-weight:700">评分维度</div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-ghost" onclick="resetBaseline()">恢复默认</button>
+            <button class="btn btn-primary" onclick="saveBaselineForm()">保存</button>
+          </div>
+        </div>
+        <div id="baselineCriteria">
+          <div class="loading"><span class="spinning">⟳</span> 加载中...</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:20px">
+          <div class="form-group">
+            <label class="form-label">及格分数线（0-100）</label>
+            <input class="form-input" id="bl-minScore" type="number" min="0" max="100" value="70"/>
+            <div class="form-hint">低于此分数标记为 failed，需要修改角色设定</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">测试轮数</label>
+            <input class="form-input" id="bl-testTurns" type="number" min="4" max="20" value="10"/>
+            <div class="form-hint">自检时模拟的对话轮数（越多越慢，4-20轮）</div>
+          </div>
+        </div>
+        <div class="form-group" style="margin-top:14px">
+          <label class="form-label">额外评审要求（可选）</label>
+          <textarea class="form-textarea" id="bl-customNote" placeholder="例：角色必须主动挑逗，不能等待用户推进；对话中必须出现专属口头禅至少两次…" rows="3"></textarea>
+        </div>
+        <div class="form-result" id="baselineResult"></div>
+      </div>
+
+      <div class="card" style="padding:24px">
+        <div style="font-size:15px;font-weight:700;margin-bottom:16px">权重说明</div>
+        <div style="font-size:13px;color:var(--text2);line-height:1.8">
+          各维度权重之和应为 100%。建议：<br>
+          • <strong>角色一致性</strong>（性格/口头禅）权重最高 — 这是核心差异化<br>
+          • <strong>剧情推进</strong> — 直接影响用户留存<br>
+          • <strong>吸引力/沉浸感</strong> — 次要但重要<br>
+          修改后点击「保存」，下次自检即生效。
+        </div>
+      </div>
+    </div>
+
     <!-- Logs -->
     <div class="page" id="page-logs">
       <div class="page-header">
@@ -458,6 +605,7 @@ function showPage(name) {
   if (name === 'logs' && !document.getElementById('logsContent').innerHTML.trim()) loadLogs();
   if (name === 'gallery') loadGallery();
   if (name === 'simulator') loadSimulatorChars();
+  if (name === 'baseline') loadBaselineForm();
 }
 
 // ── API helpers ───────────────────────────────────────────────────────────────
@@ -521,6 +669,10 @@ async function loadChars() {
   const rows = chars.map(c => {
     const imgs = Array.isArray(c.portraitImages) ? c.portraitImages : [];
     const thumbs = imgs.slice(0,3).map(url => `<img class="portrait-thumb" src="${esc(url)}" style="margin-right:4px;cursor:pointer" onclick="window.open('${esc(url)}','_blank')" onerror="this.style.display='none'"/>`).join('');
+    const qaBadge = c.qaStatus === 'passed'  ? `<span class="badge badge-green">✓ ${c.qaScore}</span>` :
+                    c.qaStatus === 'failed'  ? `<span class="badge badge-red">✗ ${c.qaScore}</span>` :
+                    c.qaStatus === 'running' ? `<span class="badge badge-running"><span class="spinning">⟳</span></span>` :
+                    `<span style="color:var(--hint);font-size:11px">—</span>`;
     return `<tr>
       <td><div class="char-name-cell">
         ${imgs.length ? thumbs : `<div class="portrait-placeholder">${c.avatarEmoji||'👤'}</div>`}
@@ -531,11 +683,16 @@ async function loadChars() {
       <td>${imgs.length ? `<span class="badge badge-green">✓ ${imgs.length} 张</span>` : `<span class="badge badge-red">✗ 无图</span>`}</td>
       <td>${c.isPublic ? '<span class="badge badge-green">公开</span>' : '<span class="badge badge-yellow">私密</span>'}</td>
       <td style="color:var(--hint);font-size:11px">${timeAgo(c.createdAt)}</td>
-      <td><button class="btn btn-danger" style="font-size:11px;padding:5px 10px" onclick="deleteChar('${c.id}','${esc(c.name)}')">删除</button></td>
-    </tr>`;
+      <td>${qaBadge}</td>
+      <td style="display:flex;gap:6px;align-items:center">
+        <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px" id="qa-btn-${c.id}" onclick="runQA('${c.id}','${esc(c.name)}',this)">🔍 自检</button>
+        <button class="btn btn-danger" style="font-size:11px;padding:5px 10px" onclick="deleteChar('${c.id}','${esc(c.name)}')">删除</button>
+      </td>
+    </tr>
+    <tr id="qa-row-${c.id}" style="display:none"><td colspan="8" style="padding:0 20px 12px"></td></tr>`;
   }).join('');
   document.getElementById('charsTable').innerHTML = `<table>
-    <thead><tr><th>角色 / 封面图</th><th>年龄</th><th>使用</th><th>图片</th><th>状态</th><th>创建</th><th></th></tr></thead>
+    <thead><tr><th>角色 / 封面图</th><th>年龄</th><th>使用</th><th>图片</th><th>状态</th><th>创建</th><th>自检</th><th></th></tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
 }
@@ -1017,6 +1174,222 @@ async function startSimulation() {
     btn.textContent = '▶ 开始模拟';
     btn.style.background = 'var(--grad)';
   }
+}
+
+// ── Create Character ──────────────────────────────────────────────────────────
+async function createCharacter() {
+  const btn = document.getElementById('createCharBtn');
+  const result = document.getElementById('createCharResult');
+  const get = id => document.getElementById(id).value.trim();
+
+  const body = {
+    name: get('cf-name'), age: parseInt(get('cf-age')),
+    gender: get('cf-gender'), occupation: get('cf-occupation'),
+    personality: get('cf-personality'), background: get('cf-background'),
+    speakingStyle: get('cf-speaking'),
+    avatarEmoji: get('cf-emoji') || '🌸',
+    openingScene: get('cf-opening') || undefined,
+    isPublic: document.getElementById('cf-public').value === 'true',
+  };
+
+  const missing = ['name','occupation','personality','background','speakingStyle'].filter(k => !body[k]);
+  if (!body.age || body.age < 18) missing.push('age (≥18)');
+  if (missing.length) {
+    result.className = 'form-result error'; result.style.display = '';
+    result.textContent = '请填写必填项：' + missing.join('、');
+    return;
+  }
+
+  btn.disabled = true; btn.textContent = '创建中…';
+  result.style.display = 'none';
+
+  try {
+    const r = await fetch(`${BASE}/api/admin/characters/create?key=${ADMIN_KEY}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      result.className = 'form-result success'; result.style.display = '';
+      result.innerHTML = `✓ 角色「${esc(d.character.name)}」已创建（ID: <code style="font-family:monospace">${d.character.id}</code>）<br>
+        <span style="color:var(--text2);font-size:12px">下一步：在 storyPhases.ts 添加剧情脚本，然后运行自检</span>
+        <br><button class="btn btn-ghost" style="margin-top:8px;font-size:12px"
+          onclick="showPage('characters');loadChars()">前往角色列表 → 运行自检</button>`;
+      loadChars(); loadStats();
+    } else {
+      result.className = 'form-result error'; result.style.display = '';
+      result.textContent = '创建失败：' + (d.error || '未知错误');
+    }
+  } catch(e) {
+    result.className = 'form-result error'; result.style.display = '';
+    result.textContent = '请求失败：' + e.message;
+  }
+  btn.disabled = false; btn.textContent = '创建角色';
+}
+
+// ── QA Self-Check ─────────────────────────────────────────────────────────────
+async function runQA(charId, charName, btn) {
+  const qaRow = document.getElementById(`qa-row-${charId}`);
+  const cell = qaRow.querySelector('td');
+
+  btn.disabled = true; btn.textContent = '⟳ 自检中…';
+
+  cell.innerHTML = `<div class="qa-report-panel">
+    <div style="font-weight:700;font-size:14px;margin-bottom:10px">🔍 ${esc(charName)} · 自检中</div>
+    <div id="qa-progress-${charId}" style="color:var(--text2);font-size:13px">正在模拟测试对话…</div>
+  </div>`;
+  qaRow.style.display = '';
+
+  try {
+    const resp = await fetch(`${BASE}/api/admin/characters/${charId}/qa?key=${ADMIN_KEY}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+    });
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n'); buffer = lines.pop() || '';
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const data = JSON.parse(line.slice(6));
+          if (data.type === 'progress') {
+            document.getElementById(`qa-progress-${charId}`).textContent = data.message;
+          } else if (data.type === 'done') {
+            renderQAReport(charId, charName, data.report, cell);
+            loadChars(); // refresh QA badge
+          } else if (data.type === 'error') {
+            cell.innerHTML = `<div style="color:var(--red);padding:12px;font-size:13px">❌ 自检失败：${esc(data.message)}</div>`;
+          }
+        } catch {}
+      }
+    }
+  } catch(e) {
+    cell.innerHTML = `<div style="color:var(--red);padding:12px;font-size:13px">请求失败：${esc(e.message)}</div>`;
+  }
+
+  btn.disabled = false; btn.textContent = '🔍 自检';
+}
+
+function renderQAReport(charId, charName, report, cell) {
+  const score = report.score ?? 0;
+  const passed = score >= 70;
+  const ringClass = score === 0 ? 'qa-score-none' : passed ? 'qa-score-pass' : 'qa-score-fail';
+  const statusLabel = passed ? '✓ 通过' : '✗ 未通过';
+  const statusColor = passed ? 'var(--green)' : 'var(--red)';
+
+  const catRows = Object.entries(report.categories || {}).map(([key, val]) => {
+    const s = val.score ?? 0;
+    const keyLabel = { personality: '角色一致性', escalation: '剧情推进', engagement: '吸引力', immersion: '沉浸感' }[key] || key;
+    return `<div class="qa-cat-row">
+      <div class="qa-cat-label">${esc(keyLabel)}</div>
+      <div class="qa-cat-bar-wrap"><div class="qa-cat-bar" style="width:${s}%"></div></div>
+      <div class="qa-cat-score" style="color:${s>=70?'var(--green)':s>=50?'var(--yellow)':'var(--red)'}">${s}</div>
+      <div style="flex:2;font-size:11px;color:var(--hint);padding-left:8px">${esc(val.comment||'')}</div>
+    </div>`;
+  }).join('');
+
+  const issues = (report.issues || []).map(i => `<li style="margin-bottom:4px">${esc(i)}</li>`).join('');
+  const suggestions = (report.suggestions || []).map(s => `<li style="margin-bottom:4px">${esc(s)}</li>`).join('');
+
+  cell.innerHTML = `<div class="qa-report-panel">
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
+      <div class="qa-score-ring ${ringClass}" style="width:52px;height:52px;font-size:18px">${score}</div>
+      <div>
+        <div style="font-weight:800;font-size:16px;color:${statusColor}">${statusLabel}</div>
+        <div style="font-size:13px;color:var(--text2);margin-top:2px">${esc(report.summary||'')}</div>
+      </div>
+    </div>
+    <div style="margin-bottom:14px">${catRows}</div>
+    ${issues ? `<div style="margin-bottom:10px"><div style="font-size:12px;font-weight:700;color:var(--red);margin-bottom:6px">⚠ 问题</div><ul style="padding-left:18px;font-size:12px;color:var(--text2)">${issues}</ul></div>` : ''}
+    ${suggestions ? `<div><div style="font-size:12px;font-weight:700;color:var(--yellow);margin-bottom:6px">💡 改进建议</div><ul style="padding-left:18px;font-size:12px;color:var(--text2)">${suggestions}</ul></div>` : ''}
+    <div style="margin-top:12px;display:flex;gap:8px">
+      <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px" onclick="document.getElementById('qa-row-${charId}').style.display='none'">收起</button>
+    </div>
+  </div>`;
+}
+
+// ── Baseline Settings ─────────────────────────────────────────────────────────
+let _baselineData = null;
+
+async function loadBaselineForm() {
+  document.getElementById('baselineCriteria').innerHTML = '<div class="loading"><span class="spinning">⟳</span> 加载中...</div>';
+  try {
+    const bl = await fetch(`${BASE}/api/admin/baseline?key=${ADMIN_KEY}`).then(r => r.json());
+    _baselineData = bl;
+    renderBaselineCriteria(bl);
+    document.getElementById('bl-minScore').value = bl.minPassScore ?? 70;
+    document.getElementById('bl-testTurns').value = bl.testTurns ?? 10;
+    document.getElementById('bl-customNote').value = bl.customNote || '';
+  } catch(e) {
+    document.getElementById('baselineCriteria').innerHTML = `<div style="color:var(--red);font-size:13px">加载失败：${esc(e.message)}</div>`;
+  }
+}
+
+function renderBaselineCriteria(bl) {
+  const keyLabel = { personality: '角色一致性', escalation: '剧情推进', engagement: '吸引力', immersion: '沉浸感' };
+  document.getElementById('baselineCriteria').innerHTML = (bl.criteria || []).map((c, i) => `
+    <div class="baseline-criterion">
+      <div class="baseline-crit-row">
+        <input class="form-input" style="font-size:13px;padding:7px 10px" value="${esc(c.key)}" id="bl-key-${i}" placeholder="key"/>
+        <div style="display:flex;align-items:center;gap:4px">
+          <input class="form-input" style="font-size:13px;padding:7px 10px;width:54px" type="number" min="0" max="100"
+            value="${c.weight}" id="bl-w-${i}"/>
+          <span style="font-size:12px;color:var(--hint)">%</span>
+        </div>
+        <input class="form-input" style="font-size:13px;padding:7px 10px" value="${esc(c.desc)}" id="bl-desc-${i}" placeholder="评审说明…"/>
+      </div>
+    </div>`).join('');
+}
+
+async function saveBaselineForm() {
+  const result = document.getElementById('baselineResult');
+  const n = (_baselineData?.criteria || []).length;
+  const criteria = Array.from({ length: n }, (_, i) => ({
+    key:    document.getElementById(`bl-key-${i}`).value.trim(),
+    weight: parseInt(document.getElementById(`bl-w-${i}`).value) || 0,
+    desc:   document.getElementById(`bl-desc-${i}`).value.trim(),
+  }));
+  const totalWeight = criteria.reduce((s, c) => s + c.weight, 0);
+  if (totalWeight !== 100) {
+    result.className = 'form-result error'; result.style.display = '';
+    result.textContent = `权重之和必须为 100（当前：${totalWeight}）`;
+    return;
+  }
+  const baseline = {
+    criteria,
+    minPassScore: parseInt(document.getElementById('bl-minScore').value) || 70,
+    testTurns: parseInt(document.getElementById('bl-testTurns').value) || 10,
+    customNote: document.getElementById('bl-customNote').value.trim() || undefined,
+  };
+  try {
+    await fetch(`${BASE}/api/admin/baseline?key=${ADMIN_KEY}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(baseline),
+    });
+    _baselineData = baseline;
+    result.className = 'form-result success'; result.style.display = '';
+    result.textContent = '✓ 已保存，下次自检将使用新标准';
+    setTimeout(() => result.style.display = 'none', 3000);
+  } catch(e) {
+    result.className = 'form-result error'; result.style.display = '';
+    result.textContent = '保存失败：' + e.message;
+  }
+}
+
+async function resetBaseline() {
+  if (!confirm('恢复默认基准？当前设置将被覆盖。')) return;
+  const bl = await fetch(`${BASE}/api/admin/baseline/default?key=${ADMIN_KEY}`).then(r => r.json());
+  _baselineData = bl;
+  renderBaselineCriteria(bl);
+  document.getElementById('bl-minScore').value = bl.minPassScore;
+  document.getElementById('bl-testTurns').value = bl.testTurns;
+  document.getElementById('bl-customNote').value = bl.customNote || '';
 }
 
 async function loadFullConv(convId, charName, btn) {
