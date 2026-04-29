@@ -1,15 +1,17 @@
 import { Router, Request, Response } from 'express';
-import crypto from 'crypto';
+import Stripe from 'stripe';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
 import { prisma } from '../utils/prisma';
 
 export const paymentRouter = Router();
 
-// Telegram Stars pricing tiers
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+
+// 套餐定义
 const TIERS = [
-  { stars: 50,  turns: 30,  label: '30次对话' },
-  { stars: 100, turns: 70,  label: '70次对话' },
-  { stars: 200, turns: 160, label: '160次对话' },
+  { id: 0, diamonds: 30,  usd: 2.99, label: '30颗钻石',  bonus: '' },
+  { id: 1, diamonds: 80,  usd: 6.99, label: '80颗钻石',  bonus: '🔥最受欢迎' },
+  { id: 2, diamonds: 200, usd: 14.99, label: '200颗钻石', bonus: '💎最划算' },
 ];
 
 // GET /api/payments/tiers
@@ -17,91 +19,119 @@ paymentRouter.get('/tiers', (_req: Request, res: Response) => {
   res.json(TIERS);
 });
 
-// POST /api/payments/create-invoice
-// Returns a Telegram invoice link via Bot API
-paymentRouter.post('/create-invoice', authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
-  const { tierIndex } = req.body;
+// GET /api/payments/balance — lightweight polling target after payment
+paymentRouter.get('/balance', authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
+  const user = await prisma.user.findUnique({
+    where: { id: req.userId! },
+    select: { paidCredits: true, freeCredits: true },
+  });
+  res.json({ diamonds: user?.paidCredits ?? 0, coins: user?.freeCredits ?? 0 });
+});
+
+// POST /api/payments/stripe/create-session
+paymentRouter.post('/stripe/create-session', authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
+  const { tierIndex } = req.body as { tierIndex: number };
   const tier = TIERS[tierIndex];
   if (!tier) { res.status(400).json({ error: 'Invalid tier' }); return; }
 
-  // Call Telegram Bot API to create invoice
-  const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
-  const payload = JSON.stringify({ userId: req.userId!, tier: tierIndex });
+  const FRONTEND_URL = process.env.FRONTEND_URL || 'https://siyuwanban.shangzongcai.com';
 
-  const invoiceRes = await fetch(
-    `https://api.telegram.org/bot${BOT_TOKEN}/createInvoiceLink`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        title: '购买对话次数',
-        description: `获得 ${tier.turns} 次AI角色对话机会`,
-        payload,
-        currency: 'XTR',         // Telegram Stars
-        prices: [{ label: tier.label, amount: tier.stars }],
-        provider_token: '',       // empty for Stars
-      }),
-    }
-  );
+  const session = await stripe.checkout.sessions.create({
+    payment_method_types: ['card'],
+    line_items: [{
+      price_data: {
+        currency: 'usd',
+        unit_amount: Math.round(tier.usd * 100),
+        product_data: {
+          name: `私欲玩伴 · ${tier.label}`,
+          description: `购买 ${tier.diamonds} 颗钻石，用于 AI 角色对话`,
+        },
+      },
+      quantity: 1,
+    }],
+    mode: 'payment',
+    success_url: `${FRONTEND_URL}?payment=success`,
+    cancel_url:  `${FRONTEND_URL}?payment=cancel`,
+    metadata: {
+      userId: req.userId!,
+      tierIndex: String(tierIndex),
+      diamonds: String(tier.diamonds),
+    },
+  });
 
-  const invoiceData = await invoiceRes.json() as { ok: boolean; result: string };
-  if (!invoiceData.ok) {
-    res.status(500).json({ error: 'Failed to create invoice' }); return;
-  }
-  res.json({ invoiceLink: invoiceData.result, tier });
+  res.json({ url: session.url, sessionId: session.id });
 });
 
-// POST /api/payments/webhook — Telegram Bot webhook for successful payments
-// This endpoint receives updates from Telegram (no auth required, verify secret)
-paymentRouter.post('/webhook', async (req: Request, res: Response): Promise<void> => {
-  const secretToken = req.headers['x-telegram-bot-api-secret-token'];
-  if (secretToken !== process.env.WEBHOOK_SECRET) {
-    res.status(403).json({ error: 'Forbidden' }); return;
-  }
+// POST /api/payments/stripe/webhook — Stripe sends signed events here
+// Must use raw body — see index.ts for express.raw() configuration
+paymentRouter.post('/stripe/webhook', async (req: Request, res: Response): Promise<void> => {
+  const sig = req.headers['stripe-signature'] as string;
+  let event: ReturnType<typeof stripe.webhooks.constructEvent>;
 
-  const update = req.body;
-
-  // Handle pre_checkout_query — must answer within 10s
-  if (update.pre_checkout_query) {
-    const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
-    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/answerPreCheckoutQuery`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        pre_checkout_query_id: update.pre_checkout_query.id,
-        ok: true,
-      }),
-    });
-    res.json({ ok: true });
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET!);
+  } catch (err: any) {
+    console.error('[Stripe webhook] signature verification failed:', err.message);
+    res.status(400).json({ error: 'Invalid signature' });
     return;
   }
 
-  // Handle successful_payment
-  const payment = update.message?.successful_payment;
-  if (!payment) { res.json({ ok: true }); return; }
+  if (event.type === 'checkout.session.completed') {
+    const session = event.data.object as any;
+    const { userId, diamonds } = session.metadata ?? {};
+    if (!userId || !diamonds) { res.json({ ok: true }); return; }
 
-  try {
-    const { userId, tier: tierIndex } = JSON.parse(payment.invoice_payload);
-    const tier = TIERS[tierIndex];
-    if (!tier) { res.json({ ok: true }); return; }
+    const diamondsNum = parseInt(diamonds, 10);
+    const sessionId = session.id;
+
+    // Idempotency: skip if already processed
+    const existing = await prisma.payment.findUnique({ where: { externalId: sessionId } });
+    if (existing) { res.json({ ok: true }); return; }
 
     await prisma.$transaction([
       prisma.payment.create({
         data: {
           userId,
-          telegramPayload: payment,
-          turnsGranted: tier.turns,
-          stars: tier.stars,
+          provider: 'stripe',
+          externalId: sessionId,
+          status: 'completed',
+          amountUsd: (session.amount_total ?? 0) / 100,
+          currency: session.currency ?? 'usd',
+          diamondsGranted: diamondsNum,
+          metadata: { stripeSession: session.id, customerEmail: session.customer_email },
         },
       }),
       prisma.user.update({
         where: { id: userId },
-        data: { paidCredits: { increment: tier.turns } },
+        data: { paidCredits: { increment: diamondsNum } },
       }),
     ]);
-  } catch (err) {
-    console.error('Payment processing error:', err);
+
+    console.log(`[Payment] Stripe: user=${userId} +${diamondsNum} diamonds`);
   }
 
   res.json({ ok: true });
+});
+
+// POST /api/payments/exchange-coins — 10金币 = 1钻石
+paymentRouter.post('/exchange-coins', authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
+  const { amount } = req.body as { amount: number };
+  if (!amount || amount < 10 || amount % 10 !== 0) {
+    res.status(400).json({ error: '最少兑换10金币，必须是10的倍数' }); return;
+  }
+
+  const diamonds = Math.floor(amount / 10);
+
+  try {
+    const updated = await prisma.user.update({
+      where: { id: req.userId!, freeCredits: { gte: amount } },
+      data: {
+        freeCredits: { decrement: amount },
+        paidCredits: { increment: diamonds },
+      },
+    });
+    res.json({ ok: true, coinsSpent: amount, diamondsReceived: diamonds, newCoins: updated.freeCredits, newDiamonds: updated.paidCredits });
+  } catch {
+    res.status(400).json({ error: '金币不足' });
+  }
 });

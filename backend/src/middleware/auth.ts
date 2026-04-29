@@ -9,6 +9,7 @@ const JWT_SECRET = process.env.JWT_SECRET!;
 export interface AuthRequest extends Request {
   userId?: string;
   telegramId?: bigint;
+  isAnon?: boolean;
 }
 
 // Validate Telegram WebApp initData hash
@@ -52,9 +53,10 @@ export async function authMiddleware(
   }
   try {
     const token = authHeader.slice(7);
-    const payload = jwt.verify(token, JWT_SECRET) as { userId: string; telegramId: string };
+    const payload = jwt.verify(token, JWT_SECRET) as { userId: string; telegramId: string; isAnon?: boolean };
     req.userId = payload.userId;
     req.telegramId = BigInt(payload.telegramId);
+    req.isAnon = payload.isAnon === true;
     next();
   } catch {
     res.status(401).json({ error: 'Invalid token' });
@@ -68,20 +70,45 @@ export async function getOrCreateUser(telegramUser: {
   last_name?: string;
   photo_url?: string;
 }) {
-  return prisma.user.upsert({
-    where: { telegramId: BigInt(telegramUser.id) },
-    update: {
-      username: telegramUser.username,
-      firstName: telegramUser.first_name,
-      lastName: telegramUser.last_name,
-      photoUrl: telegramUser.photo_url,
-    },
-    create: {
-      telegramId: BigInt(telegramUser.id),
-      username: telegramUser.username,
-      firstName: telegramUser.first_name,
-      lastName: telegramUser.last_name,
-      photoUrl: telegramUser.photo_url,
+  const existing = await prisma.user.findUnique({ where: { telegramId: BigInt(telegramUser.id) } });
+
+  if (existing) {
+    return prisma.user.update({
+      where: { id: existing.id },
+      data: {
+        username: telegramUser.username,
+        firstName: telegramUser.first_name,
+        lastName: telegramUser.last_name,
+        photoUrl: telegramUser.photo_url,
+      },
+    });
+  }
+
+  // New user — grant 10 diamonds as registration bonus
+  const [user] = await prisma.$transaction([
+    prisma.user.create({
+      data: {
+        telegramId: BigInt(telegramUser.id),
+        username: telegramUser.username,
+        firstName: telegramUser.first_name,
+        lastName: telegramUser.last_name,
+        photoUrl: telegramUser.photo_url,
+        isAnonymous: false,
+        paidCredits: 10,
+      },
+    }),
+  ]);
+
+  await prisma.payment.create({
+    data: {
+      userId: user.id,
+      provider: 'admin',
+      status: 'completed',
+      amountUsd: 0,
+      diamondsGranted: 10,
+      metadata: { type: 'registration_bonus' },
     },
   });
+
+  return user;
 }

@@ -3,12 +3,12 @@ import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-
 import { useAuth } from './hooks/useAuth';
 import { DiscoverPage } from './pages/DiscoverPage';
 import { MyCharsPage } from './pages/MyCharsPage';
-import { WizardPage } from './pages/WizardPage';
 import { ChatPage } from './pages/ChatPage';
 import { CharacterProfilePage } from './pages/CharacterProfilePage';
 import { ProfilePage } from './pages/ProfilePage';
 import { LeaderboardPage } from './pages/LeaderboardPage';
 import { CheckInModal } from './components/CheckInModal';
+import { NicknameModal } from './components/NicknameModal';
 
 const NAV = [
   {
@@ -18,8 +18,8 @@ const NAV = [
       <svg width="22" height="22" viewBox="0 0 24 24" fill={active ? 'url(#grad)' : 'none'} stroke={active ? 'url(#grad)' : 'currentColor'} strokeWidth="1.8">
         <defs>
           <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#ff3d7f"/>
-            <stop offset="100%" stopColor="#c026d3"/>
+            <stop offset="0%" stopColor="#e8356c"/>
+            <stop offset="100%" stopColor="#9a1258"/>
           </linearGradient>
         </defs>
         <rect x="3" y="3" width="7" height="7" rx="1.5"/>
@@ -36,8 +36,8 @@ const NAV = [
       <svg width="22" height="22" viewBox="0 0 24 24" fill={active ? 'url(#grad2)' : 'none'} stroke={active ? 'url(#grad2)' : 'currentColor'} strokeWidth="1.8">
         <defs>
           <linearGradient id="grad2" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#ff3d7f"/>
-            <stop offset="100%" stopColor="#c026d3"/>
+            <stop offset="0%" stopColor="#e8356c"/>
+            <stop offset="100%" stopColor="#9a1258"/>
           </linearGradient>
         </defs>
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
@@ -51,8 +51,8 @@ const NAV = [
       <svg width="22" height="22" viewBox="0 0 24 24" fill={active ? 'url(#grad3)' : 'none'} stroke={active ? 'url(#grad3)' : 'currentColor'} strokeWidth="1.8">
         <defs>
           <linearGradient id="grad3" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#ff3d7f"/>
-            <stop offset="100%" stopColor="#c026d3"/>
+            <stop offset="0%" stopColor="#e8356c"/>
+            <stop offset="100%" stopColor="#9a1258"/>
           </linearGradient>
         </defs>
         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
@@ -62,7 +62,7 @@ const NAV = [
   },
 ];
 
-const HIDE_NAV = ['/wizard', '/chat/', '/character/'];
+const HIDE_NAV = ['/chat/', '/character/'];
 const CHECKIN_KEY = 'sywb_last_checkin_shown';
 
 export default function App() {
@@ -70,14 +70,13 @@ export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
   const [showCheckIn, setShowCheckIn] = useState(false);
+  const [nicknameSkipped, setNicknameSkipped] = useState(() => !!localStorage.getItem('nickname_skipped'));
 
-  // Show check-in modal once per day after login
   useEffect(() => {
     if (!user) return;
     const lastShown = localStorage.getItem(CHECKIN_KEY);
     const today = new Date().toDateString();
     if (lastShown !== today) {
-      // Delay to let app load first
       const t = setTimeout(() => {
         setShowCheckIn(true);
         localStorage.setItem(CHECKIN_KEY, today);
@@ -95,13 +94,21 @@ export default function App() {
     return (
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        height: '100vh', background: '#0d0d12', flexDirection: 'column', gap: 16,
+        height: '100vh', background: '#09090f', flexDirection: 'column', gap: 20,
       }}>
-        <div style={{ fontSize: 48 }}>💋</div>
         <div style={{
-          fontSize: 13, letterSpacing: 4, fontWeight: 300,
-          background: 'linear-gradient(135deg,#ff3d7f,#c026d3)',
+          width: 56, height: 56, borderRadius: '50%',
+          background: 'linear-gradient(135deg, #e8356c, #9a1258)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0 0 32px rgba(232,53,108,0.4)',
+        }}>
+          <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'rgba(255,255,255,0.3)' }} />
+        </div>
+        <div style={{
+          fontSize: 11, letterSpacing: 6, fontWeight: 400,
+          background: 'linear-gradient(135deg,#e8356c,#9a1258)',
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+          textTransform: 'uppercase',
         }}>私欲玩伴</div>
       </div>
     );
@@ -111,11 +118,15 @@ export default function App() {
     return (
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        height: '100vh', background: '#0d0d12', padding: 24,
+        height: '100vh', background: '#09090f', padding: 24,
       }}>
         <div style={{ textAlign: 'center', color: '#606070' }}>
-          <div style={{ fontSize: 36, marginBottom: 12 }}>⚠️</div>
-          <div style={{ color: '#f0f0f8' }}>{error}</div>
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ marginBottom: 12, opacity: 0.5 }}>
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <div style={{ color: '#eee8f6' }}>{error}</div>
         </div>
       </div>
     );
@@ -129,8 +140,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<DiscoverPage />} />
           <Route path="/mine" element={<MyCharsPage user={user!} />} />
-          <Route path="/wizard" element={<WizardPage />} />
-          <Route path="/character/:characterId" element={<CharacterProfilePage />} />
+<Route path="/character/:characterId" element={<CharacterProfilePage />} />
           <Route path="/chat/:characterId" element={<ChatPage user={user!} onCreditsUpdate={updateCredits} />} />
           <Route path="/profile" element={<ProfilePage user={user!} setUser={setUser} />} />
           <Route path="/leaderboard" element={<LeaderboardPage />} />
@@ -160,6 +170,13 @@ export default function App() {
       )}
 
       {showCheckIn && <CheckInModal onClose={handleCheckInClose} />}
+
+      {user && !user.nickname && !showCheckIn && !nicknameSkipped && (
+        <NicknameModal
+          onDone={nickname => setUser(prev => prev ? { ...prev, nickname } : prev)}
+          onSkip={() => { localStorage.setItem('nickname_skipped', '1'); setNicknameSkipped(true); }}
+        />
+      )}
     </div>
   );
 }

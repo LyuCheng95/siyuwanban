@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { prisma } from '../utils/prisma';
+import { authMiddleware, AuthRequest } from '../middleware/auth';
 
 export const authRouter = Router();
 
@@ -28,11 +29,14 @@ authRouter.post('/anonymous', async (req: Request, res: Response): Promise<void>
       telegramId: anonId,
       username: `anon_${hash.slice(0, 8)}`,
       firstName: '匿名用户',
+      isAnonymous: true,
+      paidCredits: 0,
+      freeCredits: 0,
     },
   });
 
   const token = jwt.sign(
-    { userId: user.id, telegramId: user.telegramId.toString() },
+    { userId: user.id, telegramId: user.telegramId.toString(), isAnon: true },
     JWT_SECRET,
     { expiresIn: '90d' }
   );
@@ -43,8 +47,10 @@ authRouter.post('/anonymous', async (req: Request, res: Response): Promise<void>
       id: user.id,
       username: user.username,
       firstName: user.firstName,
+      nickname: user.nickname ?? null,
       freeCredits: user.freeCredits,
       paidCredits: user.paidCredits,
+      isAnonymous: true,
     },
   });
 });
@@ -75,8 +81,23 @@ authRouter.post('/telegram', async (req: Request, res: Response): Promise<void> 
       id: user.id,
       username: user.username,
       firstName: user.firstName,
+      nickname: user.nickname ?? null,
       freeCredits: user.freeCredits,
       paidCredits: user.paidCredits,
+      isAnonymous: false,
     },
   });
+});
+
+// PATCH /api/auth/nickname — save user's chosen in-app nickname
+authRouter.patch('/nickname', authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
+  const { nickname } = req.body as { nickname: string };
+  if (!nickname?.trim() || nickname.trim().length > 20) {
+    res.status(400).json({ error: 'nickname must be 1-20 chars' }); return;
+  }
+  await prisma.user.update({
+    where: { id: req.userId! },
+    data: { nickname: nickname.trim() },
+  });
+  res.json({ ok: true, nickname: nickname.trim() });
 });

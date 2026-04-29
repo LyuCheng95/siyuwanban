@@ -30,7 +30,21 @@ function intimacyColor(n: number): string {
   if (n < 30) return '#6366f1';
   if (n < 60) return '#a855f7';
   if (n < 85) return '#ec4899';
-  return '#ff3d7f';
+  return '#e8356c';
+}
+
+function CharInitial({ name, size = 52 }: { name: string; size?: number }) {
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: '50%',
+      background: 'linear-gradient(135deg, #2a0840, #6a1060)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontSize: size * 0.4, fontWeight: 700, color: 'rgba(255,255,255,0.5)',
+      letterSpacing: 0,
+    }}>
+      {name.slice(0, 1)}
+    </div>
+  );
 }
 
 export function MyCharsPage({ user }: Props) {
@@ -50,24 +64,30 @@ export function MyCharsPage({ user }: Props) {
       {/* Header */}
       <div style={{ padding: '20px 14px 8px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
         <div>
-          <div style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 4 }}>
-            {user.firstName || '你'} 的聊天
+          <div style={{ fontSize: 12, color: 'var(--text-hint)', marginBottom: 4, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+            {user.firstName || '你'} 的
           </div>
-          <div style={{ fontSize: 22, fontWeight: 800 }}>聊天记录</div>
+          <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em' }}>聊天记录</div>
         </div>
         <button
           className="btn btn-primary btn-sm"
           onClick={() => navigate('/')}
           style={{ marginBottom: 4 }}
-        >+ 发现角色</button>
+        >发现角色</button>
       </div>
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-hint)' }}>加载中...</div>
+        <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
+          <div className="loading-ring" />
+        </div>
       ) : history.length === 0 ? (
         <div className="empty-state" style={{ marginTop: 60 }}>
-          <div className="emoji">💬</div>
-          <div style={{ fontWeight: 600, color: 'var(--text)' }}>还没有聊天记录</div>
+          <div className="empty-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: 'var(--text-hint)' }}>
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+          </div>
+          <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: 15 }}>还没有聊天记录</div>
           <div style={{ fontSize: 13, color: 'var(--text-2)' }}>去广场找一个她，开始你们的故事</div>
           <button className="btn btn-primary" onClick={() => navigate('/')}>去广场</button>
         </div>
@@ -94,8 +114,10 @@ function HistoryCard({ item, onClick, onProfile }: {
 }) {
   const { character, lastMessage, mood, intimacy, updatedAt, totalTurns } = item;
   const preview = lastMessage
-    ? (lastMessage.role === 'user' ? '你：' : '') + lastMessage.content.slice(0, 40) + (lastMessage.content.length > 40 ? '…' : '')
+    ? (lastMessage.role === 'user' ? '你：' : '') + lastMessage.content.replace(/[\u{1F300}-\u{1FFFF}\u{2600}-\u{27FF}]/gu, '').slice(0, 40) + (lastMessage.content.length > 40 ? '…' : '')
     : '点击继续聊天';
+
+  const moodClean = mood?.replace(/[\u{1F300}-\u{1FFFF}\u{2600}-\u{27FF}]/gu, '').trim() || '';
 
   return (
     <div
@@ -111,10 +133,7 @@ function HistoryCard({ item, onClick, onProfile }: {
     >
       {/* Avatar */}
       <div
-        style={{
-          position: 'relative', flexShrink: 0,
-          width: 52, height: 52,
-        }}
+        style={{ position: 'relative', flexShrink: 0, width: 52, height: 52 }}
         onClick={e => { e.stopPropagation(); onProfile(); }}
       >
         {character.portraitUrl ? (
@@ -124,56 +143,52 @@ function HistoryCard({ item, onClick, onProfile }: {
             style={{ width: 52, height: 52, borderRadius: '50%', objectFit: 'cover', objectPosition: 'top' }}
           />
         ) : (
-          <div style={{
-            width: 52, height: 52, borderRadius: '50%',
-            background: 'linear-gradient(135deg, #3d1a4a, #7c1a6a)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26,
-          }}>{character.avatarEmoji}</div>
+          <CharInitial name={character.name} size={52} />
         )}
-        {/* Online dot */}
         <div style={{
           position: 'absolute', bottom: 2, right: 2,
-          width: 10, height: 10, borderRadius: '50%',
-          background: '#4ade80', border: '2px solid var(--bg)',
-          boxShadow: '0 0 4px rgba(74,222,128,0.7)',
+          width: 9, height: 9, borderRadius: '50%',
+          background: '#3dd68c', border: '2px solid var(--bg)',
+          boxShadow: '0 0 4px rgba(61,214,140,0.6)',
         }} />
       </div>
 
       {/* Content */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
-          <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text)' }}>{character.name}</div>
-          <div style={{ fontSize: 11, color: 'var(--text-hint)', flexShrink: 0, marginLeft: 8 }}>
+          <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text)', letterSpacing: '0.01em' }}>{character.name}</div>
+          <div style={{ fontSize: 10, color: 'var(--text-hint)', flexShrink: 0, marginLeft: 8, letterSpacing: '0.03em' }}>
             {timeAgo(updatedAt)}
           </div>
         </div>
         <div style={{
           fontSize: 13, color: 'var(--text-2)',
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          marginBottom: 4,
+          marginBottom: 5,
         }}>{preview}</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {/* Intimacy pill */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
           <div style={{
-            display: 'flex', alignItems: 'center', gap: 3,
+            display: 'flex', alignItems: 'center', gap: 4,
             fontSize: 10, color: intimacyColor(intimacy),
-            background: `${intimacyColor(intimacy)}18`,
-            border: `1px solid ${intimacyColor(intimacy)}30`,
-            borderRadius: 10, padding: '2px 7px',
+            background: `${intimacyColor(intimacy)}15`,
+            border: `1px solid ${intimacyColor(intimacy)}28`,
+            borderRadius: 10, padding: '2px 8px',
+            letterSpacing: '0.04em',
           }}>
-            <span>💛</span>
+            <span style={{ width: 4, height: 4, borderRadius: '50%', background: intimacyColor(intimacy), display: 'inline-block' }} />
             <span>{intimacyLabel(intimacy)}</span>
-            <span style={{ opacity: 0.6 }}>{intimacy}</span>
+            <span style={{ opacity: 0.5 }}>{intimacy}</span>
           </div>
-          {/* Mood */}
-          <div style={{ fontSize: 11, color: 'var(--text-hint)' }}>{mood}</div>
-          <div style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-hint)' }}>
-            {totalTurns}轮
+          {moodClean && (
+            <div style={{ fontSize: 11, color: 'var(--text-hint)' }}>{moodClean}</div>
+          )}
+          <div style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--text-hint)', letterSpacing: '0.05em' }}>
+            {totalTurns} 轮
           </div>
         </div>
       </div>
 
-      <div style={{ color: 'var(--text-hint)', fontSize: 18, flexShrink: 0, marginLeft: 4 }}>›</div>
+      <div style={{ color: 'var(--text-hint)', fontSize: 16, flexShrink: 0, marginLeft: 4 }}>›</div>
     </div>
   );
 }

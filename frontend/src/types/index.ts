@@ -4,8 +4,18 @@ export interface User {
   firstName?: string;
   lastName?: string;
   photoUrl?: string;
+  nickname?: string | null;
   freeCredits: number;
   paidCredits: number;
+  isAnonymous?: boolean;
+}
+
+export interface PaymentTier {
+  id: number;
+  diamonds: number;
+  usd: number;
+  label: string;
+  bonus: string;
 }
 
 export interface Character {
@@ -36,7 +46,10 @@ export interface Message {
   content: string;
   imageUrl?: string;
   imagePrompt?: string;
+  imageTwoShot?: boolean;
   imageGenerating?: boolean;
+  streaming?: boolean;  // currently receiving chunks — show dots, hide text
+  fresh?: boolean;      // just received — animate paragraphs in
 }
 
 export interface Conversation {

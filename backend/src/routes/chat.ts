@@ -96,13 +96,17 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
 
   if (!message?.trim()) { res.status(400).json({ error: 'message required' }); return; }
 
+  // Anonymous users cannot chat — must log in via Telegram
+  if (req.isAnon) {
+    res.status(403).json({ error: 'login_required', message: '请先登录Telegram账号才能聊天' }); return;
+  }
+
   const user = await prisma.user.findUnique({ where: { id: req.userId! } });
   if (!user) { res.status(401).json({ error: 'User not found' }); return; }
 
-  // TODO: re-enable payment check before launch
-  // if (user.freeCredits <= 0 && user.paidCredits <= 0) {
-  //   res.status(402).json({ error: 'No credits' }); return;
-  // }
+  if (user.paidCredits <= 0) {
+    res.status(402).json({ error: 'insufficient_diamonds', diamonds: 0 }); return;
+  }
 
   const character = await prisma.character.findUnique({ where: { id: characterId as string } });
   if (!character) { res.status(404).json({ error: 'Character not found' }); return; }
@@ -118,7 +122,12 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
   const userMemory = (conversation?.userMemory as Record<string, unknown>) ?? {};
 
   // Build messages for Grok
-  const systemPrompt = buildCharacterSystemPrompt(character, userMemory);
+  const recentAiReplies = existingContext
+    .filter(m => m.role === 'assistant')
+    .slice(-3)
+    .reverse()
+    .map(m => m.content);
+  const systemPrompt = buildCharacterSystemPrompt(character, userMemory, recentAiReplies, user.nickname);
   const contextWindow = existingContext.slice(-CONTEXT_WINDOW);
   const messages: Message[] = [
     { role: 'system', content: systemPrompt },
@@ -188,6 +197,7 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
     _unlockedActs: newUnlockedActs,
     _phaseIndex: newPhaseIndex,
     _questionCount: newQuestionCount,
+    _totalTurns: ((userMemory as any)._totalTurns ?? 0) + 1,
   };
 
   // Persist conversation + check image scene concurrently
@@ -197,7 +207,9 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
   ];
 
   const [imageDecision, [updatedConversation, updatedUser]] = await Promise.all([
-    shouldGenerateImage(character.name, recentForImage, character, newIntimacy),
+    (meta.genImg && meta.imgPrompt)
+      ? Promise.resolve({ generate: true, prompt: meta.imgPrompt, twoShot: newPhaseIndex >= 2 })
+      : shouldGenerateImage(character.name, recentForImage, character, newIntimacy, newUnlockedActs) as Promise<{ generate: boolean; prompt?: string; twoShot?: boolean }>,
     Promise.all([
       conversation
         ? prisma.conversation.update({
@@ -217,7 +229,10 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
               userMemory: updatedUserMemory as object,
             },
           }),
-      Promise.resolve(user),
+      prisma.user.update({
+        where: { id: req.userId!, paidCredits: { gt: 0 } },
+        data: { paidCredits: { decrement: 1 } },
+      }),
       prisma.character.update({
         where: { id: characterId as string },
         data: { usageCount: { increment: 1 } },
@@ -235,6 +250,7 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
     desire: newDesire,
     attach: newAttach,
     imagePrompt: imageDecision.generate ? imageDecision.prompt : null,
+    imageTwoShot: imageDecision.generate ? (imageDecision.twoShot ?? false) : false,
     phase: newPhaseIndex,
     questionCount: newQuestionCount,
   })}\n\n`);

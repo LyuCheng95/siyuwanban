@@ -10,7 +10,7 @@
 - **后端**：Node.js + Express + TypeScript
 - **数据库**：PostgreSQL + Prisma ORM
 - **AI**：Grok API（xAI，model: `grok-3`，OpenAI 兼容接口）
-- **图片生成**：本地 ComfyUI（三模型策略，见下文）
+- **图片生成**：本地 ComfyUI（四模型策略，见下文）
 - **支付**：Telegram Stars（内置支付）
 - **部署**：DigitalOcean Droplet（新加坡）+ Nginx + PM2
 
@@ -235,18 +235,30 @@ POST /api/admin/set-portrait?key=...  { characterId, portraitUrl }
 
 ## 图片系统
 
-### 三模型策略（ComfyUI）
+### 四模型策略（ComfyUI）
 
 | 模型 | 常量 | 适用角色 | 风格 |
 |------|------|---------|------|
 | `juggernautXL_juggXIByRundiffusion.safetensors` | `MODEL_JUGGER` | 沈静、晓彤 | 写实-高端 |
 | `leosamsHelloworldXL_helloworldXL70.safetensors` | `MODEL_LEOSAM` | 椎名老师、娜娜、小雨、琉璃、小慧、阿柒、糖糖、晴晴、夜玲、唐诗 | 写实-细腻白瘦幼 |
 | `noobaiXLNAIXL_epsilonPred11Version.safetensors` | `MODEL_NOOB` | X-23、幻音、狐九、冷霜、魅罗 | 二次元 Illustrious |
+| `ponyDiffusionV6XL_v6StartWithThisOne.safetensors` | `MODEL_PONY` | 桃桃 | 甜系动漫 Pony |
 
 **提示词前缀规则**：
 - Juggernaut/LEOSAM：`(photorealistic:1.4), (hyperrealistic:1.3), RAW photo, 8k uhd, masterpiece, ...`
 - NoobAI：`masterpiece, best quality, amazing quality, very aesthetic, newest, ultra detailed, source_anime, ...`
   - ⚠️ **不要用** `score_9, score_8_up`（Pony Diffusion 专用，NoobAI 不识别）
+- Pony：`score_9, score_8_up, score_7_up, score_6_up, masterpiece, best quality, ultra detailed, ...`
+  - CFG=6.0，steps=25，采样器 dpmpp_2m + karras
+
+### ComfyUI 生成参数（两步 Hires Fix）
+- 初始：768×1024，denoise=1.0，25步（NoobAI 28步）
+- Hires：×1.25 上采样 → 960×1280，denoise=0.55，15步（NoobAI 跳过）
+- 采样器：dpmpp_2m + karras
+
+### ComfyUI 端口
+本地 Windows 机器：**8188**（之前误记为 7188）
+SSH 反向隧道：`ssh -R 8188:localhost:8188 root@168.144.108.9`
 
 ### 角色图片存储
 - 图片文件存放：`/var/www/siyuwanban/images/`
@@ -298,7 +310,7 @@ scp D:\SD\siyuwanban\avatars\* root@168.144.108.9:/var/www/siyuwanban/images/
 
 ---
 
-## 预设角色列表（17个，均已在数据库中，isPublic=true）
+## 预设角色列表（18个，均已在数据库中，isPublic=true）
 | 角色 | 类别 | 图片模型 |
 |------|------|---------|
 | 椎名老师 | 禁忌 | LEOSAM |
@@ -318,10 +330,30 @@ scp D:\SD\siyuwanban\avatars\* root@168.144.108.9:/var/www/siyuwanban/images/
 | 狐九 | 妖魔 | NoobAI |
 | 冷霜 | 妖魔 | NoobAI |
 | 魅罗 | 妖魔 | NoobAI |
+| 桃桃 | 学妹 | Pony |
 
 **已隐藏角色**（isPublic=false）：林晓雅、沈曼、林阿姨、程双、苏然、程雨、夜瑶、星澜、零
 
 ---
+
+## 本地 LoRA 列表（D:\SD\ComfyUI\models\loras\）
+
+| 文件 | 基础模型 | 用途 | 触发条件 |
+|------|---------|------|---------|
+| `add-detail-xl.safetensors` | SDXL | 细节增强 | 所有 SDXL 角色 always |
+| `nudify_xl_lite.safetensors` | SDXL | 裸露强化 | naked/nude/nipple/penetration 等 |
+| `MissionaryVaginal-v1-SDXL.safetensors` | SDXL | 传教士体位 | missionary/legs up |
+| `dggy.safetensors` | SDXL | 后入体位 | doggy/from behind |
+| `rvcg.safetensors` | SDXL | 骑乘体位 | cowgirl/riding on top |
+| `cockteaseLoRASDXL.safetensors` | SDXL | 挑逗前戏 | handjob/stroking（无插入） |
+| `PornMaster-cum-sdxl-V3-lora.safetensors` | SDXL | 精液/潮吹 | cum/creampie/ahegao |
+| `Tongue out_SDXL.safetensors` | SDXL | 舌头/ahegao | tongue/ahegao/moaning |
+| `Paizuri_Base_pony-000049.safetensors` | Pony | 乳交 | paizuri/titjob/between breasts |
+| `Armpitsex-IL_NAI.safetensors` | Illustrious | 腋交 | armpit（NoobAI 专用） |
+| `badanatomy_SDXL_negative_LORA_AutismMix_v1.safetensors` | Pony | 解剖学修复（负向） | Pony 模型负向提示词 |
+| `innievag.safetensors` | 未知 | 阴部细节 | 待确认兼容性 |
+| `mix4.safetensors` | SD 1.5 | 写实感 | 不兼容 SDXL/Pony |
+| `sex_and_kissing.safetensors` | 未知 | 亲吻+性交 | 已停用 |
 
 ## 当前状态（2026-04-29）
 - ✅ 后端运行中（PM2）
@@ -335,7 +367,11 @@ scp D:\SD\siyuwanban\avatars\* root@168.144.108.9:/var/www/siyuwanban/images/
 - ✅ 图片三模型策略（Juggernaut / LEOSAM / NoobAI）
 - ✅ 聊天内嵌场景图（comfyui.ts，按角色路由模型）
 - ✅ 9个低质量角色已隐藏（isPublic=false）
-- ⚠️ NoobAI 模型需要 CivitAI API Key 才能下载（NoobAI 角色暂用 LEOSAM fallback）
+- ✅ Pony Diffusion V6 XL 支持已添加（桃桃角色专用）
+- ✅ ComfyUI 端口已统一为 8188（本地+服务器）
+- ✅ Hires Fix 两步生成已启用（SDXL/Pony：25步+15步，denoise 0.55）
+- ✅ 桃桃角色已创建（数据库+完整剧情+面部锚点）
+- ⚠️ 桃桃尚未生成写真集和头像
 - ⚠️ 写真图片尚未重新生成（旧模型生成的图已过时）
 - ⚠️ 头像尚未生成（generateAvatars.ts 需先 npx prisma generate）
 
@@ -377,7 +413,7 @@ scp D:\SD\siyuwanban\avatars\* root@168.144.108.9:/var/www/siyuwanban/images/
 CFG=6.5，steps=30，采样器 dpm_2_ancestral + karras。
 
 ### ComfyUI 端口
-本地 Windows 机器上 ComfyUI 监听 `127.0.0.1:7188`（非默认8188），环境变量 `COMFYUI_URL=http://localhost:7188`。
+本地 Windows 机器上 ComfyUI 监听 `127.0.0.1:8188`，环境变量 `COMFYUI_URL=http://localhost:8188`。服务器 .env 也已更新为 8188。
 
 ### SSH 连接 Windows
 用 PowerShell，路径带空格要加引号：  

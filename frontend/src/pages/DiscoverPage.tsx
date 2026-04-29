@@ -3,32 +3,26 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import type { Character } from '../types';
 
-// 每个角色精确归类（硬编码，不依赖文本模糊匹配）
 const CHARACTER_CATEGORY: Record<string, string> = {
-  // 御姐：冷艳自信
   '沈静': '御姐', '唐诗': '御姐',
-  // 学妹：年轻活泼
   '晓彤': '学妹', '娜娜': '学妹', '小雨': '学妹',
   '琉璃': '学妹', '晴晴': '学妹', '阿柒': '学妹', '糖糖': '学妹',
-  // 禁忌：职业身份禁忌（老师/护士/暗黑）
   '椎名老师': '禁忌', '小慧': '禁忌', '夜玲': '禁忌',
-  // 妖魔：妖/魔
   '狐九': '妖魔', '魅罗': '妖魔', '冷霜': '妖魔',
-  // 科幻：赛博/AI
   'X-23': '科幻', '幻音': '科幻',
 };
 
 const CATEGORIES = ['全部', '御姐', '学妹', '禁忌', '妖魔', '科幻'];
 
 const GRADIENTS = [
-  'linear-gradient(145deg, #2d0a3e, #6b1560)',
-  'linear-gradient(145deg, #0a1a3e, #1a3a6e)',
-  'linear-gradient(145deg, #3e0a0a, #6e2020)',
-  'linear-gradient(145deg, #0a2e1a, #1a5030)',
-  'linear-gradient(145deg, #1a0a3e, #4a1060)',
-  'linear-gradient(145deg, #2e1a0a, #5a3010)',
-  'linear-gradient(145deg, #0a2a2e, #104050)',
-  'linear-gradient(145deg, #2e0a20, #601040)',
+  'linear-gradient(160deg, #2d0a3e, #6b1560)',
+  'linear-gradient(160deg, #0a1a3e, #1a3a6e)',
+  'linear-gradient(160deg, #3e0a0a, #6e2020)',
+  'linear-gradient(160deg, #0a2e1a, #1a5030)',
+  'linear-gradient(160deg, #1a0a3e, #4a1060)',
+  'linear-gradient(160deg, #2e1a0a, #5a3010)',
+  'linear-gradient(160deg, #0a2a2e, #104050)',
+  'linear-gradient(160deg, #2e0a20, #601040)',
 ];
 
 function cardGradient(id: string) {
@@ -83,30 +77,35 @@ export function DiscoverPage() {
     <div className="page">
       {/* Header */}
       <div style={{
-        padding: '18px 16px 12px',
-        display: 'flex', alignItems: 'center', gap: 10,
-        background: 'linear-gradient(180deg, rgba(60,10,80,0.6) 0%, transparent 100%)',
+        padding: '16px 16px 10px',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         flexShrink: 0,
       }}>
-        {/* Logo 文字徽标 */}
-        <div style={{
-          width: 36, height: 36, borderRadius: 10, flexShrink: 0,
-          background: 'linear-gradient(135deg, #ff3d7f, #c026d3)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 18, boxShadow: '0 2px 12px rgba(255,61,127,0.4)',
-        }}>💋</div>
-        <div>
-          <div style={{ fontWeight: 800, fontSize: 18, letterSpacing: '-0.5px', lineHeight: 1.1 }}>
-            私欲<span style={{ color: 'var(--accent)' }}>广场</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{
+            width: 34, height: 34, borderRadius: 9, flexShrink: 0,
+            background: 'linear-gradient(135deg, #ff3d7f, #c026d3)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 2px 12px rgba(255,61,127,0.35)',
+          }}>
+            <span style={{ color: 'white', fontWeight: 900, fontSize: 13, letterSpacing: '-0.5px' }}>私欲</span>
           </div>
-          <div style={{ fontSize: 11, color: 'var(--text-hint)', marginTop: 1 }}>发现你的专属陪伴</div>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 17, letterSpacing: '-0.3px', lineHeight: 1.1 }}>
+              角色<span style={{ color: 'var(--accent)' }}>广场</span>
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text-hint)', marginTop: 1 }}>发现你的专属陪伴</div>
+          </div>
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--text-hint)', fontWeight: 500 }}>
+          {total > 0 && `${total} 位`}
         </div>
       </div>
 
       {/* Search */}
       <div className="search-wrap">
         <div className="search-bar">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: 'var(--text-hint)', flexShrink: 0 }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style={{ color: 'var(--text-hint)', flexShrink: 0 }}>
             <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
           </svg>
           <input
@@ -115,14 +114,14 @@ export function DiscoverPage() {
             onChange={e => setSearch(e.target.value)}
           />
           {search && (
-            <button onClick={() => setSearch('')} style={{ background: 'none', border: 'none', color: 'var(--text-hint)', cursor: 'pointer', fontSize: 16, padding: 0 }}>×</button>
+            <button onClick={() => setSearch('')} style={{ background: 'none', border: 'none', color: 'var(--text-hint)', cursor: 'pointer', fontSize: 18, padding: 0, lineHeight: 1 }}>×</button>
           )}
         </div>
       </div>
 
       {/* Sort tabs */}
       {!search && (
-        <div className="tabs" style={{ marginTop: 4 }}>
+        <div className="tabs" style={{ marginTop: 6 }}>
           <button className={`tab ${sort === 'popular' ? 'active' : ''}`} onClick={() => setSort('popular')}>最热门</button>
           <button className={`tab ${sort === 'rating' ? 'active' : ''}`} onClick={() => setSort('rating')}>最高分</button>
           <button className={`tab ${sort === 'newest' ? 'active' : ''}`} onClick={() => setSort('newest')}>最新</button>
@@ -141,8 +140,17 @@ export function DiscoverPage() {
       {/* Grid */}
       {displayed.length === 0 && !loading ? (
         <div className="empty-state">
-          <div className="emoji">🌸</div>
-          <div>暂无角色</div>
+          <div style={{
+            width: 56, height: 56, borderRadius: 16,
+            background: 'var(--bg-elevated)',
+            border: '1px solid var(--border)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: 'var(--text-hint)' }}>
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            </svg>
+          </div>
+          <div style={{ fontSize: 14, color: 'var(--text-hint)' }}>暂无角色</div>
         </div>
       ) : (
         <div className="char-grid">
@@ -153,11 +161,17 @@ export function DiscoverPage() {
       )}
 
       {loading && (
-        <div style={{ textAlign: 'center', padding: 20, color: 'var(--text-hint)', fontSize: 13 }}>
-          <div style={{ display: 'inline-flex', gap: 4 }}>
-            <span style={{ animation: 'pulse 1s infinite' }}>·</span>
-            <span style={{ animation: 'pulse 1s 0.2s infinite' }}>·</span>
-            <span style={{ animation: 'pulse 1s 0.4s infinite' }}>·</span>
+        <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-hint)', fontSize: 13 }}>
+          <div style={{ display: 'inline-flex', gap: 5, alignItems: 'center' }}>
+            {[0, 0.15, 0.3].map((delay, i) => (
+              <span key={i} style={{
+                width: 5, height: 5, borderRadius: '50%',
+                background: 'var(--accent)',
+                display: 'inline-block',
+                animation: `pulse 1s ${delay}s ease-in-out infinite`,
+                opacity: 0.6,
+              }} />
+            ))}
           </div>
         </div>
       )}
@@ -182,18 +196,25 @@ function CharCard({ char, gradient, onClick }: { char: Character; gradient: stri
 
   return (
     <div className="char-card" onClick={onClick}>
-      {isHot && <div className="hot-badge">🔥 热</div>}
+      {isHot && (
+        <div style={{
+          position: 'absolute', top: 8, left: 8, zIndex: 4,
+          fontSize: 10, fontWeight: 700, letterSpacing: 0.8,
+          background: 'linear-gradient(135deg, #ff3d7f, #c026d3)',
+          color: 'white', padding: '3px 8px', borderRadius: 20,
+        }}>热门</div>
+      )}
       <div className="char-card-img" style={{ background: gradient }}>
         {hasPortrait ? (
-          <img
-            src={char.portraitUrl!}
-            alt={char.name}
-            onError={() => setImgErr(true)}
-          />
+          <img src={char.portraitUrl!} alt={char.name} onError={() => setImgErr(true)} />
         ) : (
           <>
             <div className="char-card-glow" />
-            <span className="char-card-emoji">{char.avatarEmoji}</span>
+            <span style={{
+              fontSize: 42, fontWeight: 900, color: 'rgba(255,255,255,0.18)',
+              fontFamily: 'sans-serif', letterSpacing: -2, userSelect: 'none',
+              position: 'relative', zIndex: 2,
+            }}>{char.name.slice(0, 1)}</span>
           </>
         )}
         <div className="char-card-overlay">
@@ -214,11 +235,21 @@ function CharCard({ char, gradient, onClick }: { char: Character; gradient: stri
         )}
         <div className="char-card-footer">
           {char.reviewCount > 0 ? (
-            <span className="char-card-rating">★ {char.avgRating.toFixed(1)}</span>
+            <span className="char-card-rating">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style={{ verticalAlign: 'middle', marginRight: 2, marginBottom: 1 }}>
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+              </svg>
+              {char.avgRating.toFixed(1)}
+            </span>
           ) : (
-            <span style={{ fontSize: 10, color: 'var(--text-hint)' }}>新角色</span>
+            <span style={{ fontSize: 10, color: 'var(--text-hint)', fontWeight: 500 }}>新角色</span>
           )}
-          <span className="char-card-usage">💬 {formatCount(char.usageCount)}</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'var(--text-hint)' }}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+            {formatCount(char.usageCount)}
+          </span>
         </div>
       </div>
     </div>

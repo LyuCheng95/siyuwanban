@@ -133,6 +133,95 @@ adminRouter.get('/logs', async (req: Request, res: Response): Promise<void> => {
   });
 });
 
+// GET /api/admin/payments?key=...&page=1&limit=50 — 充值流水
+adminRouter.get('/payments', async (req: Request, res: Response): Promise<void> => {
+  if (!checkKey(req, res)) return;
+  const page = Math.max(1, parseInt(req.query.page as string || '1', 10));
+  const limit = Math.min(100, parseInt(req.query.limit as string || '50', 10));
+  const skip = (page - 1) * limit;
+
+  const [payments, total] = await Promise.all([
+    prisma.payment.findMany({
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: limit,
+      include: {
+        user: { select: { username: true, firstName: true, telegramId: true, paidCredits: true } },
+      },
+    }),
+    prisma.payment.count(),
+  ]);
+
+  res.json({
+    total,
+    page,
+    pages: Math.ceil(total / limit),
+    payments: payments.map(p => ({
+      id: p.id,
+      provider: p.provider,
+      status: p.status,
+      amountUsd: p.amountUsd,
+      currency: p.currency,
+      diamondsGranted: p.diamondsGranted,
+      createdAt: p.createdAt,
+      externalId: p.externalId,
+      user: {
+        telegramId: p.user.telegramId.toString(),
+        username: p.user.username,
+        firstName: p.user.firstName,
+        currentDiamonds: p.user.paidCredits,
+      },
+    })),
+  });
+});
+
+// POST /api/admin/add-diamonds?key=... — 手动给用户加钻石
+adminRouter.post('/add-diamonds', async (req: Request, res: Response): Promise<void> => {
+  if (!checkKey(req, res)) return;
+  const { telegramId, amount, note } = req.body as { telegramId: string; amount: number; note?: string };
+  if (!telegramId || !amount || amount <= 0) {
+    res.status(400).json({ error: 'telegramId and amount required' }); return;
+  }
+
+  const user = await prisma.user.findUnique({ where: { telegramId: BigInt(telegramId) } });
+  if (!user) { res.status(404).json({ error: 'User not found' }); return; }
+
+  const [payment, updated] = await prisma.$transaction([
+    prisma.payment.create({
+      data: {
+        userId: user.id,
+        provider: 'admin',
+        status: 'completed',
+        amountUsd: 0,
+        diamondsGranted: amount,
+        metadata: { note: note || 'manual top-up', adminKey: 'used' },
+      },
+    }),
+    prisma.user.update({
+      where: { id: user.id },
+      data: { paidCredits: { increment: amount } },
+    }),
+  ]);
+
+  res.json({ ok: true, diamondsAdded: amount, newBalance: updated.paidCredits, paymentId: payment.id });
+});
+
+// GET /api/admin/users?key=... — 用户列表
+adminRouter.get('/users', async (req: Request, res: Response): Promise<void> => {
+  if (!checkKey(req, res)) return;
+  const users = await prisma.user.findMany({
+    orderBy: { createdAt: 'desc' },
+    take: 100,
+    select: {
+      id: true, telegramId: true, username: true, firstName: true,
+      freeCredits: true, paidCredits: true, isAnonymous: true,
+      checkInStreak: true, createdAt: true,
+      _count: { select: { conversations: true } },
+    },
+  });
+  res.json(users.map(u => ({ ...u, telegramId: u.telegramId.toString() })));
+});
+
 // DELETE /api/admin/character/:id?key=... — 删除角色（级联清理关联数据）
 adminRouter.delete('/character/:id', async (req: Request, res: Response): Promise<void> => {
   if (!checkKey(req, res)) return;
@@ -402,7 +491,7 @@ adminRouter.post('/simulate-chat', async (req: Request, res: Response): Promise<
           { role: 'user' as const, content: userMsg },
           { role: 'assistant' as const, content: cleanReply },
         ];
-        const imgDecision = await shouldGenerateImage(character.name, recentForImage, character, intimacy) as { generate: boolean; prompt?: string; twoShot?: boolean };
+        const imgDecision = await shouldGenerateImage(character.name, recentForImage, character, intimacy, meta.acts) as { generate: boolean; prompt?: string; twoShot?: boolean };
         if (imgDecision.generate && imgDecision.prompt) {
           send({ type: 'image_pending', turn: i + 1, prompt: imgDecision.prompt });
           const imgUrl = await generateSceneImage(imgDecision.prompt, '', character.name);

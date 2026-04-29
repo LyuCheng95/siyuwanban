@@ -42,7 +42,6 @@ export function CharacterProfilePage() {
     ]).then(([char, chatData]) => {
       setCharacter(char);
       setReviews((char.reviews ?? []) as Review[]);
-      // Can review if had 3+ conversation turns
       if (chatData && (chatData as any).conversation?.totalTurns >= 3) {
         setCanReview(true);
       }
@@ -56,7 +55,6 @@ export function CharacterProfilePage() {
       await api.marketplace.review(characterId, { rating: reviewRating, comment: reviewComment.trim() || undefined });
       setShowReviewForm(false);
       setReviewComment('');
-      // Reload reviews
       const char = await api.characters.get(characterId);
       setReviews((char.reviews ?? []) as Review[]);
     } catch (e: any) {
@@ -69,13 +67,12 @@ export function CharacterProfilePage() {
   if (loading || !character) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--bg)' }}>
-        <div style={{ fontSize: 48, animation: 'pulse 1s infinite' }}>{character?.avatarEmoji ?? '💋'}</div>
+        <div className="loading-ring" />
       </div>
     );
   }
 
   const tags = tagList(character.personality);
-  // Build image list: prioritize portraitImages array, fall back to single portraitUrl
   const rawImages: string[] = Array.isArray(character.portraitImages) && character.portraitImages.length > 0
     ? character.portraitImages
     : (character.portraitUrl && !imgError ? [character.portraitUrl] : []);
@@ -94,15 +91,11 @@ export function CharacterProfilePage() {
 
   return (
     <div className="page" style={{ background: 'var(--bg)', paddingBottom: 100 }}>
-      {/* Cover image / carousel hero */}
+      {/* Hero carousel */}
       <div className="portrait-carousel">
         {images.length > 0 ? (
           <>
-            <div
-              className="portrait-carousel-track"
-              ref={carouselRef}
-              onScroll={handleCarouselScroll}
-            >
+            <div className="portrait-carousel-track" ref={carouselRef} onScroll={handleCarouselScroll}>
               {images.map((src, i) => (
                 <div key={i} className="portrait-carousel-slide">
                   <img
@@ -110,20 +103,17 @@ export function CharacterProfilePage() {
                     alt={`${character.name} ${i + 1}`}
                     onError={() => { if (i === 0) setImgError(true); }}
                   />
-                  {/* Per-slide gradient overlay */}
                   <div style={{
                     position: 'absolute', inset: 0,
-                    background: 'linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, transparent 35%, rgba(13,13,18,0.8) 75%, #0d0d12 100%)',
+                    background: 'linear-gradient(to bottom, rgba(0,0,0,0.2) 0%, transparent 30%, rgba(9,9,15,0.7) 72%, #09090f 100%)',
                     zIndex: 2,
                   }} />
                 </div>
               ))}
             </div>
-            {/* Slide counter */}
             {images.length > 1 && (
               <div className="portrait-carousel-counter">{activeSlide + 1} / {images.length}</div>
             )}
-            {/* Dot indicators */}
             {images.length > 1 && (
               <div className="portrait-carousel-dots">
                 {images.map((_, i) => (
@@ -139,35 +129,39 @@ export function CharacterProfilePage() {
         ) : (
           <div style={{
             width: '100%', height: '100%',
-            background: 'linear-gradient(160deg, #1a0a2e 0%, #3d1a4a 40%, #7c1a6a 70%, #c026d3 100%)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 110,
+            background: 'linear-gradient(160deg, #120820 0%, #2a0840 40%, #5a1050 70%, #9a1258 100%)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            {character.avatarEmoji}
+            <div style={{
+              fontSize: 80, fontWeight: 900, color: 'rgba(255,255,255,0.12)',
+              letterSpacing: -4, userSelect: 'none',
+            }}>
+              {character.name.slice(0, 1)}
+            </div>
           </div>
         )}
-        {/* Gradient overlay for text readability when no images */}
         {images.length === 0 && (
-          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 50%, #0d0d12 100%)', zIndex: 2 }} />
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 50%, #09090f 100%)', zIndex: 2 }} />
         )}
         {/* Back button */}
         <button
           onClick={() => navigate(-1)}
           style={{
             position: 'absolute', top: 16, left: 16, zIndex: 10,
-            background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)',
+            background: 'rgba(0,0,0,0.45)', border: '1px solid rgba(255,255,255,0.15)',
             borderRadius: '50%', width: 38, height: 38,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             color: '#fff', fontSize: 20, cursor: 'pointer',
-            backdropFilter: 'blur(6px)',
+            backdropFilter: 'blur(8px)',
           }}
         >‹</button>
-        {/* Name at bottom of hero */}
+        {/* Name */}
         <div style={{ position: 'absolute', bottom: 18, left: 16, right: 16, zIndex: 5 }}>
-          <div style={{ fontSize: 30, fontWeight: 800, color: '#fff', textShadow: '0 2px 16px rgba(0,0,0,0.9)' }}>
+          <div style={{ fontSize: 30, fontWeight: 800, color: '#fff', textShadow: '0 2px 20px rgba(0,0,0,0.9)', letterSpacing: '-0.02em' }}>
             {character.name}
           </div>
-          <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.72)', marginTop: 4 }}>
-            {character.age}岁 · {character.occupation}
+          <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', marginTop: 4, letterSpacing: '0.05em' }}>
+            {character.age} 岁 · {character.occupation}
           </div>
         </div>
       </div>
@@ -178,16 +172,16 @@ export function CharacterProfilePage() {
         borderBottom: '1px solid var(--border)',
       }}>
         <div style={{ display: 'flex', gap: 8 }}>
-          <ActionBtn icon="🔥" label={`${character.usageCount}`} />
-          {character.reviewCount > 0 && <ActionBtn icon="★" label={character.avgRating.toFixed(1)} />}
+          <StatChip value={String(character.usageCount)} label="对话" />
+          {character.reviewCount > 0 && <StatChip value={character.avgRating.toFixed(1)} label="评分" gold />}
         </div>
         <div style={{ flex: 1 }} />
         <button
           className="btn btn-primary"
-          style={{ padding: '10px 28px', fontSize: 15, fontWeight: 700, borderRadius: 24 }}
+          style={{ padding: '10px 28px', fontSize: 14, fontWeight: 700, borderRadius: 24, letterSpacing: '0.04em' }}
           onClick={() => navigate(`/chat/${characterId}`)}
         >
-          💬 开始聊天
+          开始聊天
         </button>
       </div>
 
@@ -196,9 +190,9 @@ export function CharacterProfilePage() {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {tags.map(tag => (
             <span key={tag} style={{
-              padding: '4px 10px', borderRadius: 20, fontSize: 12,
-              background: 'rgba(192,38,211,0.12)', border: '1px solid rgba(192,38,211,0.25)',
-              color: 'var(--accent)',
+              padding: '4px 10px', borderRadius: 20, fontSize: 11,
+              background: 'rgba(154,18,88,0.1)', border: '1px solid rgba(154,18,88,0.2)',
+              color: 'rgba(232,100,160,0.85)', letterSpacing: '0.04em',
             }}>#{tag}</span>
           ))}
         </div>
@@ -206,12 +200,12 @@ export function CharacterProfilePage() {
 
       {/* Opening scene */}
       {character.openingScene && (
-        <Section title="📖 故事简介">
+        <Section title="故事简介">
           <div style={{
-            fontSize: 14, lineHeight: 1.8, color: 'var(--text-2)',
+            fontSize: 14, lineHeight: 1.85, color: 'var(--text-2)',
             fontStyle: 'italic',
-            background: 'linear-gradient(135deg, rgba(61,26,74,0.4), rgba(124,26,106,0.2))',
-            border: '1px solid rgba(255,61,127,0.15)',
+            background: 'linear-gradient(135deg, rgba(42,8,55,0.5), rgba(90,16,70,0.25))',
+            border: '1px solid rgba(232,53,108,0.1)',
             borderRadius: 12, padding: 14,
           }}>
             {character.openingScene}
@@ -220,8 +214,8 @@ export function CharacterProfilePage() {
       )}
 
       {/* Background */}
-      <Section title="👤 角色背景">
-        <div style={{ fontSize: 14, lineHeight: 1.8, color: 'var(--text-2)' }}>
+      <Section title="角色背景">
+        <div style={{ fontSize: 14, lineHeight: 1.85, color: 'var(--text-2)' }}>
           {character.background}
         </div>
       </Section>
@@ -230,32 +224,38 @@ export function CharacterProfilePage() {
       {character.creator && (
         <div style={{ padding: '0 16px 8px', display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{
-            width: 28, height: 28, borderRadius: '50%',
-            background: 'linear-gradient(135deg, #3d1a4a, #7c1a6a)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0,
-          }}>👤</div>
-          <div style={{ fontSize: 12, color: 'var(--text-hint)' }}>
+            width: 26, height: 26, borderRadius: '50%',
+            background: 'var(--bg-elevated)',
+            border: '1px solid var(--border)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: 'var(--text-hint)' }}>
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+              <circle cx="12" cy="7" r="4"/>
+            </svg>
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--text-hint)', letterSpacing: '0.03em' }}>
             创建者：{character.creator.firstName || character.creator.username || '匿名'}
           </div>
         </div>
       )}
 
-      {/* Reviews section */}
-      <Section title={`💬 评论 (${reviews.length})`} action={
+      {/* Reviews */}
+      <Section title={`评论 ${reviews.length > 0 ? `(${reviews.length})` : ''}`} action={
         canReview ? (
           <button
             onClick={() => setShowReviewForm(true)}
             style={{
               background: 'none', border: '1px solid var(--border-accent)',
               color: 'var(--accent)', borderRadius: 16, padding: '4px 12px',
-              fontSize: 12, cursor: 'pointer',
+              fontSize: 11, cursor: 'pointer', letterSpacing: '0.04em',
             }}
-          >✏️ 写评论</button>
+          >写评论</button>
         ) : undefined
       }>
         {reviews.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-hint)', fontSize: 13 }}>
-            还没有评论，聊聊之后来说说感受吧 🌸
+            还没有评论，聊聊之后来说说感受吧
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -271,8 +271,7 @@ export function CharacterProfilePage() {
         <div className="sheet-overlay" onClick={() => setShowReviewForm(false)}>
           <div className="sheet" onClick={e => e.stopPropagation()}>
             <div className="sheet-handle" />
-            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>评价 {character.name}</div>
-            {/* Star rating */}
+            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16, letterSpacing: '-0.01em' }}>评价 {character.name}</div>
             <div style={{ display: 'flex', gap: 8, marginBottom: 16, justifyContent: 'center' }}>
               {[1,2,3,4,5].map(n => (
                 <button
@@ -280,8 +279,10 @@ export function CharacterProfilePage() {
                   onClick={() => setReviewRating(n)}
                   style={{
                     background: 'none', border: 'none', fontSize: 32, cursor: 'pointer',
+                    color: n <= reviewRating ? 'var(--accent-gold)' : 'var(--text-hint)',
                     opacity: n <= reviewRating ? 1 : 0.3,
-                    filter: n <= reviewRating ? 'drop-shadow(0 0 4px rgba(255,200,0,0.8))' : 'none',
+                    transition: 'all 0.15s',
+                    filter: n <= reviewRating ? 'drop-shadow(0 0 4px rgba(196,144,56,0.6))' : 'none',
                   }}
                 >★</button>
               ))}
@@ -294,7 +295,7 @@ export function CharacterProfilePage() {
               style={{
                 width: '100%', background: 'var(--bg-elevated)', border: '1px solid var(--border)',
                 borderRadius: 10, padding: '10px 12px', color: 'var(--text)', fontSize: 14,
-                resize: 'none', marginBottom: 16, boxSizing: 'border-box',
+                resize: 'none', marginBottom: 16, boxSizing: 'border-box', fontFamily: 'inherit',
               }}
             />
             <div style={{ display: 'flex', gap: 8 }}>
@@ -307,7 +308,7 @@ export function CharacterProfilePage() {
         </div>
       )}
 
-      {/* Fixed bottom CTA */}
+      {/* Fixed CTA */}
       <div style={{
         position: 'fixed', bottom: 0, left: 0, right: 0,
         padding: '12px 16px',
@@ -316,10 +317,10 @@ export function CharacterProfilePage() {
       }}>
         <button
           className="btn btn-primary btn-full"
-          style={{ borderRadius: 28, fontSize: 16, fontWeight: 700, padding: '14px 0' }}
+          style={{ borderRadius: 28, fontSize: 15, fontWeight: 700, padding: '14px 0', letterSpacing: '0.06em' }}
           onClick={() => navigate(`/chat/${characterId}`)}
         >
-          💬 开始聊天
+          开始聊天
         </button>
       </div>
     </div>
@@ -330,7 +331,7 @@ function Section({ title, children, action }: { title: string; children: React.R
   return (
     <div style={{ padding: '16px 16px 4px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{title}</div>
+        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-2)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{title}</div>
         {action}
       </div>
       {children}
@@ -338,15 +339,15 @@ function Section({ title, children, action }: { title: string; children: React.R
   );
 }
 
-function ActionBtn({ icon, label }: { icon: string; label: string }) {
+function StatChip({ value, label, gold }: { value: string; label: string; gold?: boolean }) {
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', gap: 4,
+      display: 'flex', alignItems: 'center', gap: 5,
       background: 'var(--bg-elevated)', borderRadius: 16, padding: '5px 12px',
-      fontSize: 13, color: 'var(--text-2)',
+      fontSize: 12, color: gold ? 'var(--accent-gold)' : 'var(--text-2)',
     }}>
-      <span>{icon}</span>
-      <span>{label}</span>
+      <span style={{ fontWeight: 700 }}>{value}</span>
+      <span style={{ color: 'var(--text-hint)', fontSize: 11 }}>{label}</span>
     </div>
   );
 }
@@ -357,20 +358,20 @@ function ReviewCard({ review }: { review: Review }) {
   return (
     <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
       <div style={{
-        width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
-        background: 'linear-gradient(135deg, #3d1a4a, #c026d3)',
+        width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
+        background: 'linear-gradient(135deg, #2a0840, #9a1258)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 15, fontWeight: 700, color: '#fff',
+        fontSize: 14, fontWeight: 700, color: '#fff',
       }}>{initial}</div>
       <div style={{ flex: 1 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
           <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{name}</span>
-          <span style={{ color: '#f59e0b', fontSize: 12 }}>{'★'.repeat(review.rating)}</span>
+          <span style={{ color: 'var(--accent-gold)', fontSize: 11 }}>{'★'.repeat(review.rating)}</span>
         </div>
         {review.comment && (
           <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.6 }}>{review.comment}</div>
         )}
-        <div style={{ fontSize: 11, color: 'var(--text-hint)', marginTop: 4 }}>
+        <div style={{ fontSize: 10, color: 'var(--text-hint)', marginTop: 4, letterSpacing: '0.04em' }}>
           {timeAgo(review.createdAt)}
         </div>
       </div>

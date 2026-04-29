@@ -14,8 +14,10 @@ model User {
   firstName     String?
   lastName      String?
   photoUrl      String?
-  freeCredits   Int      @default(100)  // 金币 (gold coins, free currency)
-  paidCredits   Int      @default(0)   // 钻石 (diamonds, paid currency)
+  nickname      String?
+  isAnonymous   Boolean  @default(false)
+  freeCredits   Int      @default(0)   // 金币 (gold coins, check-in rewards)
+  paidCredits   Int      @default(0)   // 钻石 (diamonds, paid currency for chat)
   lastCheckIn   DateTime?              // last daily check-in timestamp
   checkInStreak Int      @default(0)   // consecutive check-in days
   createdAt     DateTime @default(now())
@@ -108,10 +110,18 @@ model Review {
 model Payment {
   id              String   @id @default(uuid())
   userId          String
-  telegramPayload Json
-  turnsGranted    Int
-  stars           Int
+  provider        String   // 'stripe' | 'crypto' | 'admin'
+  externalId      String?  @unique  // Stripe PaymentIntent ID / tx hash
+  status          String   @default("pending")  // pending | completed | failed
+  amountUsd       Float    @default(0)  // USD amount charged
+  currency        String   @default("usd")
+  diamondsGranted Int
+  metadata        Json     @default("{}")  // raw provider payload
   createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   user            User @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([status])
 }

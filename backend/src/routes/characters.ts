@@ -79,7 +79,7 @@ characterRouter.get('/mine', async (req: AuthRequest, res: Response): Promise<vo
 // GET /api/characters/:id
 characterRouter.get('/:id', async (req: AuthRequest, res: Response): Promise<void> => {
   const character = await prisma.character.findUnique({
-    where: { id: req.params.id },
+    where: { id: req.params.id as string },
     include: {
       creator: { select: { username: true, firstName: true } },
       reviews: {
@@ -98,12 +98,12 @@ characterRouter.get('/:id', async (req: AuthRequest, res: Response): Promise<voi
 
 // PATCH /api/characters/:id
 characterRouter.patch('/:id', async (req: AuthRequest, res: Response): Promise<void> => {
-  const character = await prisma.character.findUnique({ where: { id: req.params.id } });
+  const character = await prisma.character.findUnique({ where: { id: req.params.id as string } });
   if (!character || character.creatorId !== req.userId!) {
     res.status(403).json({ error: 'Forbidden' }); return;
   }
   const updated = await prisma.character.update({
-    where: { id: req.params.id },
+    where: { id: req.params.id as string },
     data: req.body,
   });
   res.json(updated);
@@ -111,10 +111,10 @@ characterRouter.patch('/:id', async (req: AuthRequest, res: Response): Promise<v
 
 // DELETE /api/characters/:id
 characterRouter.delete('/:id', async (req: AuthRequest, res: Response): Promise<void> => {
-  const character = await prisma.character.findUnique({ where: { id: req.params.id } });
+  const character = await prisma.character.findUnique({ where: { id: req.params.id as string } });
   if (!character || character.creatorId !== req.userId!) {
     res.status(403).json({ error: 'Forbidden' }); return;
   }
-  await prisma.character.delete({ where: { id: req.params.id } });
+  await prisma.character.delete({ where: { id: req.params.id as string } });
   res.json({ ok: true });
 });

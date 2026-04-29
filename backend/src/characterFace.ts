@@ -16,6 +16,7 @@ export const CHARACTER_FACE: Record<string, string> = {
   '晴晴':    '(lively energetic cute face:1.3), (bright sparkling round eyes:1.3), (cheerful curved smile:1.2), (youthful fresh look:1.2)',
   '唐诗':    '(elegant refined classical beauty:1.3), (graceful composed almond eyes:1.3), (subtle sophisticated lips:1.2), (poised oval face:1.2)',
   '阿柒':    '(natural warm girl-next-door beauty:1.3), (crescent-smile warm eyes:1.3), (soft approachable lips:1.2), (effortless sweetness:1.2)',
+  '桃桃':    '(sweet innocent anime face:1.4), (big bright sparkling round eyes:1.4), (rosy apple cheeks:1.3), (soft pouty lips:1.2), (cute dimples:1.3)',
   // ── 二次元角色 ──────────────────────────────────────────────────────────────
   'X-23':    '(perfect cold synthetic android face:1.3), (calculating empty blue glowing eyes:1.3), (expressionless thin lips:1.2), (flawless artificial beauty:1.3)',
   '幻音':    '(ethereal transcendent holographic face:1.3), (glowing longing dreamy eyes:1.3), (dreamlike otherworldly beauty:1.3)',

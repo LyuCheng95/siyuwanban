@@ -96,7 +96,7 @@ marketplaceRouter.post('/:characterId/review', async (req: AuthRequest, res: Res
   const parsed = reviewSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.flatten() }); return; }
 
-  const { characterId } = req.params;
+  const characterId = req.params.characterId as string;
 
   // Must have had a conversation
   const conversation = await prisma.conversation.findUnique({

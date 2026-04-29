@@ -41,21 +41,14 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ initData }),
       }),
+    setNickname: (nickname: string) =>
+      request<{ ok: boolean; nickname: string }>('/auth/nickname', {
+        method: 'PATCH',
+        body: JSON.stringify({ nickname }),
+      }),
   },
 
   characters: {
-    wizard: (message: string) =>
-      request<{ reply: string; isComplete: boolean; characterData?: Record<string, unknown> }>(
-        '/characters/wizard',
-        { method: 'POST', body: JSON.stringify({ message }) }
-      ),
-    wizardReset: () =>
-      request<{ ok: boolean }>('/characters/wizard/reset', { method: 'POST' }),
-    create: (data: Record<string, unknown>) =>
-      request<import('../types').Character>('/characters', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
     mine: () => request<import('../types').Character[]>('/characters/mine'),
     get: (id: string) => request<import('../types').Character>(`/characters/${id}`),
     delete: (id: string) =>
@@ -118,10 +111,16 @@ export const api = {
 
   payments: {
     tiers: () => request<import('../types').PaymentTier[]>('/payments/tiers'),
-    createInvoice: (tierIndex: number) =>
-      request<{ invoiceLink: string; tier: import('../types').PaymentTier }>(
-        '/payments/create-invoice',
+    balance: () => request<{ diamonds: number; coins: number }>('/payments/balance'),
+    stripeSession: (tierIndex: number) =>
+      request<{ url: string; sessionId: string }>(
+        '/payments/stripe/create-session',
         { method: 'POST', body: JSON.stringify({ tierIndex }) }
+      ),
+    exchangeCoins: (amount: number) =>
+      request<{ ok: boolean; coinsSpent: number; diamondsReceived: number; newCoins: number; newDiamonds: number }>(
+        '/payments/exchange-coins',
+        { method: 'POST', body: JSON.stringify({ amount }) }
       ),
   },
 
