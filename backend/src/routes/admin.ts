@@ -80,6 +80,7 @@ adminRouter.get('/characters', async (req: Request, res: Response): Promise<void
       usageCount: true, avgRating: true, reviewCount: true,
       isPublic: true, createdAt: true,
       qaStatus: true, qaScore: true, qaRunAt: true,
+      storyPhases: true,
     },
   });
 

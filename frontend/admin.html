@@ -727,6 +727,17 @@ async function loadChars() {
                     c.qaStatus === 'failed'  ? `<span class="badge badge-red">✗ ${c.qaScore}</span>` :
                     c.qaStatus === 'running' ? `<span class="badge badge-running"><span class="spinning">⟳</span></span>` :
                     `<span style="color:var(--hint);font-size:11px">—</span>`;
+    const phases = Array.isArray(c.storyPhases) ? c.storyPhases : [];
+    const phasesBadge = phases.length === 5
+      ? `<span class="badge badge-green" style="cursor:pointer" onclick="togglePhasesRow('${c.id}')">📜 5段</span>`
+      : `<span class="badge badge-yellow" style="cursor:pointer" onclick="togglePhasesRow('${c.id}')">📜 ${phases.length || '无'}</span>`;
+    const phaseLabels = ['P0·开场','P1·点燃','P2·深入','P3·高潮','P4·余韵'];
+    const phasesHtml = phases.length ? phases.map((p, i) => `
+      <div style="margin-bottom:10px">
+        <div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:4px">${phaseLabels[i] || 'P'+i}</div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.6;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:6px;padding:8px 10px;white-space:pre-wrap">${esc(p)}</div>
+      </div>`).join('')
+      : `<div style="color:var(--hint);font-size:12px">暂无剧情脚本 — 在「添加角色」后点击「自动生成」或使用角色管理中的自检流程</div>`;
     return `<tr>
       <td><div class="char-name-cell">
         ${imgs.length ? thumbs : `<div class="portrait-placeholder">${c.avatarEmoji||'👤'}</div>`}
@@ -735,20 +746,63 @@ async function loadChars() {
       <td>${c.age}岁</td>
       <td>${c.usageCount} 次</td>
       <td>${imgs.length ? `<span class="badge badge-green">✓ ${imgs.length} 张</span>` : `<span class="badge badge-red">✗ 无图</span>`}</td>
+      <td>${phasesBadge}</td>
       <td>${c.isPublic ? '<span class="badge badge-green">公开</span>' : '<span class="badge badge-yellow">私密</span>'}</td>
-      <td style="color:var(--hint);font-size:11px">${timeAgo(c.createdAt)}</td>
       <td>${qaBadge}</td>
       <td style="display:flex;gap:6px;align-items:center">
         <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px" id="qa-btn-${c.id}" onclick="runQA('${c.id}','${esc(c.name)}',this)">🔍 自检</button>
         <button class="btn btn-danger" style="font-size:11px;padding:5px 10px" onclick="deleteChar('${c.id}','${esc(c.name)}')">删除</button>
       </td>
     </tr>
-    <tr id="qa-row-${c.id}" style="display:none"><td colspan="8" style="padding:0 20px 12px"></td></tr>`;
+    <tr id="phases-row-${c.id}" style="display:none"><td colspan="9" style="padding:0 20px 14px">
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-top:2px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div style="font-size:14px;font-weight:700">📜 ${esc(c.name)} · 剧情脚本</div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px" onclick="regenPhases('${c.id}','${esc(c.name)}',this)">⚡ 重新生成</button>
+            <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px" onclick="togglePhasesRow('${c.id}')">收起</button>
+          </div>
+        </div>
+        <div id="phases-content-${c.id}">${phasesHtml}</div>
+      </div>
+    </td></tr>
+    <tr id="qa-row-${c.id}" style="display:none"><td colspan="9" style="padding:0 20px 12px"></td></tr>`;
   }).join('');
   document.getElementById('charsTable').innerHTML = `<table>
-    <thead><tr><th>角色 / 封面图</th><th>年龄</th><th>使用</th><th>图片</th><th>状态</th><th>创建</th><th>自检</th><th></th></tr></thead>
+    <thead><tr><th>角色 / 封面图</th><th>年龄</th><th>使用</th><th>图片</th><th>剧本</th><th>状态</th><th>自检</th><th></th></tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
+}
+
+function togglePhasesRow(charId) {
+  const row = document.getElementById(`phases-row-${charId}`);
+  row.style.display = row.style.display === 'none' ? '' : 'none';
+}
+
+async function regenPhases(charId, charName, btn) {
+  if (!confirm(`重新生成「${charName}」的剧情脚本？当前脚本将被覆盖。`)) return;
+  btn.disabled = true; btn.textContent = '⟳ 生成中…';
+  const contentEl = document.getElementById(`phases-content-${charId}`);
+  contentEl.innerHTML = '<div style="color:var(--hint);font-size:12px"><span class="spinning">⟳</span> AI 正在生成剧情脚本，约需 20-40 秒…</div>';
+  try {
+    const r = await fetch(`${BASE}/api/admin/characters/${charId}/generate-phases?key=${ADMIN_KEY}`, { method: 'POST' });
+    const d = await r.json();
+    if (d.ok && d.phases) {
+      const phaseLabels = ['P0·开场','P1·点燃','P2·深入','P3·高潮','P4·余韵'];
+      contentEl.innerHTML = d.phases.map((p, i) => `
+        <div style="margin-bottom:10px">
+          <div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:4px">${phaseLabels[i]}</div>
+          <div style="font-size:12px;color:var(--text2);line-height:1.6;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:6px;padding:8px 10px;white-space:pre-wrap">${esc(p)}</div>
+        </div>`).join('');
+      btn.textContent = '✓ 已更新'; btn.disabled = false;
+    } else {
+      contentEl.innerHTML = `<div style="color:var(--red);font-size:12px">生成失败: ${esc(d.error || '未知错误')}</div>`;
+      btn.textContent = '⚡ 重新生成'; btn.disabled = false;
+    }
+  } catch(e) {
+    contentEl.innerHTML = `<div style="color:var(--red);font-size:12px">请求失败: ${esc(e.message)}</div>`;
+    btn.textContent = '⚡ 重新生成'; btn.disabled = false;
+  }
 }
 
 async function deleteChar(id, name) {
