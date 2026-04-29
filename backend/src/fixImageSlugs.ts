@@ -2,7 +2,15 @@
  * 一次性修复：将服务器上中文文件名改为 ASCII slug，并同步更新数据库 URL
  * 用法：node_modules\.bin\tsx src\fixImageSlugs.ts
  */
-import 'dotenv/config';
+// Load .env manually — no dotenv package needed
+import fs from 'fs';
+const envPath = new URL('../../.env', import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1');
+if (fs.existsSync(envPath)) {
+  for (const line of fs.readFileSync(envPath, 'utf8').split('\n')) {
+    const m = line.match(/^([^#=]+)=(.*)$/);
+    if (m) process.env[m[1].trim()] ??= m[2].trim().replace(/^["']|["']$/g, '');
+  }
+}
 import { PrismaClient } from '@prisma/client';
 import fs from 'fs';
 import path from 'path';
