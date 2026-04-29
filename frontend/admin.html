@@ -207,6 +207,41 @@
   .sim-phase-dot { flex: 1; height: 8px; border-radius: 4px; background: var(--bg3); transition: background 0.3s; }
   .sim-phase-dot.reached { background: var(--grad); }
 
+  /* ── Setup pipeline log ── */
+  .pipeline-log { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-top: 16px; }
+  .pipeline-step { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; font-size: 13px; }
+  .pipeline-step:last-child { margin-bottom: 0; }
+  .pipeline-step-icon { width: 20px; flex-shrink: 0; text-align: center; margin-top: 1px; }
+  .pipeline-step-body { flex: 1; }
+  .pipeline-step-label { font-weight: 600; color: var(--text); }
+  .pipeline-step-detail { font-size: 12px; color: var(--text2); margin-top: 3px; }
+  .pipeline-phases { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+  .pipeline-phase { background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; font-size: 11px; color: var(--text2); cursor: pointer; line-height: 1.5; }
+  .pipeline-phase strong { color: var(--accent); }
+
+  /* ── QA live viewer ── */
+  .qa-live { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .qa-live-header { padding: 10px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .qa-live-title { font-size: 13px; font-weight: 700; }
+  .qa-live-progress { height: 3px; background: var(--bg2); }
+  .qa-live-progress-fill { height: 100%; background: var(--grad); transition: width 0.4s; width: 0%; }
+  .qa-live-body { display: grid; grid-template-columns: 1fr 180px; height: 320px; }
+  .qa-live-chat { overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; border-right: 1px solid var(--border); }
+  .qa-turn-label { font-size: 10px; color: var(--hint); font-weight: 600; letter-spacing: 0.5px; }
+  .qa-bubble { padding: 7px 10px; border-radius: 10px; font-size: 12px; line-height: 1.5; max-width: 95%; }
+  .qa-bubble-user { background: linear-gradient(135deg,rgba(255,61,127,0.15),rgba(192,38,211,0.15)); border: 1px solid rgba(255,61,127,0.18); align-self: flex-end; color: rgba(255,200,220,0.9); }
+  .qa-bubble-ai { background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: var(--text); }
+  .qa-live-stats { padding: 10px; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
+  .qa-stat-mini { font-size: 11px; }
+  .qa-stat-mini-label { color: var(--hint); margin-bottom: 3px; }
+  .qa-stat-mini-bar-wrap { height: 5px; background: var(--bg2); border-radius: 3px; overflow: hidden; }
+  .qa-stat-mini-bar { height: 100%; border-radius: 3px; background: var(--grad); transition: width 0.4s; }
+  .qa-phase-dots { display: flex; gap: 3px; margin-top: 4px; }
+  .qa-phase-dot { flex: 1; height: 6px; border-radius: 3px; background: var(--bg2); transition: background 0.3s; }
+  .qa-phase-dot.reached { background: var(--grad); }
+  .qa-evaluating { padding: 12px; text-align: center; font-size: 12px; color: var(--text2); }
+  .qa-evaluating .spinning { margin-right: 6px; }
+
   /* ── Create character form ── */
   .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   .form-group { display: flex; flex-direction: column; gap: 6px; }
@@ -278,6 +313,7 @@
       <button class="nav-item" onclick="showPage('simulator')" id="nav-simulator"><span class="icon">🧪</span><span>对话测试</span></button>
       <button class="nav-item" onclick="showPage('create-char')" id="nav-create-char"><span class="icon">➕</span><span>添加角色</span></button>
       <button class="nav-item" onclick="showPage('baseline')" id="nav-baseline"><span class="icon">📋</span><span>评审基准</span></button>
+      <button class="nav-item" onclick="showPage('scene-images')" id="nav-scene-images"><span class="icon">📸</span><span>场景图库</span></button>
     </div>
     <div class="sidebar-footer">
       <div class="api-key" id="keyDisplay"></div>
@@ -555,6 +591,23 @@
       </div>
     </div>
 
+    <!-- Scene Images -->
+    <div class="page" id="page-scene-images">
+      <div class="page-header">
+        <h1>📸 场景图库</h1>
+        <p>用户聊天中实时生成的场景图，按角色归档，可复用</p>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:20px">
+        <select class="form-input" id="sceneCharFilter" style="width:200px" onchange="loadSceneImages(1)">
+          <option value="">全部角色</option>
+        </select>
+        <button class="btn btn-ghost" onclick="loadSceneImages(1)">🔄 刷新</button>
+        <span style="font-size:12px;color:var(--hint)" id="sceneTotal"></span>
+      </div>
+      <div id="sceneGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px"></div>
+      <div id="scenePageNav" style="display:flex;gap:8px;justify-content:center;margin-top:20px"></div>
+    </div>
+
     <!-- Logs -->
     <div class="page" id="page-logs">
       <div class="page-header">
@@ -606,6 +659,7 @@ function showPage(name) {
   if (name === 'gallery') loadGallery();
   if (name === 'simulator') loadSimulatorChars();
   if (name === 'baseline') loadBaselineForm();
+  if (name === 'scene-images') initSceneImages();
 }
 
 // ── API helpers ───────────────────────────────────────────────────────────────
@@ -1210,12 +1264,11 @@ async function createCharacter() {
     });
     const d = await r.json();
     if (d.ok) {
-      result.className = 'form-result success'; result.style.display = 'block';
-      result.innerHTML = `✓ 角色「${esc(d.character.name)}」已创建（ID: <code style="font-family:monospace">${d.character.id}</code>）<br>
-        <span style="color:var(--text2);font-size:12px">下一步：在 storyPhases.ts 添加剧情脚本，然后运行自检</span>
-        <br><button class="btn btn-ghost" style="margin-top:8px;font-size:12px"
-          onclick="showPage('characters');loadChars()">前往角色列表 → 运行自检</button>`;
+      result.style.display = 'block'; result.className = 'form-result success';
+      result.innerHTML = `<div style="font-weight:700;margin-bottom:8px">✓ 角色「${esc(d.character.name)}」已创建</div>
+        <div id="setup-log-${d.character.id}" class="pipeline-log" style="margin-top:0;background:rgba(0,0,0,0.2)"></div>`;
       loadChars(); loadStats();
+      startSetupPipeline(d.character.id, d.character.name, document.getElementById(`setup-log-${d.character.id}`));
     } else {
       result.className = 'form-result error'; result.style.display = 'block';
       result.textContent = '创建失败：' + (d.error || '未知错误');
@@ -1227,24 +1280,40 @@ async function createCharacter() {
   btn.disabled = false; btn.textContent = '创建角色';
 }
 
-// ── QA Self-Check ─────────────────────────────────────────────────────────────
-async function runQA(charId, charName, btn) {
-  const qaRow = document.getElementById(`qa-row-${charId}`);
-  const cell = qaRow.querySelector('td');
+// ── Setup Pipeline (phases → album queue → QA) ────────────────────────────────
+async function startSetupPipeline(charId, charName, logEl) {
+  function addStep(id, icon, label, detail) {
+    const div = document.createElement('div');
+    div.className = 'pipeline-step';
+    div.id = `ps-${charId}-${id}`;
+    div.innerHTML = `<div class="pipeline-step-icon">${icon}</div>
+      <div class="pipeline-step-body">
+        <div class="pipeline-step-label">${label}</div>
+        ${detail ? `<div class="pipeline-step-detail" id="ps-${charId}-${id}-detail">${detail}</div>` : ''}
+      </div>`;
+    logEl.appendChild(div);
+    return div;
+  }
+  function updateStep(id, icon, label, detail) {
+    const el = document.getElementById(`ps-${charId}-${id}`);
+    if (!el) return;
+    el.querySelector('.pipeline-step-icon').textContent = icon;
+    if (label) el.querySelector('.pipeline-step-label').textContent = label;
+    const d = document.getElementById(`ps-${charId}-${id}-detail`);
+    if (d && detail !== undefined) d.innerHTML = detail;
+  }
 
-  btn.disabled = true; btn.textContent = '⟳ 自检中…';
-
-  cell.innerHTML = `<div class="qa-report-panel">
-    <div style="font-weight:700;font-size:14px;margin-bottom:10px">🔍 ${esc(charName)} · 自检中</div>
-    <div id="qa-progress-${charId}" style="color:var(--text2);font-size:13px">正在模拟测试对话…</div>
-  </div>`;
-  qaRow.style.display = '';
+  addStep('phases', '<span class="spinning">⟳</span>', '生成剧情脚本', '正在调用 AI 生成 P0–P4 专属剧情…');
+  addStep('album', '⏳', '写真图片', '等待剧本完成后加入队列');
+  addStep('qa', '⏳', '角色自检', '等待前置步骤完成');
+  // QA live area placeholder
+  const qaLiveId = `qa-live-${charId}`;
+  logEl.insertAdjacentHTML('beforeend', `<div id="${qaLiveId}"></div>`);
 
   try {
-    const resp = await fetch(`${BASE}/api/admin/characters/${charId}/qa?key=${ADMIN_KEY}`, {
+    const resp = await fetch(`${BASE}/api/admin/characters/${charId}/setup?key=${ADMIN_KEY}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
     });
-
     const reader = resp.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
@@ -1257,23 +1326,223 @@ async function runQA(charId, charName, btn) {
       for (const line of lines) {
         if (!line.startsWith('data: ')) continue;
         try {
-          const data = JSON.parse(line.slice(6));
-          if (data.type === 'progress') {
-            document.getElementById(`qa-progress-${charId}`).textContent = data.message;
-          } else if (data.type === 'done') {
-            renderQAReport(charId, charName, data.report, cell);
-            loadChars(); // refresh QA badge
-          } else if (data.type === 'error') {
-            cell.innerHTML = `<div style="color:var(--red);padding:12px;font-size:13px">❌ 自检失败：${esc(data.message)}</div>`;
+          const ev = JSON.parse(line.slice(6));
+          if (ev.type === 'step') {
+            if (ev.step === 'phases') {
+              if (ev.status === 'done') {
+                const phaseSummary = (ev.phases || []).map((p, i) =>
+                  `<div class="pipeline-phase" onclick="this.style.whiteSpace=this.style.whiteSpace==='normal'?'nowrap':'normal'">
+                    <strong>P${i}</strong> ${esc(p.slice(0,80))}…</div>`
+                ).join('');
+                updateStep('phases', '✅', '剧情脚本已生成（5段）', `<div class="pipeline-phases">${phaseSummary}</div>`);
+              } else if (ev.status === 'error') {
+                updateStep('phases', '❌', '剧本生成失败', esc(ev.message));
+              }
+            } else if (ev.step === 'album') {
+              updateStep('album', '✅', '已加入写真生成队列', '需在本地运行 ComfyUI Worker 生成图片，完成后自动上传');
+            } else if (ev.step === 'qa' && ev.status === 'start') {
+              updateStep('qa', '<span class="spinning">⟳</span>', '自检进行中', '');
+              initQALiveViewer(qaLiveId, charName);
+            } else if (ev.step === 'qa' && ev.status === 'error') {
+              updateStep('qa', '❌', '自检失败', esc(ev.message));
+            }
+          } else if (ev.type === 'turn') {
+            appendQATurn(qaLiveId, ev);
+          } else if (ev.type === 'evaluating') {
+            setQAEvaluating(qaLiveId);
+          } else if (ev.type === 'done') {
+            updateStep('qa', ev.report.score >= 70 ? '✅' : '⚠️',
+              `自检完成 · ${ev.report.score}分 · ${ev.report.score >= 70 ? '通过' : '需改进'}`, '');
+            appendQAResult(qaLiveId, ev.report);
+            loadChars();
+          } else if (ev.type === 'setup_done') {
+            // all done
           }
         } catch {}
       }
     }
   } catch(e) {
-    cell.innerHTML = `<div style="color:var(--red);padding:12px;font-size:13px">请求失败：${esc(e.message)}</div>`;
+    logEl.insertAdjacentHTML('beforeend', `<div style="color:var(--red);font-size:12px;margin-top:8px">管道失败：${esc(e.message)}</div>`);
   }
+}
 
+// ── QA Self-Check ─────────────────────────────────────────────────────────────
+async function runQA(charId, charName, btn) {
+  const qaRow = document.getElementById(`qa-row-${charId}`);
+  const cell = qaRow.querySelector('td');
+  btn.disabled = true; btn.textContent = '⟳ 自检中…';
+
+  const liveId = `qa-live-row-${charId}`;
+  cell.innerHTML = `<div id="${liveId}"></div>`;
+  qaRow.style.display = '';
+  initQALiveViewer(liveId, charName);
+
+  try {
+    const resp = await fetch(`${BASE}/api/admin/characters/${charId}/qa?key=${ADMIN_KEY}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+    });
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n'); buffer = lines.pop() || '';
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const ev = JSON.parse(line.slice(6));
+          if (ev.type === 'turn')       appendQATurn(liveId, ev);
+          else if (ev.type === 'evaluating') setQAEvaluating(liveId);
+          else if (ev.type === 'done')  { appendQAResult(liveId, ev.report); loadChars(); }
+          else if (ev.type === 'error') {
+            document.getElementById(liveId).insertAdjacentHTML('beforeend',
+              `<div style="color:var(--red);font-size:12px;padding:8px">❌ ${esc(ev.message)}</div>`);
+          }
+        } catch {}
+      }
+    }
+  } catch(e) {
+    document.getElementById(liveId).insertAdjacentHTML('beforeend',
+      `<div style="color:var(--red);font-size:12px;padding:8px">请求失败：${esc(e.message)}</div>`);
+  }
   btn.disabled = false; btn.textContent = '🔍 自检';
+}
+
+// ── QA Live Viewer helpers ────────────────────────────────────────────────────
+function initQALiveViewer(containerId, charName) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = `<div class="qa-live">
+    <div class="qa-live-header">
+      <div class="qa-live-title">🔍 ${esc(charName)} · 自检对话</div>
+      <div style="font-size:11px;color:var(--hint)" id="${containerId}-counter">0 / —</div>
+    </div>
+    <div class="qa-live-progress"><div class="qa-live-progress-fill" id="${containerId}-bar"></div></div>
+    <div class="qa-live-body">
+      <div class="qa-live-chat" id="${containerId}-chat">
+        <div style="color:var(--hint);font-size:12px;padding:8px;text-align:center">等待第一轮对话…</div>
+      </div>
+      <div class="qa-live-stats" id="${containerId}-stats">
+        <div class="qa-stat-mini">
+          <div class="qa-stat-mini-label">情绪</div>
+          <div style="font-weight:700;font-size:13px" id="${containerId}-mood">—</div>
+        </div>
+        <div class="qa-stat-mini">
+          <div class="qa-stat-mini-label">亲密度</div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <div class="qa-stat-mini-bar-wrap" style="flex:1"><div class="qa-stat-mini-bar" id="${containerId}-intimacy-bar" style="width:0%"></div></div>
+            <span style="font-size:11px;font-weight:700;width:24px;text-align:right" id="${containerId}-intimacy-val">0</span>
+          </div>
+        </div>
+        <div class="qa-stat-mini">
+          <div class="qa-stat-mini-label">剧情阶段</div>
+          <div class="qa-phase-dots" id="${containerId}-phases">
+            ${[0,1,2,3,4].map(i => `<div class="qa-phase-dot" id="${containerId}-pd${i}" title="P${i}"></div>`).join('')}
+          </div>
+          <div style="font-size:18px;font-weight:800;color:var(--accent);margin-top:4px" id="${containerId}-phase-val">P0</div>
+        </div>
+        <div class="qa-stat-mini">
+          <div class="qa-stat-mini-label">本轮Δ亲密</div>
+          <div style="font-weight:700;font-size:15px" id="${containerId}-delta">—</div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function appendQATurn(containerId, ev) {
+  const chat = document.getElementById(`${containerId}-chat`);
+  if (!chat) return;
+  // Clear placeholder
+  const placeholder = chat.querySelector('div[style*="text-align:center"]');
+  if (placeholder) placeholder.remove();
+
+  const div = document.createElement('div');
+  div.style.cssText = 'display:flex;flex-direction:column;gap:5px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,0.04)';
+  div.innerHTML = `
+    <div class="qa-turn-label">第 ${ev.turn} / ${ev.totalTurns} 轮</div>
+    <div class="qa-bubble qa-bubble-user">${esc(ev.userMsg)}</div>
+    <div class="qa-bubble qa-bubble-ai">${esc(ev.aiReply)}</div>`;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+
+  // Update progress
+  const pct = (ev.turn / ev.totalTurns) * 100;
+  const bar = document.getElementById(`${containerId}-bar`);
+  if (bar) bar.style.width = pct + '%';
+  const counter = document.getElementById(`${containerId}-counter`);
+  if (counter) counter.textContent = `${ev.turn} / ${ev.totalTurns}`;
+
+  // Update stats
+  const s = ev.state;
+  const moodEl = document.getElementById(`${containerId}-mood`);
+  if (moodEl) moodEl.textContent = s.mood || '—';
+  const intimacyBar = document.getElementById(`${containerId}-intimacy-bar`);
+  if (intimacyBar) intimacyBar.style.width = s.intimacy + '%';
+  const intimacyVal = document.getElementById(`${containerId}-intimacy-val`);
+  if (intimacyVal) intimacyVal.textContent = s.intimacy;
+  for (let i = 0; i <= 4; i++) {
+    const dot = document.getElementById(`${containerId}-pd${i}`);
+    if (dot) dot.classList.toggle('reached', i <= s.phase);
+  }
+  const phaseVal = document.getElementById(`${containerId}-phase-val`);
+  if (phaseVal) phaseVal.textContent = 'P' + s.phase;
+  const delta = document.getElementById(`${containerId}-delta`);
+  if (delta) {
+    delta.textContent = s.delta > 0 ? `+${s.delta}` : String(s.delta);
+    delta.style.color = s.delta > 0 ? 'var(--green)' : s.delta < 0 ? 'var(--red)' : 'var(--hint)';
+  }
+}
+
+function setQAEvaluating(containerId) {
+  const bar = document.getElementById(`${containerId}-bar`);
+  if (bar) bar.style.width = '100%';
+  const counter = document.getElementById(`${containerId}-counter`);
+  if (counter) counter.textContent = 'AI 评审中…';
+  const chat = document.getElementById(`${containerId}-chat`);
+  if (chat) {
+    const div = document.createElement('div');
+    div.className = 'qa-evaluating';
+    div.innerHTML = `<span class="spinning">⟳</span>对话完成，AI 正在打分…`;
+    chat.appendChild(div);
+    chat.scrollTop = chat.scrollHeight;
+  }
+}
+
+function appendQAResult(containerId, report) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const score = report.score ?? 0;
+  const passed = score >= 70;
+  const catRows = Object.entries(report.categories || {}).map(([key, val]) => {
+    const s = val.score ?? 0;
+    const label = { personality:'角色一致性', escalation:'剧情推进', engagement:'吸引力', immersion:'沉浸感' }[key] || key;
+    return `<div class="qa-cat-row">
+      <div class="qa-cat-label">${esc(label)}</div>
+      <div class="qa-cat-bar-wrap"><div class="qa-cat-bar" style="width:${s}%"></div></div>
+      <div class="qa-cat-score" style="color:${s>=70?'var(--green)':s>=50?'var(--yellow)':'var(--red)'}">${s}</div>
+      <div style="flex:2;font-size:11px;color:var(--hint);padding-left:8px">${esc(val.comment||'')}</div>
+    </div>`;
+  }).join('');
+  const issues = (report.issues||[]).map(i=>`<li>${esc(i)}</li>`).join('');
+  const suggestions = (report.suggestions||[]).map(s=>`<li>${esc(s)}</li>`).join('');
+  el.insertAdjacentHTML('beforeend', `
+    <div class="qa-report-panel" style="margin-top:10px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+        <div class="qa-score-ring ${passed?'qa-score-pass':'qa-score-fail'}" style="width:48px;height:48px;font-size:17px">${score}</div>
+        <div>
+          <div style="font-weight:800;font-size:15px;color:${passed?'var(--green)':'var(--red)'}">${passed?'✓ 通过':'✗ 未通过'}</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:2px">${esc(report.summary||'')}</div>
+        </div>
+      </div>
+      ${catRows}
+      ${issues?`<div style="margin-top:10px"><div style="font-size:11px;font-weight:700;color:var(--red);margin-bottom:4px">⚠ 问题</div><ul style="padding-left:16px;font-size:11px;color:var(--text2);margin:0">${issues}</ul></div>`:''}
+      ${suggestions?`<div style="margin-top:8px"><div style="font-size:11px;font-weight:700;color:var(--yellow);margin-bottom:4px">💡 建议</div><ul style="padding-left:16px;font-size:11px;color:var(--text2);margin:0">${suggestions}</ul></div>`:''}
+      <button class="btn btn-ghost" style="font-size:11px;padding:4px 10px;margin-top:10px"
+        onclick="this.closest('tr').style.display='none'">收起</button>
+    </div>`);
 }
 
 function renderQAReport(charId, charName, report, cell) {
@@ -1404,6 +1673,92 @@ async function loadFullConv(convId, charName, btn) {
       ${esc(m.content)}
     </div>`).join('');
   btn.textContent = '✓ 已加载全部 ' + msgs.length + ' 条消息';
+}
+
+// ── Scene Images ──────────────────────────────────────────────────────────────
+let _sceneCharsLoaded = false;
+
+async function initSceneImages() {
+  if (!_sceneCharsLoaded) {
+    // Populate character filter from existing characters list
+    try {
+      const data = await api('/characters');
+      const sel = document.getElementById('sceneCharFilter');
+      (data.characters || data).forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.name;
+        sel.appendChild(opt);
+      });
+      _sceneCharsLoaded = true;
+    } catch(e) {}
+  }
+  loadSceneImages(1);
+}
+
+async function loadSceneImages(page) {
+  const grid = document.getElementById('sceneGrid');
+  const nav = document.getElementById('scenePageNav');
+  const charId = document.getElementById('sceneCharFilter').value;
+  grid.innerHTML = '<div class="loading" style="grid-column:1/-1"><span class="spinning">⟳</span> 加载中...</div>';
+  nav.innerHTML = '';
+
+  const qs = `&page=${page}` + (charId ? `&characterId=${charId}` : '');
+  try {
+    const data = await api(`/scene-images?${qs}`);
+    document.getElementById('sceneTotal').textContent = `共 ${data.total} 张`;
+
+    if (!data.items?.length) {
+      grid.innerHTML = '<div class="loading" style="grid-column:1/-1;color:var(--hint)">暂无场景图</div>';
+      return;
+    }
+
+    grid.innerHTML = data.items.map(img => `
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden">
+        <div style="position:relative;cursor:pointer" onclick="window.open('${img.imageUrl}','_blank')">
+          <img src="${img.imageUrl}" style="width:100%;aspect-ratio:3/4;object-fit:cover;object-position:top;display:block" loading="lazy" onerror="this.style.display='none'"/>
+          <div style="position:absolute;top:5px;right:5px;background:rgba(0,0,0,0.6);color:white;font-size:10px;padding:2px 6px;border-radius:20px">×${img.useCount}</div>
+        </div>
+        <div style="padding:8px 10px">
+          <div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:3px">${img.character?.name || '未知'}</div>
+          <div style="font-size:10px;color:var(--hint);line-height:1.4;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${img.prompt.slice(0,80)}</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+            <span style="font-size:10px;color:var(--hint)">${timeAgo(img.createdAt)}</span>
+            <button onclick="deleteSceneImage('${img.id}',this)" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:11px;padding:2px 6px;border-radius:4px;background:rgba(248,113,113,0.1)">删除</button>
+          </div>
+        </div>
+      </div>`).join('');
+
+    // Pagination
+    if (data.pages > 1) {
+      for (let p = 1; p <= data.pages; p++) {
+        const btn = document.createElement('button');
+        btn.className = 'btn ' + (p === data.page ? 'btn-primary' : 'btn-ghost');
+        btn.style.cssText = 'min-width:36px;padding:7px 12px;font-size:13px';
+        btn.textContent = p;
+        btn.onclick = () => loadSceneImages(p);
+        nav.appendChild(btn);
+      }
+    }
+  } catch(e) {
+    grid.innerHTML = '<div class="loading" style="grid-column:1/-1;color:var(--red)">加载失败: ' + e.message + '</div>';
+  }
+}
+
+async function deleteSceneImage(id, btn) {
+  if (!confirm('删除这张场景图？')) return;
+  btn.disabled = true;
+  btn.textContent = '…';
+  try {
+    await fetch(`${BASE}/api/admin/scene-images/${id}?key=${ADMIN_KEY}`, { method: 'DELETE' });
+    btn.closest('div[style*="background:var(--bg2)"]').remove();
+    const tot = document.getElementById('sceneTotal');
+    const m = tot.textContent.match(/\d+/);
+    if (m) tot.textContent = `共 ${parseInt(m[0]) - 1} 张`;
+  } catch(e) {
+    btn.disabled = false; btn.textContent = '删除';
+    alert('删除失败: ' + e.message);
+  }
 }
 </script>
 </body>

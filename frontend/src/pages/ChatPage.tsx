@@ -127,7 +127,7 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
     const genMsg: Message = { role: 'assistant', content: '', imageGenerating: true };
     setMessages(prev => [...prev, genMsg]);
     try {
-      const res = await api.images.generate(prompt, character.name);
+      const res = await api.images.generate(prompt, character.name, characterId);
       setMessages(prev => {
         const next = [...prev];
         const idx = [...next].reverse().findIndex(m => m.imageGenerating);

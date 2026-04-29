@@ -9,7 +9,7 @@ import path from 'path';
 import { prisma } from '../utils/prisma';
 import { chat, parseMeta, buildCharacterSystemPrompt, type Message } from '../services/grok';
 import { generateSceneImage, shouldGenerateImage } from '../services/comfyui';
-import { runCharacterQA, getBaseline, saveBaseline, DEFAULT_BASELINE } from '../services/characterQA';
+import { runCharacterQA, generateStoryPhases, getBaseline, saveBaseline, DEFAULT_BASELINE } from '../services/characterQA';
 
 export const adminRouter = Router();
 
@@ -401,12 +401,12 @@ adminRouter.post('/characters/create', async (req: Request, res: Response): Prom
   res.json({ ok: true, character });
 });
 
-// POST /api/admin/characters/:id/qa?key=... — 触发角色自检（异步，SSE）
+// POST /api/admin/characters/:id/qa?key=... — 触发角色自检（SSE，逐轮可视化）
 adminRouter.post('/characters/:id/qa', async (req: Request, res: Response): Promise<void> => {
   if (!checkKey(req, res)) return;
 
   const { id } = req.params;
-  const character = await prisma.character.findUnique({ where: { id }, select: { id: true, name: true, qaStatus: true } });
+  const character = await prisma.character.findUnique({ where: { id }, select: { id: true, name: true } });
   if (!character) { res.status(404).json({ error: 'Character not found' }); return; }
 
   res.setHeader('Content-Type', 'text/event-stream');
@@ -417,13 +417,79 @@ adminRouter.post('/characters/:id/qa', async (req: Request, res: Response): Prom
   send({ type: 'start', characterName: character.name });
 
   try {
-    send({ type: 'progress', message: '正在模拟测试对话…' });
-    const report = await runCharacterQA(id);
-    send({ type: 'done', report });
+    await runCharacterQA(id, (e) => send(e));
   } catch (e: any) {
     send({ type: 'error', message: e.message });
   }
 
+  res.end();
+});
+
+// POST /api/admin/characters/:id/generate-phases?key=... — 生成剧情脚本
+adminRouter.post('/characters/:id/generate-phases', async (req: Request, res: Response): Promise<void> => {
+  if (!checkKey(req, res)) return;
+
+  const character = await prisma.character.findUnique({ where: { id: req.params.id } });
+  if (!character) { res.status(404).json({ error: 'Character not found' }); return; }
+
+  try {
+    const phases = await generateStoryPhases(character as any);
+    await prisma.character.update({ where: { id: req.params.id }, data: { storyPhases: phases } });
+    res.json({ ok: true, phases });
+  } catch (e: any) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// POST /api/admin/characters/:id/save-phases?key=... — 手动保存/修改剧情脚本
+adminRouter.post('/characters/:id/save-phases', async (req: Request, res: Response): Promise<void> => {
+  if (!checkKey(req, res)) return;
+  const { phases } = req.body as { phases: string[] };
+  if (!Array.isArray(phases) || phases.length !== 5) {
+    res.status(400).json({ error: 'phases must be array of 5 strings' }); return;
+  }
+  await prisma.character.update({ where: { id: req.params.id }, data: { storyPhases: phases } });
+  res.json({ ok: true });
+});
+
+// POST /api/admin/characters/:id/setup?key=... — 全流程 SSE：生成剧本 + 排队生图 + QA自检
+adminRouter.post('/characters/:id/setup', async (req: Request, res: Response): Promise<void> => {
+  if (!checkKey(req, res)) return;
+
+  const character = await prisma.character.findUnique({ where: { id: req.params.id } });
+  if (!character) { res.status(404).json({ error: 'Character not found' }); return; }
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  const send = (data: object) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+
+  // Step 1: Generate story phases
+  send({ type: 'step', step: 'phases', status: 'start', message: '正在生成5段剧情脚本…' });
+  try {
+    const phases = await generateStoryPhases(character as any);
+    await prisma.character.update({ where: { id: character.id }, data: { storyPhases: phases } });
+    send({ type: 'step', step: 'phases', status: 'done', phases });
+  } catch (e: any) {
+    send({ type: 'step', step: 'phases', status: 'error', message: e.message });
+    res.end(); return;
+  }
+
+  // Step 2: Queue album generation (requires local ComfyUI worker)
+  const { randomUUID } = await import('crypto');
+  const albumJob = { id: randomUUID(), charId: character.id, charName: character.name, count: 3, status: 'pending' as const, createdAt: new Date().toISOString() };
+  regenQueue.push(albumJob);
+  send({ type: 'step', step: 'album', status: 'queued', jobId: albumJob.id, message: '已加入写真生成队列（需本地 Worker 运行）' });
+
+  // Step 3: QA self-check
+  send({ type: 'step', step: 'qa', status: 'start', message: '开始运行自检对话…' });
+  try {
+    await runCharacterQA(character.id, (e) => send(e));
+  } catch (e: any) {
+    send({ type: 'step', step: 'qa', status: 'error', message: e.message });
+  }
+
+  send({ type: 'setup_done' });
   res.end();
 });
 
@@ -614,4 +680,34 @@ adminRouter.post('/simulate-chat', async (req: Request, res: Response): Promise<
 
   send({ type: 'done', finalState: { intimacy, phase, mood, dominance, desire, attach } });
   res.end();
+});
+
+// ── Scene Image Cache ─────────────────────────────────────────────────────────
+
+// GET /api/admin/scene-images?key=&characterId=&page=
+adminRouter.get('/scene-images', async (req: Request, res: Response): Promise<void> => {
+  if (!checkKey(req, res)) return;
+  const characterId = req.query.characterId as string | undefined;
+  const page = Math.max(1, parseInt(req.query.page as string) || 1);
+  const perPage = 30;
+
+  const where = characterId ? { characterId } : {};
+  const [items, total] = await Promise.all([
+    prisma.sceneImage.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      skip: (page - 1) * perPage,
+      take: perPage,
+      include: { character: { select: { id: true, name: true } } },
+    }),
+    prisma.sceneImage.count({ where }),
+  ]);
+  res.json({ items, total, page, pages: Math.ceil(total / perPage) });
+});
+
+// DELETE /api/admin/scene-images/:id?key=...
+adminRouter.delete('/scene-images/:id', async (req: Request, res: Response): Promise<void> => {
+  if (!checkKey(req, res)) return;
+  await prisma.sceneImage.delete({ where: { id: req.params.id } });
+  res.json({ ok: true });
 });

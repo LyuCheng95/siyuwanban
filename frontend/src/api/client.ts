@@ -125,10 +125,10 @@ export const api = {
   },
 
   images: {
-    generate: (prompt: string, characterName?: string) =>
+    generate: (prompt: string, characterName?: string, characterId?: string) =>
       request<{ url: string }>('/images/generate', {
         method: 'POST',
-        body: JSON.stringify({ prompt, characterName }),
+        body: JSON.stringify({ prompt, characterName, characterId }),
       }),
   },
 
