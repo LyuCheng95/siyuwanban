@@ -169,16 +169,23 @@ async function waitForImage(promptId: string): Promise<string> {
   throw new Error('Timeout waiting for image');
 }
 
+const CHAR_SLUG: Record<string, string> = {
+  '椎名老师': 'zhui', '晓彤': 'tong', '娜娜': 'nana', '小雨': 'yu',
+  '琉璃': 'luli', '糖糖': 'tang', '沈静': 'shen', '小慧': 'hui',
+  '夜玲': 'ling', '晴晴': 'qing', '唐诗': 'shi', '阿柒': 'qi',
+  'X-23': 'x23', '幻音': 'huan', '狐九': 'hujiu', '冷霜': 'shuang', '魅罗': 'mei',
+};
+
 async function downloadAndSave(filename: string, charName: string): Promise<string> {
   const res = await fetch(`${COMFYUI_URL}/view?filename=${filename}&type=output`);
   if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
   const buffer = await res.buffer();
   fs.mkdirSync(SAVE_DIR, { recursive: true });
-  const safeName = charName.replace(/[^a-zA-Z0-9一-鿿]/g, '_');
-  const saveName = `face_${safeName}_${Date.now()}.png`;
+  const slug = CHAR_SLUG[charName] ?? charName.replace(/[^a-zA-Z0-9]/g, '_');
+  const saveName = `face_${slug}_${Date.now()}.png`;
   const savePath = path.join(SAVE_DIR, saveName);
   fs.writeFileSync(savePath, buffer);
-  return `${BASE_URL}/${encodeURIComponent(saveName)}`;
+  return `${BASE_URL}/${saveName}`;
 }
 
 async function main() {
