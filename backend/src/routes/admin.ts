@@ -7,6 +7,8 @@ import { randomUUID } from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { prisma } from '../utils/prisma';
+import { chat, parseMeta, buildCharacterSystemPrompt, type Message } from '../services/grok';
+import { generateSceneImage, shouldGenerateImage } from '../services/comfyui';
 
 export const adminRouter = Router();
 
@@ -262,4 +264,158 @@ adminRouter.post('/set-portrait', async (req: Request, res: Response): Promise<v
     select: { id: true, name: true, portraitUrl: true, portraitImages: true },
   });
   res.json(updated);
+});
+
+// ── Conversation Simulator ────────────────────────────────────────────────────
+
+async function generateUserMessage(
+  context: Message[],
+  intimacy: number,
+  turn: number,
+  characterName: string,
+): Promise<string> {
+  const lastAiMsg = context.filter(m => m.role === 'assistant').slice(-1)[0]?.content ?? '';
+
+  const hintByTurn =
+    turn < 5  ? '回应角色刚才说的话，轻松好奇，可以轻微调情，但不要每次都问"今天咋样"' :
+    turn < 10 ? '对角色明显有好感，直接回应她的动作或暗示，主动靠近、触碰或挑逗' :
+    turn < 16 ? '大胆邀请更亲密的接触，回应她的肢体动作，要求更进一步' :
+    turn < 22 ? '直接要求性行为，回应她的状态，沉浸且主动' :
+                '高潮后余韵，温柔低语，依偎';
+
+  const res = await fetch('https://api.x.ai/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.GROK_API_KEY}` },
+    body: JSON.stringify({
+      model: 'grok-3',
+      messages: [
+        {
+          role: 'system',
+          content: `你在扮演一个正在用AI陪伴App的男性玩家，对象是角色"${characterName}"。
+当前第${turn + 1}轮，亲密度${intimacy}/100。
+【角色刚才说】：${lastAiMsg.slice(0, 200)}
+【任务】直接回应角色刚才说的话或做的动作，风格：${hintByTurn}。
+要求：必须呼应角色最后一句话，不要自顾自问"今天咋样"——回应她，推进对话。中文，10-30字，只返回消息文本。`,
+        },
+      ],
+      max_tokens: 60,
+      temperature: 0.9,
+    }),
+  });
+  const data = await res.json() as any;
+  return (data.choices?.[0]?.message?.content ?? '你好').trim().slice(0, 60);
+}
+
+// POST /api/admin/simulate-chat?key=... — 模拟对话用于测试（SSE）
+adminRouter.post('/simulate-chat', async (req: Request, res: Response): Promise<void> => {
+  if (!checkKey(req, res)) return;
+
+  const { characterId, turns = 20, startingIntimacy = 0, startingPhase = 0 } = req.body as {
+    characterId: string; turns?: number; startingIntimacy?: number; startingPhase?: number;
+  };
+
+  const character = await prisma.character.findUnique({ where: { id: characterId } });
+  if (!character) { res.status(404).json({ error: 'Character not found' }); return; }
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  const send = (data: object) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+
+  let intimacy = Math.max(0, Math.min(100, startingIntimacy));
+  let phase = Math.max(0, Math.min(4, startingPhase));
+  let dominance = 0, desire = 0, attach = 0;
+  let mood = '期待';
+  const context: Message[] = [];
+  const userMemory: Record<string, unknown> = {
+    _intimacyLevel: intimacy, _phaseIndex: phase, _mood: mood,
+    _dominanceLevel: 0, _desireLevel: 0, _attachLevel: 0, _unlockedActs: [],
+    _totalTurns: 0,
+  };
+
+  send({ type: 'start', character: character.name, turns, startingIntimacy });
+
+  for (let i = 0; i < turns; i++) {
+    // Generate user message
+    let userMsg: string;
+    try {
+      userMsg = context.length === 0 ? '你好' : await generateUserMessage(context, intimacy, i, character.name);
+    } catch { userMsg = '继续'; }
+
+    // Build messages and call character AI
+    const recentAiReplies = context
+      .filter(m => m.role === 'assistant')
+      .slice(-3)
+      .reverse()
+      .map(m => m.content);
+    const systemPrompt = buildCharacterSystemPrompt(character, userMemory, recentAiReplies);
+    const messages: Message[] = [
+      { role: 'system', content: systemPrompt },
+      ...context.slice(-20),
+      { role: 'user', content: userMsg },
+    ];
+
+    let aiReply: string;
+    try {
+      aiReply = await chat(messages);
+    } catch (e: any) {
+      send({ type: 'error', turn: i + 1, error: e.message });
+      break;
+    }
+
+    const { cleanReply, meta } = parseMeta(aiReply);
+
+    // Update state
+    const prevIntimacy = intimacy;
+    intimacy    = Math.max(0, Math.min(100, intimacy + meta.delta));
+    dominance   = Math.max(0, Math.min(100, dominance + meta.controlDelta));
+    desire      = Math.max(0, Math.min(100, desire + meta.desireDelta));
+    attach      = Math.max(0, Math.min(100, attach + meta.attachDelta));
+    phase       = Math.max(phase, meta.phase);
+    mood        = meta.mood;
+
+    userMemory._intimacyLevel  = intimacy;
+    userMemory._phaseIndex     = phase;
+    userMemory._mood           = mood;
+    userMemory._dominanceLevel = dominance;
+    userMemory._desireLevel    = desire;
+    userMemory._attachLevel    = attach;
+    userMemory._totalTurns     = i + 1;
+
+    context.push({ role: 'user', content: userMsg });
+    context.push({ role: 'assistant', content: cleanReply });
+
+    send({
+      type: 'turn',
+      turn: i + 1,
+      userMsg,
+      aiReply: cleanReply,
+      suggestions: meta.suggestions,
+      state: { intimacy, phase, mood, dominance, desire, attach },
+      delta: { intimacy: intimacy - prevIntimacy },
+    });
+
+    // Generate image every 5 turns
+    if ((i + 1) % 5 === 0) {
+      try {
+        const recentForImage = [
+          { role: 'user' as const, content: userMsg },
+          { role: 'assistant' as const, content: cleanReply },
+        ];
+        const imgDecision = await shouldGenerateImage(character.name, recentForImage, character, intimacy) as { generate: boolean; prompt?: string; twoShot?: boolean };
+        if (imgDecision.generate && imgDecision.prompt) {
+          send({ type: 'image_pending', turn: i + 1, prompt: imgDecision.prompt });
+          const imgUrl = await generateSceneImage(imgDecision.prompt, '', character.name);
+          send({ type: 'image', turn: i + 1, url: imgUrl });
+        } else {
+          send({ type: 'image_skipped', turn: i + 1 });
+        }
+      } catch (e: any) {
+        send({ type: 'image_error', turn: i + 1, error: e.message });
+      }
+    }
+  }
+
+  send({ type: 'done', finalState: { intimacy, phase, mood, dominance, desire, attach } });
+  res.end();
 });

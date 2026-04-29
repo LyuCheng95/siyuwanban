@@ -154,6 +154,59 @@
   .regen-char-label { font-weight: 600; flex: 1; }
   .regen-count-sel { background: var(--bg2); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 5px 10px; font-size: 13px; cursor: pointer; }
 
+  /* ── Simulator ── */
+  .sim-layout { display: grid; grid-template-columns: 1fr 280px; gap: 16px; align-items: start; }
+  .sim-config { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 20px; display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px; }
+  .sim-field { display: flex; flex-direction: column; gap: 6px; }
+  .sim-label { font-size: 11px; color: var(--text2); font-weight: 600; letter-spacing: 0.3px; text-transform: uppercase; }
+  .sim-select { padding: 9px 14px; background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13px; outline: none; min-width: 160px; }
+  .sim-select:focus { border-color: rgba(255,61,127,0.4); }
+  .sim-turns-btns { display: flex; gap: 6px; }
+  .sim-turn-btn { padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; border: 1.5px solid var(--border); background: var(--bg3); color: var(--text2); cursor: pointer; transition: all 0.15s; }
+  .sim-turn-btn.active { background: linear-gradient(135deg,rgba(255,61,127,0.15),rgba(192,38,211,0.15)); border-color: rgba(255,61,127,0.4); color: var(--accent); }
+  .sim-intimacy { display: flex; gap: 6px; flex-wrap: wrap; }
+  .sim-intimacy-btn { padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; border: 1.5px solid var(--border); background: var(--bg3); color: var(--text2); cursor: pointer; transition: all 0.15s; }
+  .sim-intimacy-btn.active { background: linear-gradient(135deg,rgba(255,61,127,0.15),rgba(192,38,211,0.15)); border-color: rgba(255,61,127,0.4); color: var(--accent); }
+  .sim-start-btn { padding: 10px 28px; background: var(--grad); border: none; border-radius: 8px; color: white; font-size: 14px; font-weight: 700; cursor: pointer; align-self: flex-end; transition: opacity 0.15s; white-space: nowrap; }
+  .sim-start-btn:hover { opacity: 0.9; }
+  .sim-start-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .sim-chat { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .sim-chat-header { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .sim-chat-title { font-size: 14px; font-weight: 700; }
+  .sim-progress-bar { height: 3px; background: var(--bg3); }
+  .sim-progress-fill { height: 100%; background: var(--grad); transition: width 0.3s; width: 0%; }
+  .sim-messages { height: 560px; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .sim-turn { display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 12px; }
+  .sim-turn:last-child { border-bottom: none; }
+  .sim-turn-num { font-size: 10px; color: var(--hint); font-weight: 600; letter-spacing: 0.5px; }
+  .sim-msg { padding: 8px 12px; border-radius: 12px; font-size: 13px; line-height: 1.5; max-width: 88%; }
+  .sim-msg-user { background: linear-gradient(135deg,rgba(255,61,127,0.18),rgba(192,38,211,0.18)); border: 1px solid rgba(255,61,127,0.2); align-self: flex-end; color: rgba(255,200,220,0.95); }
+  .sim-msg-ai { background: var(--bg3); border: 1px solid var(--border); align-self: flex-start; color: var(--text); }
+  .sim-suggestions { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
+  .sim-sug { padding: 3px 10px; border-radius: 20px; font-size: 11px; color: rgba(255,150,200,0.7); border: 1px solid rgba(255,61,127,0.2); background: rgba(255,61,127,0.06); }
+
+  .sim-stats { display: flex; flex-direction: column; gap: 12px; }
+  .sim-stat-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+  .sim-stat-title { font-size: 12px; color: var(--text2); font-weight: 600; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.3px; }
+  .sim-stat-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; font-size: 12px; }
+  .sim-stat-label { color: var(--text2); }
+  .sim-stat-val { font-weight: 700; color: var(--text); }
+  .sim-bar-wrap { height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden; margin-top: 2px; }
+  .sim-bar { height: 100%; border-radius: 3px; transition: width 0.4s; background: var(--grad); }
+  .sim-mood-chip { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; background: rgba(255,61,127,0.15); color: var(--accent); border: 1px solid rgba(255,61,127,0.25); }
+  .sim-delta { font-size: 11px; font-weight: 700; }
+  .sim-delta-pos { color: var(--green); }
+  .sim-delta-neg { color: var(--red); }
+  .sim-delta-zero { color: var(--hint); }
+  .sim-intimacy-chart { display: flex; align-items: flex-end; gap: 2px; height: 60px; margin-top: 8px; }
+  .sim-chart-bar { flex: 1; min-width: 4px; background: var(--grad); border-radius: 2px 2px 0 0; opacity: 0.8; transition: height 0.3s; }
+  .sim-warning { background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.25); border-radius: 8px; padding: 10px 12px; font-size: 12px; color: var(--yellow); margin-top: 8px; }
+  .sim-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 400px; color: var(--hint); font-size: 13px; gap: 10px; }
+  .sim-phase-track { display: flex; gap: 4px; margin-top: 8px; }
+  .sim-phase-dot { flex: 1; height: 8px; border-radius: 4px; background: var(--bg3); transition: background 0.3s; }
+  .sim-phase-dot.reached { background: var(--grad); }
+
   /* ── Responsive ── */
   @media (max-width: 768px) {
     .stat-grid { grid-template-columns: 1fr 1fr; }
@@ -190,6 +243,7 @@
       <button class="nav-item" onclick="showPage('users')" id="nav-users"><span class="icon">👥</span><span>用户列表</span></button>
       <button class="nav-item" onclick="showPage('logs')" id="nav-logs"><span class="icon">💬</span><span>对话记录</span></button>
       <button class="nav-item" onclick="showPage('gallery')" id="nav-gallery"><span class="icon">🖼️</span><span>图片库</span></button>
+      <button class="nav-item" onclick="showPage('simulator')" id="nav-simulator"><span class="icon">🧪</span><span>对话测试</span></button>
     </div>
     <div class="sidebar-footer">
       <div class="api-key" id="keyDisplay"></div>
@@ -264,6 +318,96 @@
       </div>
     </div>
 
+    <!-- Simulator -->
+    <div class="page" id="page-simulator">
+      <div class="page-header">
+        <h1>🧪 对话测试</h1>
+        <p>自动模拟多轮对话，测试角色剧情推进是否正常</p>
+      </div>
+      <div class="sim-config">
+        <div class="sim-field">
+          <div class="sim-label">角色</div>
+          <select class="sim-select" id="simCharSelect"><option value="">加载中...</option></select>
+        </div>
+        <div class="sim-field">
+          <div class="sim-label">轮数</div>
+          <div class="sim-turns-btns">
+            <button class="sim-turn-btn" onclick="setSimTurns(10,this)">10</button>
+            <button class="sim-turn-btn active" onclick="setSimTurns(20,this)">20</button>
+            <button class="sim-turn-btn" onclick="setSimTurns(30,this)">30</button>
+          </div>
+        </div>
+        <div class="sim-field">
+          <div class="sim-label">初始亲密度</div>
+          <div class="sim-intimacy">
+            <button class="sim-intimacy-btn active" onclick="setSimIntimacy(0,this)">0</button>
+            <button class="sim-intimacy-btn" onclick="setSimIntimacy(20,this)">20</button>
+            <button class="sim-intimacy-btn" onclick="setSimIntimacy(40,this)">40</button>
+            <button class="sim-intimacy-btn" onclick="setSimIntimacy(60,this)">60</button>
+            <button class="sim-intimacy-btn" onclick="setSimIntimacy(80,this)">80</button>
+          </div>
+        </div>
+        <button class="sim-start-btn" id="simStartBtn" onclick="startSimulation()">▶ 开始模拟</button>
+      </div>
+
+      <div class="sim-layout">
+        <div class="sim-chat">
+          <div class="sim-chat-header">
+            <div class="sim-chat-title" id="simChatTitle">等待开始</div>
+            <div style="font-size:12px;color:var(--hint)" id="simTurnCounter">0 / 0</div>
+          </div>
+          <div class="sim-progress-bar"><div class="sim-progress-fill" id="simProgressFill"></div></div>
+          <div class="sim-messages" id="simMessages">
+            <div class="sim-empty">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              <span>选择角色后点击开始模拟</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="sim-stats">
+          <div class="sim-stat-card">
+            <div class="sim-stat-title">状态</div>
+            <div class="sim-stat-row"><span class="sim-stat-label">情绪</span><span class="sim-mood-chip" id="simMoodChip">—</span></div>
+            <div style="margin-top:10px">
+              <div class="sim-stat-row"><span class="sim-stat-label">亲密度</span><span class="sim-stat-val" id="simIntimacyVal">0</span></div>
+              <div class="sim-bar-wrap"><div class="sim-bar" id="simIntimacyBar" style="width:0%"></div></div>
+            </div>
+            <div style="margin-top:8px">
+              <div class="sim-stat-row"><span class="sim-stat-label">欲望值</span><span class="sim-stat-val" id="simDesireVal">0</span></div>
+              <div class="sim-bar-wrap"><div class="sim-bar" id="simDesireBar" style="width:0%;background:linear-gradient(135deg,#f97316,#dc2626)"></div></div>
+            </div>
+            <div style="margin-top:8px">
+              <div class="sim-stat-row"><span class="sim-stat-label">控制欲</span><span class="sim-stat-val" id="simDomVal">0</span></div>
+              <div class="sim-bar-wrap"><div class="sim-bar" id="simDomBar" style="width:0%;background:linear-gradient(135deg,#8b5cf6,#6d28d9)"></div></div>
+            </div>
+          </div>
+
+          <div class="sim-stat-card">
+            <div class="sim-stat-title">剧情阶段</div>
+            <div class="sim-phase-track" id="simPhaseTrack">
+              <div class="sim-phase-dot" title="P0"></div>
+              <div class="sim-phase-dot" title="P1"></div>
+              <div class="sim-phase-dot" title="P2"></div>
+              <div class="sim-phase-dot" title="P3"></div>
+              <div class="sim-phase-dot" title="P4"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--hint);margin-top:4px">
+              <span>P0</span><span>P1</span><span>P2</span><span>P3</span><span>P4</span>
+            </div>
+            <div style="margin-top:10px;font-size:12px;color:var(--text2)">当前阶段</div>
+            <div style="font-size:22px;font-weight:800;color:var(--accent)" id="simPhaseVal">—</div>
+          </div>
+
+          <div class="sim-stat-card">
+            <div class="sim-stat-title">亲密度走势</div>
+            <div class="sim-intimacy-chart" id="simIntimacyChart"></div>
+            <div id="simStuckWarning" style="display:none" class="sim-warning">⚠ 连续3轮亲密度无变化，剧情可能停滞</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Logs -->
     <div class="page" id="page-logs">
       <div class="page-header">
@@ -313,6 +457,7 @@ function showPage(name) {
   if (name !== 'gallery') { clearTimeout(regenQueuePollTimer); regenQueuePollTimer = null; }
   if (name === 'logs' && !document.getElementById('logsContent').innerHTML.trim()) loadLogs();
   if (name === 'gallery') loadGallery();
+  if (name === 'simulator') loadSimulatorChars();
 }
 
 // ── API helpers ───────────────────────────────────────────────────────────────
@@ -676,6 +821,202 @@ async function clearDoneJobs() {
     await fetch(`${BASE}/api/admin/regen-queue/${j.id}?key=${ADMIN_KEY}`, { method: 'DELETE' });
   }
   await loadRegenQueue();
+}
+
+// ── Simulator ─────────────────────────────────────────────────────────────────
+let simTurns = 20;
+let simStartingIntimacy = 0;
+let simRunning = false;
+let simAbortCtrl = null;
+
+function setSimTurns(n, btn) {
+  simTurns = n;
+  document.querySelectorAll('.sim-turn-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function setSimIntimacy(n, btn) {
+  simStartingIntimacy = n;
+  document.querySelectorAll('.sim-intimacy-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+async function loadSimulatorChars() {
+  const sel = document.getElementById('simCharSelect');
+  try {
+    const chars = await api('/characters');
+    sel.innerHTML = chars.map(c => `<option value="${esc(c.id)}">${esc(c.name)} · ${esc(c.occupation)}</option>`).join('');
+  } catch (e) {
+    sel.innerHTML = '<option value="">加载失败</option>';
+  }
+}
+
+function simAppendTurn(data, totalTurns) {
+  const msgs = document.getElementById('simMessages');
+  const empty = msgs.querySelector('.sim-empty');
+  if (empty) empty.remove();
+
+  const deltaVal = typeof data.delta === 'object' ? (data.delta?.intimacy ?? 0) : (data.delta ?? 0);
+  const deltaClass = deltaVal > 0 ? 'sim-delta-pos' : deltaVal < 0 ? 'sim-delta-neg' : 'sim-delta-zero';
+  const deltaText = deltaVal > 0 ? `+${deltaVal}` : String(deltaVal);
+  const sugs = (data.suggestions || []).map(s => `<span class="sim-sug">${esc(s)}</span>`).join('');
+
+  const div = document.createElement('div');
+  div.className = 'sim-turn';
+  div.innerHTML = `
+    <div class="sim-turn-num">第 ${data.turn} 轮 · 亲密度 ${data.state?.intimacy ?? 0} <span class="sim-delta ${deltaClass}">(${deltaText})</span></div>
+    <div class="sim-msg sim-msg-user">${esc(data.userMsg)}</div>
+    <div class="sim-msg sim-msg-ai">${esc(data.aiReply)}</div>
+    ${sugs ? `<div class="sim-suggestions">${sugs}</div>` : ''}
+  `;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+
+  const pct = (data.turn / totalTurns) * 100;
+  document.getElementById('simProgressFill').style.width = pct + '%';
+  document.getElementById('simTurnCounter').textContent = `${data.turn} / ${totalTurns}`;
+}
+
+function simAppendImagePending(turn, prompt) {
+  const msgs = document.getElementById('simMessages');
+  const div = document.createElement('div');
+  div.id = `sim-img-${turn}`;
+  div.style.cssText = 'margin:8px 0;padding:10px 12px;background:rgba(255,200,0,0.08);border:1px dashed rgba(255,200,0,0.3);border-radius:8px;font-size:12px;color:var(--hint)';
+  div.innerHTML = `<span style="color:#ffd700">🎨 第${turn}轮 · 生成图片中…</span><br><span style="font-size:10px;opacity:0.7">${esc(prompt?.slice(0,120) ?? '')}</span>`;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function simAppendImage(turn, url) {
+  const existing = document.getElementById(`sim-img-${turn}`);
+  const msgs = document.getElementById('simMessages');
+  const div = document.createElement('div');
+  div.style.cssText = 'margin:8px 0;text-align:center';
+  div.innerHTML = `<div style="font-size:11px;color:var(--hint);margin-bottom:4px">📸 第${turn}轮生成图片</div><img src="${esc(url)}" style="max-width:260px;border-radius:10px;cursor:pointer" onclick="window.open('${esc(url)}','_blank')">`;
+  if (existing) { existing.replaceWith(div); } else { msgs.appendChild(div); }
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function simAppendImageError(turn, error) {
+  const existing = document.getElementById(`sim-img-${turn}`);
+  const msgs = document.getElementById('simMessages');
+  const div = document.createElement('div');
+  div.style.cssText = 'margin:8px 0;padding:8px 12px;background:rgba(255,80,80,0.08);border:1px dashed rgba(255,80,80,0.3);border-radius:8px;font-size:11px;color:var(--red)';
+  div.textContent = `❌ 第${turn}轮图片失败: ${error}`;
+  if (existing) { existing.replaceWith(div); } else { msgs.appendChild(div); }
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function simUpdateStats(state, intimacyHistory) {
+  document.getElementById('simMoodChip').textContent = state.mood || '—';
+  document.getElementById('simIntimacyVal').textContent = state.intimacy ?? 0;
+  document.getElementById('simIntimacyBar').style.width = (state.intimacy ?? 0) + '%';
+  document.getElementById('simDesireVal').textContent = state.desire ?? 0;
+  document.getElementById('simDesireBar').style.width = (state.desire ?? 0) + '%';
+  document.getElementById('simDomVal').textContent = state.dominance ?? 0;
+  document.getElementById('simDomBar').style.width = (state.dominance ?? 0) + '%';
+
+  const phase = state.phase ?? 0;
+  document.querySelectorAll('.sim-phase-dot').forEach((dot, i) => dot.classList.toggle('reached', i <= phase));
+  document.getElementById('simPhaseVal').textContent = 'P' + phase;
+
+  if (intimacyHistory.length) {
+    document.getElementById('simIntimacyChart').innerHTML = intimacyHistory.map(v => {
+      const h = Math.max(4, Math.round(v));
+      return `<div class="sim-chart-bar" style="height:${h}%"></div>`;
+    }).join('');
+  }
+}
+
+async function startSimulation() {
+  if (simRunning) { simAbortCtrl?.abort(); return; }
+
+  const charId = document.getElementById('simCharSelect').value;
+  if (!charId) { alert('请先选择角色'); return; }
+  const charName = document.getElementById('simCharSelect').selectedOptions[0].text.split(' · ')[0];
+
+  simRunning = true;
+  simAbortCtrl = new AbortController();
+  const btn = document.getElementById('simStartBtn');
+  btn.textContent = '⏹ 停止';
+  btn.style.background = 'linear-gradient(135deg,#f97316,#dc2626)';
+
+  document.getElementById('simMessages').innerHTML = '';
+  document.getElementById('simChatTitle').textContent = charName;
+  document.getElementById('simProgressFill').style.width = '0%';
+  document.getElementById('simTurnCounter').textContent = '0 / ' + simTurns;
+  document.getElementById('simMoodChip').textContent = '—';
+  document.getElementById('simIntimacyVal').textContent = simStartingIntimacy;
+  document.getElementById('simIntimacyBar').style.width = simStartingIntimacy + '%';
+  document.getElementById('simDesireVal').textContent = '0';
+  document.getElementById('simDesireBar').style.width = '0%';
+  document.getElementById('simDomVal').textContent = '0';
+  document.getElementById('simDomBar').style.width = '0%';
+  document.getElementById('simIntimacyChart').innerHTML = '';
+  document.getElementById('simStuckWarning').style.display = 'none';
+  document.querySelectorAll('.sim-phase-dot').forEach(d => d.classList.remove('reached'));
+  document.getElementById('simPhaseVal').textContent = '—';
+
+  const intimacyHistory = [];
+  let consecutiveZero = 0;
+
+  try {
+    const resp = await fetch(`${BASE}/api/admin/simulate-chat?key=${ADMIN_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ characterId: charId, turns: simTurns, startingIntimacy: simStartingIntimacy, startingPhase: 0 }),
+      signal: simAbortCtrl.signal,
+    });
+
+    if (!resp.ok) { alert('模拟请求失败: ' + resp.status); throw new Error('bad response'); }
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const data = JSON.parse(line.slice(6));
+          if (data.type === 'turn') {
+            const delta = typeof data.delta === 'object' ? (data.delta?.intimacy ?? 0) : (data.delta ?? 0);
+            if (delta === 0) consecutiveZero++; else consecutiveZero = 0;
+            if (consecutiveZero >= 3) document.getElementById('simStuckWarning').style.display = '';
+            intimacyHistory.push(data.state?.intimacy ?? 0);
+            simAppendTurn(data, simTurns);
+            simUpdateStats(data.state, intimacyHistory);
+          } else if (data.type === 'image_pending') {
+            simAppendImagePending(data.turn, data.prompt);
+          } else if (data.type === 'image') {
+            simAppendImage(data.turn, data.url);
+          } else if (data.type === 'image_error') {
+            simAppendImageError(data.turn, data.error);
+          } else if (data.type === 'done') {
+            document.getElementById('simProgressFill').style.width = '100%';
+            document.getElementById('simTurnCounter').textContent = `${simTurns} / ${simTurns} · 完成`;
+          }
+        } catch {}
+      }
+    }
+  } catch (e) {
+    if (e.name !== 'AbortError') {
+      const div = document.createElement('div');
+      div.style.cssText = 'color:var(--red);font-size:13px;padding:12px;text-align:center';
+      div.textContent = '模拟中断: ' + e.message;
+      document.getElementById('simMessages').appendChild(div);
+    }
+  } finally {
+    simRunning = false;
+    btn.textContent = '▶ 开始模拟';
+    btn.style.background = 'var(--grad)';
+  }
 }
 
 async function loadFullConv(convId, charName, btn) {
