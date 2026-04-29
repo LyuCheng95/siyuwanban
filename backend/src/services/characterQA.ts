@@ -22,7 +22,7 @@ export const DEFAULT_BASELINE: QABaseline = {
 export async function getBaseline(): Promise<QABaseline> {
   try {
     const s = await prisma.setting.findUnique({ where: { key: 'qa_baseline' } });
-    if (s) return s.value as QABaseline;
+    if (s) return s.value as unknown as QABaseline;
   } catch {}
   return DEFAULT_BASELINE;
 }
@@ -35,7 +35,73 @@ export async function saveBaseline(baseline: QABaseline): Promise<void> {
   });
 }
 
-export async function runCharacterQA(characterId: string): Promise<any> {
+// ── Phase Generation ──────────────────────────────────────────────────────────
+
+const PHASE_EXAMPLE = `
+示例角色「林晓雅」（女律师，御姐，在深夜律所场景）：
+P0: 【猎物锁定（第1-4轮）】深夜律所，她慢慢解开袖扣，目光从你头顶往下扫了一遍。把文件扔在你桌上，"今晚，你得陪我加班。"威士忌推到你面前，隔着一个呼吸的距离，"你怎么不问为什么是你？"→ 用"小朋友"称呼你，每句话都带双关，制造紧张感，禁止一切肢体接触。META phase=0。
+P1: 【直接点燃（第5-9轮）】她坐到桌上，把你的手拉起来放在自己膝盖上，"放这里。我们谈谈文件。"描述她要做什么——嗓音压低，字字清晰，语气像在谈合同。描写她手的温度，裙子质感，她呼吸节奏。META phase=1，acts记录本轮行为。
+P2: 【深入（第10-15轮）】她解开衬衫，握住你的阴茎，用湿滑的阴唇缓慢摩擦龟头，"考核项目一：耐力测试。"根据回答调整摩擦速度，爱液不断涂满龟头。禁止"那里/下面"，直接写阴部/阴蒂/乳头/爱液。META phase=2，详细记录acts。
+P3: 【高潮（第16-21轮）】她把你压在桌上，将湿滑的阴道对准阴茎，一口气坐到底，"最终考核开始。"猛烈抽插，阴道剧烈收缩，每隔几轮提一个考核问题，声音逐渐失控。META phase=3，delta=5，详细记录acts。
+P4: 【余韵（第22轮+）】她仍坐在你身上，混合精液和爱液缓缓流出，重新扣好衣服，低声说"这次加班考核……勉强及格。下次记得提前准备。"桌角留下湿润的痕迹。META phase=4，delta=3。`;
+
+export async function generateStoryPhases(character: {
+  name: string; age: number; gender: string; occupation: string;
+  personality: string; background: string; speakingStyle: string;
+  openingScene?: string | null;
+}): Promise<string[]> {
+  const prompt = `你是成人角色扮演剧情设计师。根据角色信息，生成5个递进剧情阶段脚本（P0-P4）。
+
+角色信息：
+- 姓名：${character.name}，${character.age}岁，${character.gender}
+- 职业/身份：${character.occupation}
+- 性格：${character.personality}
+- 背景：${character.background}
+- 说话风格/口头禅：${character.speakingStyle}
+${character.openingScene ? `- 开场白：${character.openingScene}` : ''}
+
+格式要求（严格参考以下示例）：
+${PHASE_EXAMPLE}
+
+每个阶段要求：
+P0（第1-4轮）：利用【${character.occupation}】这个身份创造独特的场景张力。纯语言/眼神/气场制造情绪勾引，禁止一切肢体接触。每轮必须推进，设置悬念。50-100字。
+P1（第5-9轮）：真实肢体接触开始（亲吻/抚摸/脱衣），详写温度触感质感。她主动引导，立刻接受用户靠近。引用她的专属场景道具或职业元素。50-100字。
+P2（第10-15轮）：明确性前戏，必须使用：阴部、阴道、阴蒂、乳头、爱液、阴茎、龟头等具体词汇。她比用户更主动贪婪。设计与职业/性格相关的互动机制。100-150字。
+P3（第16-21轮）：性交全程，写阴茎插入阴道的过程/抽插节奏/体位变化/阴道收缩感/她失控叫声。她主导节奏。与P2的互动机制呼应升级。100-150字。
+P4（第22轮+）：高潮余韵，写精液/爱液/汗水/喘息/身体余颤，用符合角色性格和职业的方式收尾，留下意犹未尽的一句话或动作。50-80字。
+
+必须返回以下JSON格式，不要有任何其他文字：
+{
+  "p0": "P0阶段完整文本",
+  "p1": "P1阶段完整文本",
+  "p2": "P2阶段完整文本",
+  "p3": "P3阶段完整文本",
+  "p4": "P4阶段完整文本"
+}`;
+
+  const response = await chat([{ role: 'user', content: prompt }]);
+
+  const jsonMatch = response.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error('AI未返回有效JSON');
+
+  const parsed = JSON.parse(jsonMatch[0]);
+  const phases = ['p0', 'p1', 'p2', 'p3', 'p4'].map(k => {
+    if (!parsed[k]) throw new Error(`缺少 ${k} 阶段`);
+    return parsed[k] as string;
+  });
+  return phases;
+}
+
+export type QAEvent =
+  | { type: 'turn'; turn: number; totalTurns: number; userMsg: string; aiReply: string; state: { intimacy: number; phase: number; mood: string; delta: number } }
+  | { type: 'evaluating' }
+  | { type: 'done'; report: any }
+  | { type: 'error'; message: string };
+
+export async function runCharacterQA(
+  characterId: string,
+  onEvent?: (e: QAEvent) => void,
+): Promise<any> {
   const character = await prisma.character.findUnique({ where: { id: characterId } });
   if (!character) throw new Error('Character not found');
 
@@ -47,7 +113,8 @@ export async function runCharacterQA(characterId: string): Promise<any> {
   const baseline = await getBaseline();
 
   try {
-    const transcript = await generateTestConversation(character, baseline.testTurns);
+    const transcript = await runTestConversation(character, baseline.testTurns, onEvent);
+    onEvent?.({ type: 'evaluating' });
     const report = await evaluateTranscript(character, transcript, baseline);
 
     await prisma.character.update({
@@ -60,19 +127,24 @@ export async function runCharacterQA(characterId: string): Promise<any> {
       },
     });
 
+    onEvent?.({ type: 'done', report });
     return report;
-  } catch (e) {
+  } catch (e: any) {
     const errReport = { score: 0, summary: `评审失败：${String(e)}`, categories: {}, issues: [], suggestions: [] };
     await prisma.character.update({
       where: { id: characterId },
       data: { qaStatus: 'failed', qaReport: errReport as any, qaRunAt: new Date() },
     });
+    onEvent?.({ type: 'error', message: e.message });
     throw e;
   }
 }
 
-async function generateTestConversation(character: any, turns: number) {
-  // Test prompts that probe different phases of engagement
+async function runTestConversation(
+  character: any,
+  turns: number,
+  onEvent?: (e: QAEvent) => void,
+) {
   const testMessages = [
     '你好，我们是第一次见面吗？',
     '你平时都在做什么？告诉我多一点',
@@ -93,15 +165,11 @@ async function generateTestConversation(character: any, turns: number) {
 
   for (const userMsg of testMessages) {
     totalTurns++;
+    const phaseIndex = intimacyLevel < 20 ? 0 : intimacyLevel < 40 ? 1 : intimacyLevel < 60 ? 2 : intimacyLevel < 80 ? 3 : 4;
     const userMemory: Record<string, unknown> = {
-      _intimacyLevel: intimacyLevel,
-      _phaseIndex: intimacyLevel < 20 ? 0 : intimacyLevel < 40 ? 1 : intimacyLevel < 60 ? 2 : intimacyLevel < 80 ? 3 : 4,
-      _totalTurns: totalTurns,
-      _unlockedActs: [...unlockedActs],
-      _dominanceLevel: 0,
-      _desireLevel: 0,
-      _attachLevel: 0,
-      _mood: '期待',
+      _intimacyLevel: intimacyLevel, _phaseIndex: phaseIndex,
+      _totalTurns: totalTurns, _unlockedActs: [...unlockedActs],
+      _dominanceLevel: 0, _desireLevel: 0, _attachLevel: 0, _mood: '期待',
     };
 
     const systemPrompt = buildCharacterSystemPrompt(
@@ -122,11 +190,19 @@ async function generateTestConversation(character: any, turns: number) {
     }
 
     const { cleanReply, meta } = parseMeta(aiResponse);
+    const prevIntimacy = intimacyLevel;
     intimacyLevel = Math.min(100, intimacyLevel + meta.delta);
     if (meta.acts?.length) unlockedActs.push(...meta.acts);
 
     messages.push({ role: 'user', content: userMsg });
     messages.push({ role: 'assistant', content: cleanReply });
+
+    onEvent?.({
+      type: 'turn', turn: totalTurns, totalTurns: turns,
+      userMsg,
+      aiReply: cleanReply.slice(0, 300), // cap for SSE payload size
+      state: { intimacy: intimacyLevel, phase: Math.max(phaseIndex, meta.phase), mood: meta.mood, delta: intimacyLevel - prevIntimacy },
+    });
   }
 
   return messages;

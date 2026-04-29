@@ -405,7 +405,7 @@ adminRouter.post('/characters/create', async (req: Request, res: Response): Prom
 adminRouter.post('/characters/:id/qa', async (req: Request, res: Response): Promise<void> => {
   if (!checkKey(req, res)) return;
 
-  const { id } = req.params;
+  const id = req.params.id as string;
   const character = await prisma.character.findUnique({ where: { id }, select: { id: true, name: true } });
   if (!character) { res.status(404).json({ error: 'Character not found' }); return; }
 
@@ -429,12 +429,13 @@ adminRouter.post('/characters/:id/qa', async (req: Request, res: Response): Prom
 adminRouter.post('/characters/:id/generate-phases', async (req: Request, res: Response): Promise<void> => {
   if (!checkKey(req, res)) return;
 
-  const character = await prisma.character.findUnique({ where: { id: req.params.id } });
+  const charId = req.params.id as string;
+  const character = await prisma.character.findUnique({ where: { id: charId } });
   if (!character) { res.status(404).json({ error: 'Character not found' }); return; }
 
   try {
     const phases = await generateStoryPhases(character as any);
-    await prisma.character.update({ where: { id: req.params.id }, data: { storyPhases: phases } });
+    await prisma.character.update({ where: { id: charId }, data: { storyPhases: phases } });
     res.json({ ok: true, phases });
   } catch (e: any) {
     res.status(500).json({ ok: false, error: e.message });
@@ -448,7 +449,7 @@ adminRouter.post('/characters/:id/save-phases', async (req: Request, res: Respon
   if (!Array.isArray(phases) || phases.length !== 5) {
     res.status(400).json({ error: 'phases must be array of 5 strings' }); return;
   }
-  await prisma.character.update({ where: { id: req.params.id }, data: { storyPhases: phases } });
+  await prisma.character.update({ where: { id: req.params.id as string }, data: { storyPhases: phases } });
   res.json({ ok: true });
 });
 
@@ -456,7 +457,7 @@ adminRouter.post('/characters/:id/save-phases', async (req: Request, res: Respon
 adminRouter.post('/characters/:id/setup', async (req: Request, res: Response): Promise<void> => {
   if (!checkKey(req, res)) return;
 
-  const character = await prisma.character.findUnique({ where: { id: req.params.id } });
+  const character = await prisma.character.findUnique({ where: { id: req.params.id as string } });
   if (!character) { res.status(404).json({ error: 'Character not found' }); return; }
 
   res.setHeader('Content-Type', 'text/event-stream');
@@ -497,7 +498,7 @@ adminRouter.post('/characters/:id/setup', async (req: Request, res: Response): P
 adminRouter.get('/characters/:id/qa', async (req: Request, res: Response): Promise<void> => {
   if (!checkKey(req, res)) return;
   const char = await prisma.character.findUnique({
-    where: { id: req.params.id },
+    where: { id: req.params.id as string },
     select: { id: true, name: true, qaStatus: true, qaScore: true, qaReport: true, qaRunAt: true },
   });
   if (!char) { res.status(404).json({ error: 'not found' }); return; }
@@ -610,7 +611,7 @@ adminRouter.post('/simulate-chat', async (req: Request, res: Response): Promise<
       .slice(-3)
       .reverse()
       .map(m => m.content);
-    const systemPrompt = buildCharacterSystemPrompt(character, userMemory, recentAiReplies);
+    const systemPrompt = buildCharacterSystemPrompt(character as any, userMemory, recentAiReplies);
     const messages: Message[] = [
       { role: 'system', content: systemPrompt },
       ...context.slice(-20),
@@ -708,6 +709,6 @@ adminRouter.get('/scene-images', async (req: Request, res: Response): Promise<vo
 // DELETE /api/admin/scene-images/:id?key=...
 adminRouter.delete('/scene-images/:id', async (req: Request, res: Response): Promise<void> => {
   if (!checkKey(req, res)) return;
-  await prisma.sceneImage.delete({ where: { id: req.params.id } });
+  await prisma.sceneImage.delete({ where: { id: req.params.id as string } });
   res.json({ ok: true });
 });
