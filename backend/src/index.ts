@@ -13,6 +13,7 @@ import { checkinRouter } from './routes/checkin';
 import { adminRouter } from './routes/admin';
 import { redeemRouter } from './routes/redeem';
 import { cryptobotRouter, startUsdtPoller } from './routes/cryptobot';
+import { startDailyPush } from './services/dailyPush';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -45,4 +46,5 @@ app.get('/health', (_req, res) => res.json({ ok: true }));
 app.listen(PORT, () => {
   console.log(`私欲玩伴 backend running on port ${PORT}`);
   startUsdtPoller();
+  startDailyPush();
 });
