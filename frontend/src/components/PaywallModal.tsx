@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { api } from '../api/client';
 import type { PaymentTier } from '../types';
 
@@ -8,69 +8,147 @@ interface Props {
   onSuccess: (newDiamonds: number) => void;
 }
 
+type Tab = 'usdt' | 'card';
+
 export function PaywallModal({ currentDiamonds, onClose, onSuccess }: Props) {
   const [tiers, setTiers] = useState<PaymentTier[]>([]);
+  const [tab, setTab] = useState<Tab>('usdt');
   const [loading, setLoading] = useState(false);
   const [selectedTier, setSelectedTier] = useState<number | null>(null);
 
+  // USDT invoice state
+  const [invoice, setInvoice] = useState<{
+    invoiceId: string; address: string; amount: string; asset: string; network: string; diamonds: number; label: string;
+  } | null>(null);
+  const [copied, setCopied] = useState<'addr' | 'amt' | null>(null);
+  const [usdtStatus, setUsdtStatus] = useState<string | null>(null);
+
+  const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pollingRef = useRef(false);
+
   useEffect(() => {
     api.payments.tiers().then(setTiers).catch(console.error);
+    return () => { if (pollRef.current) clearTimeout(pollRef.current); };
   }, []);
 
-  // Poll for balance update after redirecting to Stripe
-  useEffect(() => {
+  // ── Poll balance until diamonds arrive ────────────────────────────────────
+  function startPolling() {
+    if (pollingRef.current) return;
+    pollingRef.current = true;
     let attempts = 0;
-    let timer: ReturnType<typeof setTimeout>;
-
     function poll() {
-      if (attempts >= 20) return; // stop after ~60s
+      if (attempts >= 60) { // ~5 min
+        pollingRef.current = false;
+        setUsdtStatus('等待超时，转账完成后请刷新页面。');
+        return;
+      }
       attempts++;
       api.payments.balance().then(b => {
         if (b.diamonds > currentDiamonds) {
+          pollingRef.current = false;
           onSuccess(b.diamonds);
         } else {
-          timer = setTimeout(poll, 3000);
+          pollRef.current = setTimeout(poll, 5000);
         }
-      }).catch(() => { timer = setTimeout(poll, 3000); });
+      }).catch(() => { pollRef.current = setTimeout(poll, 5000); });
     }
+    poll();
+  }
 
-    // Only start polling once a payment has been initiated
-    if (loading) poll();
-    return () => clearTimeout(timer);
-  }, [loading]);
-
-  async function buy(tierIndex: number) {
+  // ── USDT (TRC-20 direct) ──────────────────────────────────────────────────
+  async function buyUsdt(tierIndex: number) {
     setSelectedTier(tierIndex);
+    setLoading(true);
+    setInvoice(null);
+    setUsdtStatus('生成收款地址中…');
     try {
-      const { url } = await api.payments.stripeSession(tierIndex);
-      setLoading(true);
-      window.open(url, '_blank');
-    } catch {
+      const inv = await api.payments.cryptoInvoice(tierIndex, 'USDT');
+      setInvoice({
+        invoiceId: (inv as any).invoiceId ?? '',
+        address:   (inv as any).address ?? '',
+        amount:    inv.amount,
+        asset:     inv.asset,
+        network:   (inv as any).network ?? 'TRON',
+        diamonds:  inv.diamonds,
+        label:     (inv as any).label ?? '',
+      });
+      setUsdtStatus(null);
+      startPolling();
+    } catch (e: any) {
+      setUsdtStatus('生成失败：' + e.message);
+      setLoading(false);
       setSelectedTier(null);
     }
   }
+
+  // ── Card (Stripe) ─────────────────────────────────────────────────────────
+  async function buyCard(tierIndex: number) {
+    setSelectedTier(tierIndex);
+    setLoading(true);
+    try {
+      const { url } = await api.payments.stripeSession(tierIndex);
+      window.open(url, '_blank');
+      startPolling();
+    } catch {
+      setLoading(false);
+      setSelectedTier(null);
+    }
+  }
+
+  function copyText(text: string, which: 'addr' | 'amt') {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(which);
+      setTimeout(() => setCopied(null), 2000);
+    });
+  }
+
+  function resetUsdt() {
+    if (pollRef.current) clearTimeout(pollRef.current);
+    pollingRef.current = false;
+    setInvoice(null);
+    setLoading(false);
+    setSelectedTier(null);
+    setUsdtStatus(null);
+  }
+
+  const btnStyle = (i: number): React.CSSProperties => ({
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+    padding: '14px 18px',
+    background: i === 1 ? 'rgba(232,53,108,0.12)' : 'rgba(255,255,255,0.05)',
+    border: i === 1 ? '1px solid rgba(232,53,108,0.4)' : '1px solid rgba(255,255,255,0.1)',
+    borderRadius: 14, width: '100%', textAlign: 'left',
+    cursor: loading ? 'default' : 'pointer',
+    opacity: loading && selectedTier !== i ? 0.5 : 1,
+    transition: 'all 0.2s',
+  });
+
+  const priceTagStyle = (i: number): React.CSSProperties => ({
+    background: i === 1 ? 'linear-gradient(135deg, #e8356c, #9a1258)' : 'rgba(255,255,255,0.1)',
+    borderRadius: 20, padding: '6px 14px',
+    fontSize: 14, fontWeight: 700, color: 'white',
+    minWidth: 80, textAlign: 'center', flexShrink: 0,
+  });
 
   return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 3000,
       background: 'rgba(0,0,0,0.85)',
       display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-      padding: '0 0 env(safe-area-inset-bottom)',
     }} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div style={{
         background: 'linear-gradient(160deg, #1a0a24, #0f0618)',
         border: '1px solid rgba(255,61,127,0.18)',
         borderRadius: '24px 24px 0 0',
-        padding: '28px 20px 32px',
-        width: '100%',
-        maxWidth: 480,
+        padding: '28px 20px 36px',
+        width: '100%', maxWidth: 480,
+        maxHeight: '90vh', overflowY: 'auto',
       }}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <div>
             <div style={{ fontSize: 18, fontWeight: 700, color: 'rgba(245,225,255,0.95)' }}>💎 充值钻石</div>
             <div style={{ fontSize: 13, color: 'rgba(180,130,210,0.6)', marginTop: 3 }}>
-              当前余额：{currentDiamonds} 颗钻石
+              当前余额：{currentDiamonds} 颗
             </div>
           </div>
           <button onClick={onClose} style={{
@@ -80,53 +158,170 @@ export function PaywallModal({ currentDiamonds, onClose, onSuccess }: Props) {
           }}>✕</button>
         </div>
 
-        {/* Tiers */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {tiers.map((tier, i) => (
-            <button
-              key={tier.id}
-              onClick={() => buy(i)}
-              disabled={loading}
-              style={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                padding: '14px 18px',
-                background: i === 1 ? 'rgba(232,53,108,0.12)' : 'rgba(255,255,255,0.05)',
-                border: i === 1 ? '1px solid rgba(232,53,108,0.4)' : '1px solid rgba(255,255,255,0.1)',
-                borderRadius: 14,
-                cursor: loading ? 'default' : 'pointer',
-                opacity: loading && selectedTier !== i ? 0.5 : 1,
-                transition: 'all 0.2s',
-              }}
-            >
-              <div style={{ textAlign: 'left' }}>
-                <div style={{ fontSize: 16, fontWeight: 700, color: 'rgba(245,225,255,0.95)' }}>
-                  💎 {tier.label}
-                </div>
-                {tier.bonus && (
-                  <div style={{ fontSize: 12, color: '#e8356c', marginTop: 2 }}>{tier.bonus}</div>
-                )}
-              </div>
-              <div style={{
-                background: i === 1 ? 'linear-gradient(135deg, #e8356c, #9a1258)' : 'rgba(255,255,255,0.1)',
-                borderRadius: 20, padding: '6px 14px',
-                fontSize: 14, fontWeight: 700, color: 'white',
-                minWidth: 70, textAlign: 'center',
-              }}>
-                {selectedTier === i && loading ? '跳转中…' : `$${tier.usd}`}
-              </div>
-            </button>
+        {/* Tab switcher */}
+        <div style={{
+          display: 'flex', background: 'rgba(255,255,255,0.06)',
+          borderRadius: 12, padding: 4, marginBottom: 20,
+        }}>
+          {([['usdt', '💵 USDT 加密货币'], ['card', '💳 银行卡']] as [Tab, string][]).map(([t, label]) => (
+            <button key={t} onClick={() => { setTab(t); resetUsdt(); }} style={{
+              flex: 1, padding: '9px 0', border: 'none', borderRadius: 9, cursor: 'pointer',
+              fontSize: 13, fontWeight: 600, transition: 'all 0.2s',
+              background: tab === t ? 'rgba(232,53,108,0.25)' : 'transparent',
+              color: tab === t ? '#ff6ba0' : 'rgba(255,255,255,0.4)',
+            }}>{label}</button>
           ))}
         </div>
 
-        {loading && (
-          <div style={{ textAlign: 'center', marginTop: 18, fontSize: 13, color: 'rgba(180,130,210,0.55)' }}>
-            支付完成后钻石将自动到账，请稍候…
+        {/* ── USDT tab ── */}
+        {tab === 'usdt' && !invoice && (
+          <>
+            <div style={{ fontSize: 12, color: 'rgba(180,130,210,0.5)', marginBottom: 12, textAlign: 'center' }}>
+              选择档位 → 获得专属金额 → 转账 → 自动到账
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {tiers.map((tier, i) => (
+                <button key={tier.id} onClick={() => buyUsdt(i)} disabled={loading} style={btnStyle(i)}>
+                  <div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: 'rgba(245,225,255,0.95)' }}>
+                      💎 {tier.label}
+                    </div>
+                    {tier.bonus && <div style={{ fontSize: 12, color: '#e8356c', marginTop: 2 }}>{tier.bonus}</div>}
+                  </div>
+                  <div style={priceTagStyle(i)}>
+                    {selectedTier === i && loading ? '处理中…' : `≈$${(tier as any).usdt ?? tier.usd}`}
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {usdtStatus && (
+              <div style={{ marginTop: 12, textAlign: 'center', fontSize: 13, color: 'rgba(180,130,210,0.7)' }}>
+                {usdtStatus}
+              </div>
+            )}
+
+            <div style={{ textAlign: 'center', marginTop: 14, fontSize: 12, color: 'rgba(255,255,255,0.2)' }}>
+              USDT TRC-20 · 0手续费 · 自动到账
+            </div>
+          </>
+        )}
+
+        {/* ── USDT invoice panel ── */}
+        {tab === 'usdt' && invoice && (
+          <div>
+            {/* Amount to send */}
+            <div style={{
+              background: 'rgba(232,53,108,0.08)',
+              border: '1px solid rgba(232,53,108,0.25)',
+              borderRadius: 14, padding: '16px 18px', marginBottom: 14,
+            }}>
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginBottom: 6 }}>
+                请转入【精确金额】（差一分钱无法自动匹配）
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <span style={{ fontSize: 28, fontWeight: 800, color: '#ff6ba0' }}>
+                    {invoice.amount}
+                  </span>
+                  <span style={{ fontSize: 15, color: 'rgba(255,255,255,0.5)', marginLeft: 6 }}>
+                    USDT (TRC-20)
+                  </span>
+                </div>
+                <button onClick={() => copyText(invoice.amount, 'amt')} style={{
+                  background: copied === 'amt' ? 'rgba(80,200,80,0.2)' : 'rgba(255,255,255,0.08)',
+                  border: 'none', borderRadius: 8, padding: '8px 14px',
+                  color: copied === 'amt' ? '#80e080' : 'rgba(255,255,255,0.6)',
+                  fontSize: 13, cursor: 'pointer',
+                }}>
+                  {copied === 'amt' ? '已复制 ✓' : '复制金额'}
+                </button>
+              </div>
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 6 }}>
+                换算 {invoice.diamonds} 颗💎 · {invoice.label}
+              </div>
+            </div>
+
+            {/* Wallet address */}
+            <div style={{
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: 14, padding: '14px 16px', marginBottom: 14,
+            }}>
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginBottom: 6 }}>
+                收款地址（TRON 网络）
+              </div>
+              <div style={{ fontSize: 12, color: 'rgba(200,200,200,0.8)', wordBreak: 'break-all', lineHeight: 1.6 }}>
+                {invoice.address}
+              </div>
+              <button onClick={() => copyText(invoice.address, 'addr')} style={{
+                marginTop: 10, background: copied === 'addr' ? 'rgba(80,200,80,0.2)' : 'rgba(255,255,255,0.08)',
+                border: 'none', borderRadius: 8, padding: '8px 16px',
+                color: copied === 'addr' ? '#80e080' : 'rgba(255,255,255,0.6)',
+                fontSize: 13, cursor: 'pointer', width: '100%',
+              }}>
+                {copied === 'addr' ? '已复制 ✓' : '复制地址'}
+              </button>
+            </div>
+
+            {/* Steps */}
+            <div style={{
+              background: 'rgba(255,255,255,0.03)', borderRadius: 12, padding: '12px 14px',
+              fontSize: 12, color: 'rgba(180,210,180,0.75)', lineHeight: 1.8,
+            }}>
+              <div>① 打开你的加密货币钱包（OKX / Binance / TronLink…）</div>
+              <div>② 选择 <b style={{ color: 'rgba(255,210,100,0.9)' }}>USDT · TRC-20 · TRON</b> 链</div>
+              <div>③ 粘贴收款地址，输入<b style={{ color: '#ff6ba0' }}>精确金额 {invoice.amount}</b></div>
+              <div>④ 确认转账 — 约 30 秒后自动到账</div>
+            </div>
+
+            {/* Waiting indicator */}
+            <div style={{ textAlign: 'center', marginTop: 14, fontSize: 13, color: 'rgba(180,130,210,0.6)' }}>
+              ⏳ 等待链上确认中，转账后无需操作…
+            </div>
+
+            {/* Change tier */}
+            <button onClick={resetUsdt} style={{
+              marginTop: 12, width: '100%',
+              background: 'transparent', border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: 10, padding: '10px 0', cursor: 'pointer',
+              color: 'rgba(255,255,255,0.35)', fontSize: 13,
+            }}>
+              ← 选择其他档位
+            </button>
           </div>
         )}
 
-        <div style={{ textAlign: 'center', marginTop: 16, fontSize: 12, color: 'rgba(255,255,255,0.2)' }}>
-          通过 Stripe 安全支付 · 不自动续费
-        </div>
+        {/* ── Card tab ── */}
+        {tab === 'card' && (
+          <>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {tiers.map((tier, i) => (
+                <button key={tier.id} onClick={() => buyCard(i)} disabled={loading} style={btnStyle(i)}>
+                  <div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: 'rgba(245,225,255,0.95)' }}>
+                      💎 {tier.label}
+                    </div>
+                    {tier.bonus && <div style={{ fontSize: 12, color: '#e8356c', marginTop: 2 }}>{tier.bonus}</div>}
+                  </div>
+                  <div style={priceTagStyle(i)}>
+                    {selectedTier === i && loading ? '跳转中…' : `$${tier.usd}`}
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {loading && (
+              <div style={{ textAlign: 'center', marginTop: 14, fontSize: 13, color: 'rgba(180,130,210,0.55)' }}>
+                支付完成后钻石将自动到账，请稍候…
+              </div>
+            )}
+
+            <div style={{ textAlign: 'center', marginTop: 14, fontSize: 12, color: 'rgba(255,255,255,0.2)' }}>
+              通过 Stripe 安全支付 · 不自动续费
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

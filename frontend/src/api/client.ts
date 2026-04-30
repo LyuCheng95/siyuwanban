@@ -122,6 +122,11 @@ export const api = {
         '/payments/exchange-coins',
         { method: 'POST', body: JSON.stringify({ amount }) }
       ),
+    cryptoInvoice: (tierIndex: number, _asset = 'USDT') =>
+      request<{ invoiceId: string; address: string; amount: string; asset: string; network: string; diamonds: number; label: string }>(
+        '/payments/crypto/create-invoice',
+        { method: 'POST', body: JSON.stringify({ tierIndex }) }
+      ),
   },
 
   images: {
@@ -130,6 +135,12 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ prompt, characterName, characterId }),
       }),
+  },
+
+  redeem: {
+    use: (code: string) => request<{ ok: boolean; diamondsGranted: number; newBalance: number }>(
+      '/redeem', { method: 'POST', body: JSON.stringify({ code }) }
+    ),
   },
 
   checkin: {
