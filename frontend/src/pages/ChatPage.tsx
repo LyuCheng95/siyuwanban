@@ -30,7 +30,7 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
   const [openingSceneEn, setOpeningSceneEn] = useState<string | null>(null);
 
   // stats
-  const [mood, setMood] = useState('期待');
+  const [mood, setMood] = useState('');
   const [intimacy, setIntimacy] = useState(0);
   const [dominance, setDominance] = useState(0);
   const [desire, setDesire] = useState(0);
@@ -122,10 +122,10 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
     newDom: number, oldDom: number,
   ) => {
     const candidates: Omit<DeltaEntry, 'id'>[] = [
-      { label: '好感', val: newIntimacy - oldIntimacy, color: '#fde68a', bg: 'rgba(245,158,11,0.22)' },
-      { label: '欲望', val: newDesire - oldDesire,    color: '#fca5a5', bg: 'rgba(232,53,108,0.2)' },
-      { label: '依恋', val: newAttach - oldAttach,    color: '#d8b4fe', bg: 'rgba(168,85,247,0.2)' },
-      { label: '控制', val: newDom - oldDom,          color: '#fcd34d', bg: 'rgba(196,144,56,0.2)' },
+      { label: t.status.delta.affection, val: newIntimacy - oldIntimacy, color: '#fde68a', bg: 'rgba(245,158,11,0.22)' },
+      { label: t.status.delta.desire,    val: newDesire - oldDesire,    color: '#fca5a5', bg: 'rgba(232,53,108,0.2)' },
+      { label: t.status.delta.attachment,val: newAttach - oldAttach,    color: '#d8b4fe', bg: 'rgba(168,85,247,0.2)' },
+      { label: t.status.delta.dominance, val: newDom - oldDom,          color: '#fcd34d', bg: 'rgba(196,144,56,0.2)' },
     ].filter(c => c.val !== 0);
     if (!candidates.length) return;
     setDeltaEntries(prev => [
@@ -205,9 +205,9 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
         if (res.status === 402) {
           setShowPaywall(true);
         } else if (res.status === 403 && errData.error === 'login_required') {
-          setMessages(prev => [...prev, { role: 'assistant', content: '请先通过 Telegram 登录后才能聊天 💬' }]);
+          setMessages(prev => [...prev, { role: 'assistant', content: t.chat.loginMsg }]);
         } else {
-          setMessages(prev => [...prev, { role: 'assistant', content: '发生错误，请稍后重试' }]);
+          setMessages(prev => [...prev, { role: 'assistant', content: t.chat.errorMsg }]);
         }
         return;
       }
@@ -254,7 +254,7 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
               const nd = data.desire    ?? desire;
               const na = data.attach    ?? attach;
               const nm = data.dominance ?? dominance;
-              setMood(data.mood?.replace(/[\u{1F300}-\u{1FFFF}\u{2600}-\u{27FF}]/gu, '').trim() || '期待');
+              setMood(data.mood?.replace(/[\u{1F300}-\u{1FFFF}\u{2600}-\u{27FF}]/gu, '').trim() || t.chat.defaultMood);
               setIntimacy(ni); setDominance(nm);
               setDesire(nd);   setAttach(na);
               setSuggestions(data.suggestions || []);
@@ -290,7 +290,7 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
     } catch {
       setMessages(prev => [
         ...prev.slice(0, -1),
-        { role: 'assistant', content: '网络出了点问题，稍后再试试吧' },
+        { role: 'assistant', content: t.chat.networkError },
       ]);
     } finally {
       setStreaming(false);
@@ -379,7 +379,7 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
             <MiniDot value={desire}    color='#ef4444' />
             <MiniDot value={attach}    color='#a855f7' />
           </div>
-          <div style={{ fontSize:9, color:'rgba(160,100,200,0.6)', letterSpacing:0.3 }}>状态</div>
+          <div style={{ fontSize:9, color:'rgba(160,100,200,0.6)', letterSpacing:0.3 }}>{t.chat.statusBtn}</div>
         </button>
 
         {/* Album button */}
@@ -414,7 +414,7 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
           padding: '6px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           fontSize: 12, color: 'rgba(245,180,200,0.9)',
         }}>
-          <span>💎 {lang === 'en' ? `${credits.paid} diamonds left` : `还剩 ${credits.paid} 颗钻石`}</span>
+          <span>💎 {lang === 'en' ? `${credits.paid} diamonds left` : `还剩 ${credits.paid} 颗`}</span>
           <button onClick={() => setShowPaywall(true)} style={{
             background: 'rgba(232,53,108,0.3)', border: 'none', borderRadius: 8,
             color: 'white', fontSize: 11, padding: '3px 10px', cursor: 'pointer',
@@ -453,9 +453,9 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
           borderBottom:'1px solid rgba(168,85,247,0.12)', flexShrink:0 }}>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
             fontSize:11, color:'rgba(160,100,200,0.7)', marginBottom:4 }}>
-            <span>补考进度</span>
+            <span>{t.chat.quizLabel}</span>
             <span style={{ color: questionCount >= 25 ? '#4ade80' : 'var(--accent)', fontWeight:700, fontSize:12 }}>
-              第 {questionCount} 题 / 25{questionCount >= 25 ? ' ✓' : ''}
+              {lang === 'en' ? `Q${questionCount}` : `第 ${questionCount}`} {t.chat.quizOf}{questionCount >= 25 ? ' ✓' : ''}
             </span>
           </div>
           <div style={{ height:3, background:'rgba(255,255,255,0.06)', borderRadius:2, overflow:'hidden' }}>
@@ -520,15 +520,15 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
                 <div className="inline-image-wrap">
                   <div className="inline-image-loading">
                     <div className="loading-ring" style={{ width:24, height:24, borderWidth:2 }} />
-                    <div>正在描绘她现在的样子…</div>
+                    <div>{t.chat.imageGenerating}</div>
                     <div className="inline-image-shimmer" />
                   </div>
                 </div>
               )}
               {msg.imageUrl && (
                 <div className="inline-image-wrap" onClick={() => setLightboxUrl(msg.imageUrl!)}>
-                  <img src={msg.imageUrl} alt="场景" />
-                  <div className="inline-image-hint">点击放大</div>
+                  <img src={msg.imageUrl} alt="scene" />
+                  <div className="inline-image-hint">{t.chat.clickEnlarge}</div>
                 </div>
               )}
 
@@ -563,7 +563,7 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
                   </svg>
-                  看她现在的样子
+                  {t.chat.viewScene}
                 </button>
               )}
             </div>
@@ -640,7 +640,7 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
                   borderRadius:20, padding:'4px 12px', fontSize:12, fontWeight:700, color:'white' }}>
                   {intimacyLabel(intimacy)}
                 </div>
-                <div style={{ fontSize:10, color:'var(--text-hint)', marginTop:4 }}>第 {currentPhase}/4 章</div>
+                <div style={{ fontSize:10, color:'var(--text-hint)', marginTop:4 }}>{t.chat.chapterPrefix}{currentPhase}/4 {t.chat.chapter}</div>
               </div>
             </div>
 
@@ -659,30 +659,30 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
                 </svg>
               </div>
               <div>
-                <div style={{ fontSize:11, color:'var(--text-hint)', marginBottom:2 }}>当前心情</div>
-                <div style={{ fontSize:14, fontWeight:600, color:'var(--accent)' }}>{mood}</div>
+                <div style={{ fontSize:11, color:'var(--text-hint)', marginBottom:2 }}>{t.status.mood}</div>
+                <div style={{ fontSize:14, fontWeight:600, color:'var(--accent)' }}>{mood || t.chat.defaultMood}</div>
               </div>
             </div>
 
-            <StatusBar label="好感度" value={intimacy} color={intimacyColor(intimacy)}
-              sublabel={intimacyLabel(intimacy)}
-              desc={intimacy < 40 ? '她对你感到好奇' : intimacy < 70 ? '你是她特别在意的人' : '她已经离不开你了'} />
-            <StatusBar label="控制欲" value={dominance} color={dominanceColor(dominance)}
-              sublabel={dominanceLabel(dominance)}
-              desc={dominance < 35 ? '乖乖听你的' : dominance < 65 ? '开始主动掌控节奏' : '你是她的猎物'} />
-            <StatusBar label="欲望" value={desire} color={desireColor(desire)}
-              sublabel={desireLabel(desire)}
-              desc={desire < 25 ? '日常状态，平静' : desire < 55 ? '有些想法，难以忽视' : desire < 80 ? '炽热，几乎无法自控' : '现在就想要你'} />
-            <StatusBar label="依恋" value={attach} color={attachColor(attach)}
-              sublabel={attachLabel(attach)}
-              desc={attach < 30 ? '保持独立，给你空间' : attach < 60 ? '你在她心里很特别' : attach < 80 ? '少了你就不行' : '你只能是她一个人的'} />
+            <StatusBar label={t.status.affection} value={intimacy} color={intimacyColor(intimacy)}
+              sublabel={intimacyLabel(intimacy, lang)}
+              desc={intimacy < 40 ? t.status.affectionDesc[0] : intimacy < 70 ? t.status.affectionDesc[1] : t.status.affectionDesc[2]} />
+            <StatusBar label={t.status.dominance} value={dominance} color={dominanceColor(dominance)}
+              sublabel={dominanceLabel(dominance, lang)}
+              desc={dominance < 35 ? t.status.dominanceDesc[0] : dominance < 65 ? t.status.dominanceDesc[1] : t.status.dominanceDesc[2]} />
+            <StatusBar label={t.status.desire} value={desire} color={desireColor(desire)}
+              sublabel={desireLabel(desire, lang)}
+              desc={desire < 25 ? t.status.desireDesc[0] : desire < 55 ? t.status.desireDesc[1] : desire < 80 ? t.status.desireDesc[2] : t.status.desireDesc[3]} />
+            <StatusBar label={t.status.attachment} value={attach} color={attachColor(attach)}
+              sublabel={attachLabel(attach, lang)}
+              desc={attach < 30 ? t.status.attachDesc[0] : attach < 60 ? t.status.attachDesc[1] : attach < 80 ? t.status.attachDesc[2] : t.status.attachDesc[3]} />
 
             {intimacy < 100 && (
               <div style={{ fontSize:11, color:'var(--text-hint)', textAlign:'center', margin:'4px 0 16px' }}>
-                还需 {100 - intimacy} 点好感升级关系
+                {t.chat.upgradeHintPrefix}{100 - intimacy} {t.chat.upgradeHint}
               </div>
             )}
-            <button className="btn btn-secondary btn-full" onClick={() => setStatusOpen(false)}>关闭</button>
+            <button className="btn btn-secondary btn-full" onClick={() => setStatusOpen(false)}>{t.status.close}</button>
           </div>
         </div>
       )}
@@ -697,7 +697,7 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
           />
           <div style={{ position:'absolute', bottom:20, left:0, right:0, textAlign:'center',
             fontSize:12, color:'rgba(255,255,255,0.4)', pointerEvents:'none' }}>
-            点击背景关闭 · 双指缩放
+            {t.chat.lightboxHint}
           </div>
         </div>
       )}
@@ -710,8 +710,8 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
             <div className="sheet-handle" />
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
               marginBottom:16, flexShrink:0 }}>
-              <div style={{ fontWeight:700, fontSize:16 }}>相册</div>
-              <div style={{ fontSize:12, color:'var(--text-hint)' }}>{albumImages.length} 张</div>
+              <div style={{ fontWeight:700, fontSize:16 }}>{t.chat.album}</div>
+              <div style={{ fontSize:12, color:'var(--text-hint)' }}>{albumImages.length} {t.chat.albumCount}</div>
             </div>
             <div style={{ overflow:'auto', flex:1,
               display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:6 }}>
@@ -759,7 +759,7 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
                       <polyline points="21 15 16 10 5 21"/>
                     </svg>
                   </div>
-                  还没有写真，先去对话提升好感吧
+                  {t.chat.portraitNone}
                 </div>
               );
               return (
@@ -786,7 +786,7 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
               <div style={{ position:'absolute', bottom:40,
                 background:'rgba(0,0,0,0.5)', color:'rgba(255,255,255,0.7)',
                 borderRadius:20, padding:'4px 14px', fontSize:12 }}>
-                左右滑动查看全部 {character.portraitImages!.length} 张
+                {t.chat.swipeHint} {character.portraitImages!.length} {t.chat.swipeHintSuffix}
               </div>
             )}
           </div>
