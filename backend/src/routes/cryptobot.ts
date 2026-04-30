@@ -61,7 +61,7 @@ export function startUsdtPoller() {
     try {
       const transfers = await getRecentTransfers(50);
       for (const tx of transfers) {
-        const txHash = tx.transaction_id ?? tx.transactionHash ?? tx.hash;
+        const txHash = String(tx.transaction_id ?? tx.transactionHash ?? tx.hash ?? '');
         if (!txHash) continue;
 
         // Already recorded?
