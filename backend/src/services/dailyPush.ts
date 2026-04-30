@@ -360,7 +360,7 @@ export async function sendDailyMessages() {
 
   const users = await prisma.user.findMany({
     where: {
-      telegramId: { not: null },
+      NOT: { telegramId: null },
       conversations: {
         some: { updatedAt: { gte: cutoff } },
       },
@@ -369,24 +369,29 @@ export async function sendDailyMessages() {
       id: true,
       telegramId: true,
       language: true,
-      conversations: {
-        orderBy: { updatedAt: 'desc' },
-        take: 1,
-        select: {
-          character: {
-            select: { id: true, name: true, nameEn: true },
-          },
-        },
-      },
     },
   });
+
+  // Load most recent conversation character for each user separately
+  const userConvs = await Promise.all(
+    users.map(u =>
+      prisma.conversation.findFirst({
+        where: { userId: u.id, updatedAt: { gte: cutoff } },
+        orderBy: { updatedAt: 'desc' },
+        select: {
+          character: { select: { id: true, name: true, nameEn: true } },
+        },
+      })
+    )
+  );
 
   console.log(`[dailyPush] sending to ${users.length} users`);
   let sent = 0, failed = 0;
 
-  for (const user of users) {
+  for (let i = 0; i < users.length; i++) {
+    const user = users[i];
     if (!user.telegramId) continue;
-    const conv = user.conversations[0];
+    const conv = userConvs[i];
     if (!conv) continue;
 
     const char = conv.character;
@@ -406,7 +411,7 @@ export async function sendDailyMessages() {
       : `<b>${charDisplayName}</b>：\n\n${msg}`;
 
     try {
-      await sendTgMessage(user.telegramId, fullText, char.id, btnLabel);
+      await sendTgMessage(user.telegramId.toString(), fullText, char.id, btnLabel);
       sent++;
       // Stagger sends to avoid Telegram rate limits (30 msg/s global limit)
       await new Promise(r => setTimeout(r, 50));
