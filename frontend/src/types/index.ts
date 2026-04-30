@@ -14,9 +14,11 @@ export interface User {
 export interface PaymentTier {
   id: number;
   diamonds: number;
-  usd: number;
+  usd: number | string;
+  usdt?: string;
   label: string;
   bonus: string;
+  monthly?: boolean;
 }
 
 export interface Character {
@@ -84,8 +86,3 @@ export interface ChatHistoryItem {
   mood: string;
 }
 
-export interface PaymentTier {
-  stars: number;
-  turns: number;
-  label: string;
-}

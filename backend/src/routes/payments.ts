@@ -9,9 +9,11 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 // 套餐定义
 const TIERS = [
-  { id: 0, diamonds: 30,  usd: 2.99, label: '30颗钻石',  bonus: '' },
-  { id: 1, diamonds: 80,  usd: 6.99, label: '80颗钻石',  bonus: '🔥最受欢迎' },
-  { id: 2, diamonds: 200, usd: 14.99, label: '200颗钻石', bonus: '💎最划算' },
+  { id: 0, diamonds: 30,  usd: 2.99,  label: '30颗钻石',  bonus: '',          monthly: false },
+  { id: 1, diamonds: 80,  usd: 6.99,  label: '80颗钻石',  bonus: '🔥最受欢迎', monthly: false },
+  { id: 2, diamonds: 200, usd: 14.99, label: '200颗钻石', bonus: '',          monthly: false },
+  { id: 3, diamonds: 450, usd: 29.99, label: '450颗钻石', bonus: '💎最划算',   monthly: false },
+  { id: 4, diamonds: 150, usd: 9.99,  label: '150颗钻石', bonus: '⭐月卡特惠', monthly: true  },
 ];
 
 // GET /api/payments/tiers
@@ -21,11 +23,20 @@ paymentRouter.get('/tiers', (_req: Request, res: Response) => {
 
 // GET /api/payments/balance — lightweight polling target after payment
 paymentRouter.get('/balance', authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
-  const user = await prisma.user.findUnique({
-    where: { id: req.userId! },
-    select: { paidCredits: true, freeCredits: true },
+  const [user, completedCount] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: req.userId! },
+      select: { paidCredits: true, freeCredits: true },
+    }),
+    prisma.payment.count({
+      where: { userId: req.userId!, status: 'completed' },
+    }),
+  ]);
+  res.json({
+    diamonds: user?.paidCredits ?? 0,
+    coins: user?.freeCredits ?? 0,
+    isFirstPurchase: completedCount === 0,
   });
-  res.json({ diamonds: user?.paidCredits ?? 0, coins: user?.freeCredits ?? 0 });
 });
 
 // POST /api/payments/stripe/create-session
@@ -88,6 +99,13 @@ paymentRouter.post('/stripe/webhook', async (req: Request, res: Response): Promi
     const existing = await prisma.payment.findUnique({ where: { externalId: sessionId } });
     if (existing) { res.json({ ok: true }); return; }
 
+    // First purchase bonus: double the diamonds
+    const prevCount = await prisma.payment.count({
+      where: { userId, status: 'completed' },
+    });
+    const isFirstPurchase = prevCount === 0;
+    const finalDiamonds = isFirstPurchase ? diamondsNum * 2 : diamondsNum;
+
     await prisma.$transaction([
       prisma.payment.create({
         data: {
@@ -97,17 +115,17 @@ paymentRouter.post('/stripe/webhook', async (req: Request, res: Response): Promi
           status: 'completed',
           amountUsd: (session.amount_total ?? 0) / 100,
           currency: session.currency ?? 'usd',
-          diamondsGranted: diamondsNum,
-          metadata: { stripeSession: session.id, customerEmail: session.customer_email },
+          diamondsGranted: finalDiamonds,
+          metadata: { stripeSession: session.id, customerEmail: session.customer_email, firstPurchase: isFirstPurchase },
         },
       }),
       prisma.user.update({
         where: { id: userId },
-        data: { paidCredits: { increment: diamondsNum } },
+        data: { paidCredits: { increment: finalDiamonds } },
       }),
     ]);
 
-    console.log(`[Payment] Stripe: user=${userId} +${diamondsNum} diamonds`);
+    console.log(`[Payment] Stripe: user=${userId} +${finalDiamonds} diamonds${isFirstPurchase ? ' (🎁 first purchase x2)' : ''}`);
   }
 
   res.json({ ok: true });

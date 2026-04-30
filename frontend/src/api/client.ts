@@ -116,7 +116,7 @@ export const api = {
 
   payments: {
     tiers: () => request<import('../types').PaymentTier[]>('/payments/tiers'),
-    balance: () => request<{ diamonds: number; coins: number }>('/payments/balance'),
+    balance: () => request<{ diamonds: number; coins: number; isFirstPurchase?: boolean }>('/payments/balance'),
     stripeSession: (tierIndex: number) =>
       request<{ url: string; sessionId: string }>(
         '/payments/stripe/create-session',

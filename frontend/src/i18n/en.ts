@@ -100,7 +100,7 @@ export const en: Strings = {
     upgradeHint: 'more affection to level up',
     upgradeHintPrefix: '',
     sceneLabel: 'See her now',
-    sceneCost: '💎×1',
+    sceneCost: '💎×2',
     sceneInsufficientDiamonds: 'Not enough diamonds',
   },
 
@@ -171,6 +171,10 @@ export const en: Strings = {
     timeout: 'Timed out. Refresh the page after your transfer completes.',
     creating: 'Creating invoice…',
     diamondCount: '💎',
+    firstPurchaseBanner: '🎁 First top-up bonus — get 2× diamonds!',
+    monthlyBadge: 'Monthly',
+    monthlyHint: 'Best value for regular users',
+    tierPacks: 'Diamond Packs',
   },
 
   leaderboard: {

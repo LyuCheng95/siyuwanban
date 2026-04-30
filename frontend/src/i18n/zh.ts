@@ -103,7 +103,7 @@ export const zh = {
     upgradeHint: '点好感升级关系',
     upgradeHintPrefix: '还需 ',
     sceneLabel: '看她现在的样子',
-    sceneCost: '💎×1',
+    sceneCost: '💎×2',
     sceneInsufficientDiamonds: '钻石不足',
   },
 
@@ -176,6 +176,10 @@ export const zh = {
     timeout: '等待超时，转账完成后请刷新页面。',
     creating: '创建支付中…',
     diamondCount: '颗💎',
+    firstPurchaseBanner: '🎁 首充翻倍！现在充值，钻石 ×2 到账',
+    monthlyBadge: '月卡',
+    monthlyHint: '每月复购最划算',
+    tierPacks: '充值套餐',
   },
 
   // Leaderboard

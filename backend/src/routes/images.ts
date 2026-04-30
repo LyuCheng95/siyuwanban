@@ -26,7 +26,7 @@ imagesRouter.post('/generate', async (req: AuthRequest, res: Response): Promise<
       where: { id: req.userId! },
       select: { paidCredits: true },
     });
-    if (!user || user.paidCredits < 1) {
+    if (!user || user.paidCredits < 2) {
       res.status(402).json({ error: 'insufficient_diamonds' });
       return;
     }
@@ -34,7 +34,7 @@ imagesRouter.post('/generate', async (req: AuthRequest, res: Response): Promise<
     // Deduct before generating (prevents double-spend on retry)
     await prisma.user.update({
       where: { id: req.userId! },
-      data: { paidCredits: { decrement: 1 } },
+      data: { paidCredits: { decrement: 2 } },
     });
 
     let url: string;
@@ -56,10 +56,10 @@ imagesRouter.post('/generate', async (req: AuthRequest, res: Response): Promise<
       const data = await workerRes.json() as { url: string };
       url = data.url;
     } catch (genErr: any) {
-      // Refund the diamond — generation failed (worker offline, ComfyUI down, etc.)
+      // Refund the diamonds — generation failed (worker offline, ComfyUI down, etc.)
       await prisma.user.update({
         where: { id: req.userId! },
-        data: { paidCredits: { increment: 1 } },
+        data: { paidCredits: { increment: 2 } },
       }).catch(() => {});
       console.error('[ImageGen] Worker call failed:', genErr.message);
       res.status(503).json({ error: 'worker_offline', detail: genErr.message });

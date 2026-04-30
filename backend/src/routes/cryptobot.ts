@@ -26,14 +26,17 @@ const TRONGRID_API   = 'https://api.trongrid.io';
 // ── Tiers ─────────────────────────────────────────────────────────────────────
 // base amounts (USD / USDT).  Unique invoices add 1-99 cents on top.
 const TIERS = [
-  { id: 0, diamonds: 30,  baseUsdt: 3.00, label: '30颗钻石',  bonus: '' },
-  { id: 1, diamonds: 80,  baseUsdt: 7.00, label: '80颗钻石',  bonus: '🔥最受欢迎' },
-  { id: 2, diamonds: 200, baseUsdt: 15.00, label: '200颗钻石', bonus: '💎最划算' },
+  { id: 0, diamonds: 30,  baseUsdt: 3.00,  label: '30颗钻石',  bonus: '',           monthly: false },
+  { id: 1, diamonds: 80,  baseUsdt: 7.00,  label: '80颗钻石',  bonus: '🔥最受欢迎',  monthly: false },
+  { id: 2, diamonds: 200, baseUsdt: 15.00, label: '200颗钻石', bonus: '',           monthly: false },
+  { id: 3, diamonds: 450, baseUsdt: 30.00, label: '450颗钻石', bonus: '💎最划算',    monthly: false },
+  { id: 4, diamonds: 150, baseUsdt: 10.00, label: '150颗钻石', bonus: '⭐月卡特惠',  monthly: true  },
 ];
 
 // expose usd/usdt for frontend price display
 function tierForFrontend(t: typeof TIERS[0]) {
   return { id: t.id, diamonds: t.diamonds, label: t.label, bonus: t.bonus,
+           monthly: t.monthly,
            usd: t.baseUsdt.toFixed(2), usdt: t.baseUsdt.toFixed(2) };
 }
 
@@ -91,30 +94,40 @@ export function startUsdtPoller() {
           continue;
         }
 
-        const diamonds = pending.diamondsGranted;
-        const userId   = pending.userId;
+        const baseDiamonds = pending.diamondsGranted;
+        const userId       = pending.userId;
+
+        // First purchase bonus: double the diamonds
+        const prevCount = await prisma.payment.count({
+          where: { userId, status: 'completed' },
+        });
+        const isFirstPurchase = prevCount === 0;
+        const finalDiamonds = isFirstPurchase ? baseDiamonds * 2 : baseDiamonds;
 
         await prisma.$transaction([
           prisma.payment.update({
             where: { id: pending.id },
             data: {
-              status:     'completed',
-              externalId: `usdt_${txHash}`,
-              metadata:   {
+              status:          'completed',
+              externalId:      `usdt_${txHash}`,
+              diamondsGranted: finalDiamonds,
+              metadata:        {
                 ...(pending.metadata as object),
                 txHash,
-                confirmedAt: new Date().toISOString(),
-                actualAmount: usdtAmt,
+                confirmedAt:    new Date().toISOString(),
+                actualAmount:   usdtAmt,
+                firstPurchase:  isFirstPurchase,
               },
             },
           }),
           prisma.user.update({
             where: { id: userId },
-            data: { paidCredits: { increment: diamonds } },
+            data: { paidCredits: { increment: finalDiamonds } },
           }),
         ]);
 
-        console.log(`[USDT] payment confirmed: user=${userId} +${diamonds}💎 ` +
+        console.log(`[USDT] payment confirmed: user=${userId} +${finalDiamonds}💎` +
+                    `${isFirstPurchase ? ' (🎁 first purchase x2)' : ''} ` +
                     `(${usdtAmt} USDT, tx=${txHash.slice(0, 16)}…)`);
       }
     } catch (e: any) {
