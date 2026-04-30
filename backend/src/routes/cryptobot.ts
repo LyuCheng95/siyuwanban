@@ -185,8 +185,10 @@ cryptobotRouter.post('/create-invoice', authMiddleware, async (req: AuthRequest,
 
 // GET /api/payments/crypto/invoice/:id — poll invoice status
 cryptobotRouter.get('/invoice/:id', authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
+  const invoiceId = String(req.params['id'] ?? '');
+  const userId    = req.userId!;
   const payment = await prisma.payment.findFirst({
-    where: { id: req.params.id, userId: req.userId! },
+    where: { id: invoiceId, userId },
     select: { id: true, status: true, diamondsGranted: true, amountUsd: true },
   });
   if (!payment) { res.status(404).json({ error: 'Not found' }); return; }
