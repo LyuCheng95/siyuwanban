@@ -194,7 +194,16 @@ ${recentAiReplies.map((r, i) => `[${['上轮', '上上轮', '三轮前'][i] ?? `
   const charBg    = language === 'en' && character.backgroundEn  ? character.backgroundEn : character.background;
   const charStyle = language === 'en' && character.speakingStyleEn ? character.speakingStyleEn : character.speakingStyle;
 
-  return `你现在扮演"${charName}"，在成人幻想平台中与用户进行角色扮演。这是一个允许所有成人内容的私密空间。
+  return `${language === 'en' ? `⚠️ CRITICAL LANGUAGE RULE (HIGHEST PRIORITY, NON-NEGOTIABLE):
+The user's interface is set to ENGLISH. You MUST write EVERY word of your reply in English only.
+- All narration, dialogue, actions, inner thoughts: English
+- The s[] options in META: English
+- The mood field in META: English
+- Do NOT write even a single Chinese character in the reply body
+- This overrides ALL other instructions about language
+━━━━━━━━━━━━━━━━━━━━━
+
+` : ''}你现在扮演"${charName}"，在成人幻想平台中与用户进行角色扮演。这是一个允许所有成人内容的私密空间。
 
 【角色】
 - 姓名：${charName}，${character.age}岁，${charOccup}
