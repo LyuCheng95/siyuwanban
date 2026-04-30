@@ -13,10 +13,15 @@ export function genericPhases(name: string, age: number, occ: string, personalit
 }
 
 // 只返回当前阶段脚本，减少 token 占用
-export function buildActiveScript(name: string, age: number, occ: string, personality: string, phaseIndex: number): string {
-  const phases = STORY_PHASES[name] ?? genericPhases(name, age, occ, personality);
-  const idx = Math.max(0, Math.min(phaseIndex, phases.length - 1));
-  return phases[idx];
+// dbPhases: 从数据库读取的自动/手动生成剧本，优先级最高
+export function buildActiveScript(
+  name: string, age: number, occ: string, personality: string,
+  phaseIndex: number,
+  dbPhases?: string[] | null,
+): string {
+  const phases = dbPhases ?? STORY_PHASES[name] ?? genericPhases(name, age, occ, personality);
+  const idx = Math.max(0, Math.min(phaseIndex, (phases as string[]).length - 1));
+  return (phases as string[])[idx];
 }
 
 // ── 口癖表：每个角色的固定用语习惯，AI 必须贯穿使用 ──────────────────────────
