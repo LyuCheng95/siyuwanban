@@ -312,6 +312,9 @@
       <button class="nav-item" onclick="showPage('gallery')" id="nav-gallery"><span class="icon">🖼️</span><span>图片库</span></button>
       <button class="nav-item" onclick="showPage('simulator')" id="nav-simulator"><span class="icon">🧪</span><span>对话测试</span></button>
       <button class="nav-item" onclick="showPage('create-char')" id="nav-create-char"><span class="icon">➕</span><span>添加角色</span></button>
+      <button class="nav-item" onclick="showPage('redeem')" id="nav-redeem"><span class="icon">🎁</span><span>兑换码</span></button>
+      <button class="nav-item" onclick="showPage('payments')" id="nav-payments"><span class="icon">💳</span><span>流水明细</span></button>
+      <button class="nav-item" onclick="showPage('worker')" id="nav-worker"><span class="icon">🖥️</span><span>本地Worker</span></button>
       <button class="nav-item" onclick="showPage('baseline')" id="nav-baseline"><span class="icon">📋</span><span>评审基准</span></button>
     </div>
     <div class="sidebar-footer">
@@ -536,6 +539,17 @@
               <option value="false">私密（仅内部测试）</option>
             </select>
           </div>
+          <div class="form-group">
+            <label class="form-label">图片模型</label>
+            <select class="form-input" id="cf-imageModel">
+              <option value="">自动检测</option>
+              <option value="leosam">LEOSAM（写实·白瘦幼）</option>
+              <option value="jugger">Juggernaut（写实·御姐/运动）</option>
+              <option value="noob">NoobAI（二次元 Illustrious）</option>
+              <option value="pony">Pony（甜系动漫）</option>
+            </select>
+            <div class="form-hint">留空将根据职业/性格自动选择</div>
+          </div>
           <div class="form-group full">
             <label class="form-label">性格描述<span class="req">*</span></label>
             <textarea class="form-textarea" id="cf-personality" placeholder="温柔、知性、外表端庄内心压抑，对喜欢的人会不自觉脸红…" rows="3"></textarea>
@@ -559,6 +573,140 @@
           <span style="font-size:12px;color:var(--hint)">创建后请补充剧情脚本（storyPhases.ts）和图片生成配置</span>
         </div>
         <div class="form-result" id="createCharResult"></div>
+      </div>
+    </div>
+
+    <!-- Redeem Codes -->
+    <div class="page" id="page-redeem">
+      <div class="page-header">
+        <h1>🎁 兑换码管理</h1>
+        <p>生成可分发给朋友的兑换码，每码兑换后充入指定钻石数</p>
+      </div>
+      <div class="card" style="padding:24px;margin-bottom:20px">
+        <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+          <div class="form-group" style="margin:0">
+            <label class="form-label">生成数量</label>
+            <input class="form-input" id="rc-count" type="number" value="5" min="1" max="100" style="width:100px"/>
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="form-label">钻石数</label>
+            <input class="form-input" id="rc-diamonds" type="number" value="100" min="1" max="10000" style="width:100px"/>
+          </div>
+          <button class="btn btn-primary" onclick="generateRedeemCodes()" id="rcGenBtn" style="padding:10px 24px">生成兑换码</button>
+        </div>
+        <div id="rcNewCodes" style="margin-top:16px;display:none">
+          <div style="font-size:12px;color:var(--text2);margin-bottom:8px">新生成的兑换码（点击复制）：</div>
+          <div id="rcNewList" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+          <button onclick="copyAllCodes()" style="margin-top:10px;background:none;border:1px solid var(--border);color:var(--text2);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:12px">📋 全部复制</button>
+        </div>
+      </div>
+
+      <div class="card" style="padding:24px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <div style="font-size:15px;font-weight:600">所有兑换码</div>
+          <button onclick="loadRedeemCodes()" style="background:none;border:1px solid var(--border);color:var(--text2);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:12px">🔄 刷新</button>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="table" id="rcTable">
+            <thead><tr>
+              <th>兑换码</th><th>钻石</th><th>状态</th><th>使用者</th><th>使用时间</th><th>生成时间</th>
+            </tr></thead>
+            <tbody id="rcTableBody"><tr><td colspan="6" style="text-align:center;color:var(--text2)">加载中…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Payments -->
+    <div class="page" id="page-payments">
+      <div class="page-header">
+        <h1>💳 流水明细</h1>
+        <p>所有充值记录，支持按状态和渠道筛选</p>
+      </div>
+
+      <!-- Summary stats -->
+      <div class="stat-grid" id="pay-stats-grid" style="grid-template-columns:repeat(4,1fr)">
+        <div class="stat-card"><div class="stat-label">总收入 (USD)</div><div class="stat-value" id="pay-total-usd">—</div><div class="stat-icon">💵</div></div>
+        <div class="stat-card"><div class="stat-label">成功笔数</div><div class="stat-value" id="pay-total-count">—</div><div class="stat-icon">✅</div></div>
+        <div class="stat-card"><div class="stat-label">发出钻石</div><div class="stat-value" id="pay-total-diamonds">—</div><div class="stat-icon">💎</div></div>
+        <div class="stat-card"><div class="stat-label">待确认</div><div class="stat-value" id="pay-pending-count">—</div><div class="stat-icon">⏳</div></div>
+      </div>
+
+      <!-- Filters -->
+      <div class="card" style="margin-bottom:16px">
+        <div style="display:flex;gap:10px;padding:14px 20px;align-items:center;flex-wrap:wrap">
+          <select id="pay-filter-status" onchange="loadPayments(1)" style="padding:8px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px">
+            <option value="">全部状态</option>
+            <option value="completed">✅ 已完成</option>
+            <option value="pending">⏳ 待确认</option>
+            <option value="failed">❌ 失败</option>
+            <option value="expired">🚫 已过期</option>
+          </select>
+          <select id="pay-filter-provider" onchange="loadPayments(1)" style="padding:8px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px">
+            <option value="">全部渠道</option>
+            <option value="stripe">💳 Stripe</option>
+            <option value="usdt_trc20">💵 USDT</option>
+            <option value="admin">🔧 手动</option>
+          </select>
+          <input id="pay-filter-user" placeholder="搜索用户名 / TG ID" onkeydown="if(event.key==='Enter')loadPayments(1)"
+            style="padding:8px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;min-width:200px">
+          <button class="btn btn-primary" onclick="loadPayments(1)">搜索</button>
+          <button class="btn btn-ghost" onclick="document.getElementById('pay-filter-status').value='';document.getElementById('pay-filter-provider').value='';document.getElementById('pay-filter-user').value='';loadPayments(1)">重置</button>
+          <span style="margin-left:auto;font-size:12px;color:var(--hint)" id="pay-total-label"></span>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="card">
+        <div id="pay-table-wrap"><div class="loading">⏳ 加载中…</div></div>
+      </div>
+
+      <!-- Pagination -->
+      <div id="pay-pagination" style="display:flex;gap:8px;justify-content:center;margin-top:16px;flex-wrap:wrap"></div>
+    </div>
+
+    <!-- Worker -->
+    <div class="page" id="page-worker">
+      <div class="page-header">
+        <h1>🖥️ 本地 Worker</h1>
+        <p>管理本地图片生成 Worker（需 SSH 反向隧道 + ComfyUI 运行）</p>
+      </div>
+
+      <!-- Status -->
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-header">
+          <div class="card-title">Worker 状态</div>
+          <button class="btn btn-ghost" onclick="pingWorker()">🔄 刷新</button>
+        </div>
+        <div style="padding:20px">
+          <div id="workerStatus" style="display:flex;align-items:center;gap:12px;font-size:14px;">
+            <span id="workerDot" style="width:10px;height:10px;border-radius:50%;background:#505068;flex-shrink:0"></span>
+            <span id="workerStatusText" style="color:var(--text2)">点击刷新检查状态</span>
+          </div>
+          <div style="margin-top:16px;background:var(--bg3);border-radius:8px;padding:14px;font-size:12px;color:var(--text2);line-height:1.8">
+            <strong style="color:var(--text)">启动方式：</strong><br>
+            1. 确保 ComfyUI 在本地 <code>localhost:8188</code> 运行<br>
+            2. 在本地 PowerShell 运行：<code style="color:var(--accent)">.\start-worker.ps1</code><br>
+            3. SSH 隧道命令（手动）：<code style="color:var(--accent)">ssh -N -R 7080:localhost:7080 root@168.144.108.9</code>
+          </div>
+        </div>
+      </div>
+
+      <!-- Generate Album -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">生成写真集</div>
+        </div>
+        <div style="padding:20px;display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;gap:10px;align-items:center">
+            <select id="albumCharSelect" class="search-input" style="max-width:220px">
+              <option value="">选择角色...</option>
+            </select>
+            <input type="number" id="albumCount" class="search-input" value="3" min="1" max="10" style="max-width:80px" placeholder="张数">
+            <button class="btn btn-primary" onclick="triggerAlbumGen()">🎨 开始生成</button>
+          </div>
+          <div id="albumGenResult" style="display:none;background:var(--bg3);border-radius:8px;padding:14px;font-size:13px"></div>
+        </div>
       </div>
     </div>
 
@@ -661,6 +809,9 @@ function showPage(name) {
   if (name === 'gallery') loadGallery();
   if (name === 'simulator') loadSimulatorChars();
   if (name === 'baseline') loadBaselineForm();
+  if (name === 'redeem') loadRedeemCodes();
+  if (name === 'payments') loadPayments(1);
+  if (name === 'worker') { pingWorker(); loadWorkerChars(); }
 }
 
 function switchGalleryTab(tab) {
@@ -681,6 +832,17 @@ async function api(path) {
   const sep = path.includes('?') ? '&' : '?';
   const r = await fetch(`${BASE}/api/admin${path}${sep}key=${ADMIN_KEY}`);
   return r.json();
+}
+
+async function adminFetch(path, opts = {}) {
+  const sep = path.includes('?') ? '&' : '?';
+  const r = await fetch(`${BASE}/api/admin${path}${sep}key=${ADMIN_KEY}`, {
+    headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
+    ...opts,
+  });
+  const data = await r.json();
+  if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+  return data;
 }
 
 function timeAgo(dateStr) {
@@ -761,6 +923,7 @@ async function loadChars() {
       <td>${c.usageCount} 次</td>
       <td>${imgs.length ? `<span class="badge badge-green">✓ ${imgs.length} 张</span>` : `<span class="badge badge-red">✗ 无图</span>`}</td>
       <td>${phasesBadge}</td>
+      <td>${hasAssets(c) ? `<span class="badge badge-green" style="cursor:pointer" onclick="toggleAssetsRow('${c.id}')">🎨 有</span>` : `<span class="badge badge-yellow" style="cursor:pointer" onclick="toggleAssetsRow('${c.id}')">🎨 无</span>`}</td>
       <td>${c.isPublic ? '<span class="badge badge-green">公开</span>' : '<span class="badge badge-yellow">私密</span>'}</td>
       <td>${qaBadge}</td>
       <td style="display:flex;gap:6px;align-items:center">
@@ -768,7 +931,7 @@ async function loadChars() {
         <button class="btn btn-danger" style="font-size:11px;padding:5px 10px" onclick="deleteChar('${c.id}','${esc(c.name)}')">删除</button>
       </td>
     </tr>
-    <tr id="phases-row-${c.id}" style="display:none"><td colspan="9" style="padding:0 20px 14px">
+    <tr id="phases-row-${c.id}" style="display:none"><td colspan="10" style="padding:0 20px 14px">
       <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-top:2px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
           <div style="font-size:14px;font-weight:700">📜 ${esc(c.name)} · 剧情脚本</div>
@@ -780,12 +943,103 @@ async function loadChars() {
         <div id="phases-content-${c.id}">${phasesHtml}</div>
       </div>
     </td></tr>
-    <tr id="qa-row-${c.id}" style="display:none"><td colspan="9" style="padding:0 20px 12px"></td></tr>`;
+    <tr id="assets-row-${c.id}" style="display:none"><td colspan="10" style="padding:0 20px 14px">
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-top:2px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <div style="font-size:14px;font-weight:700">🎨 ${esc(c.name)} · 视觉属性</div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-primary" style="font-size:11px;padding:5px 12px" onclick="saveAssets('${c.id}',this)">💾 保存</button>
+            <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px" onclick="toggleAssetsRow('${c.id}')">收起</button>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div>
+            <div style="font-size:11px;color:var(--accent);font-weight:700;margin-bottom:4px">身高 / 体重</div>
+            <div style="display:flex;gap:8px">
+              <input id="asset-height-${c.id}" class="form-input" type="number" placeholder="cm" value="${c.height||''}" style="width:80px"/>
+              <input id="asset-weight-${c.id}" class="form-input" type="number" placeholder="kg" value="${c.weight||''}" style="width:80px"/>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--accent);font-weight:700;margin-bottom:4px">图片模型</div>
+            <select id="asset-model-${c.id}" class="form-input" style="width:180px">
+              <option value="" ${!c.imageModel?'selected':''}>自动检测</option>
+              <option value="leosam" ${c.imageModel==='leosam'?'selected':''}>LEOSAM（写实·白瘦幼）</option>
+              <option value="jugger" ${c.imageModel==='jugger'?'selected':''}>Juggernaut（写实·御姐）</option>
+              <option value="noob" ${c.imageModel==='noob'?'selected':''}>NoobAI（二次元）</option>
+              <option value="pony" ${c.imageModel==='pony'?'selected':''}>Pony（甜系动漫）</option>
+            </select>
+          </div>
+          <div style="grid-column:1/-1">
+            <div style="font-size:11px;color:var(--accent);font-weight:700;margin-bottom:4px">面部特征 faceFeatures <span style="color:var(--hint);font-weight:400">（生成时注入 prompt 的具体五官描述）</span></div>
+            <textarea id="asset-face-${c.id}" class="form-textarea" rows="2" style="font-family:monospace;font-size:12px">${esc(c.faceFeatures||'')}</textarea>
+          </div>
+          <div style="grid-column:1/-1">
+            <div style="font-size:11px;color:var(--accent);font-weight:700;margin-bottom:4px">脸型气质锚点 faceAnchor <span style="color:var(--hint);font-weight:400">（跨图一致性关键词，带权重）</span></div>
+            <textarea id="asset-anchor-${c.id}" class="form-textarea" rows="2" style="font-family:monospace;font-size:12px">${esc(c.faceAnchor||'')}</textarea>
+          </div>
+          <div style="grid-column:1/-1">
+            <div style="font-size:11px;color:var(--accent);font-weight:700;margin-bottom:4px">默认服装 defaultOutfit <span style="color:var(--hint);font-weight:400">（聊天图未换装时的默认描述）</span></div>
+            <input id="asset-outfit-${c.id}" class="form-input" value="${esc(c.defaultOutfit||'')}" placeholder="e.g. white blouse, pencil skirt"/>
+          </div>
+          <div style="grid-column:1/-1">
+            <div style="font-size:11px;color:var(--accent);font-weight:700;margin-bottom:4px">写真 Prompts <span style="color:var(--hint);font-weight:400">（每行一条，生成写真集时使用）</span></div>
+            <textarea id="asset-prompts-${c.id}" class="form-textarea" rows="6" style="font-family:monospace;font-size:11px;line-height:1.5">${(Array.isArray(c.portraitPrompts)?c.portraitPrompts:[]).map(p=>esc(p)).join('\n\n')}</textarea>
+            <div style="font-size:11px;color:var(--hint);margin-top:4px">条与条之间用空行分隔</div>
+          </div>
+        </div>
+        <div id="assets-save-result-${c.id}" style="margin-top:10px;font-size:12px"></div>
+        <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <button class="btn btn-primary" style="font-size:12px" onclick="generateAlbumForChar('${c.id}','${esc(c.name)}',this)">🎨 生成写真 (4正常+1露骨)</button>
+          <div id="album-gen-result-${c.id}" style="font-size:12px;color:var(--text2)"></div>
+        </div>
+      </div>
+    </td></tr>
+    <tr id="qa-row-${c.id}" style="display:none"><td colspan="10" style="padding:0 20px 12px"></td></tr>`;
   }).join('');
   document.getElementById('charsTable').innerHTML = `<table>
-    <thead><tr><th>角色 / 封面图</th><th>年龄</th><th>使用</th><th>图片</th><th>剧本</th><th>状态</th><th>自检</th><th></th></tr></thead>
+    <thead><tr><th>角色 / 封面图</th><th>年龄</th><th>使用</th><th>图片</th><th>剧本</th><th>视觉素材</th><th>状态</th><th>自检</th><th></th></tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
+}
+
+function hasAssets(c) {
+  return !!(c.faceAnchor || c.faceFeatures || c.defaultOutfit || (Array.isArray(c.portraitPrompts) && c.portraitPrompts.length > 0));
+}
+
+function toggleAssetsRow(charId) {
+  const row = document.getElementById(`assets-row-${charId}`);
+  row.style.display = row.style.display === 'none' ? '' : 'none';
+}
+
+async function saveAssets(charId, btn) {
+  const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = '保存中…';
+  const resultEl = document.getElementById(`assets-save-result-${charId}`);
+
+  const promptsRaw = document.getElementById(`asset-prompts-${charId}`).value.trim();
+  const portraitPrompts = promptsRaw ? promptsRaw.split(/\n\s*\n/).map(s => s.trim()).filter(Boolean) : [];
+
+  const body = {
+    height:         parseInt(document.getElementById(`asset-height-${charId}`).value) || null,
+    weight:         parseInt(document.getElementById(`asset-weight-${charId}`).value) || null,
+    imageModel:     document.getElementById(`asset-model-${charId}`).value || null,
+    faceFeatures:   document.getElementById(`asset-face-${charId}`).value.trim() || null,
+    faceAnchor:     document.getElementById(`asset-anchor-${charId}`).value.trim() || null,
+    defaultOutfit:  document.getElementById(`asset-outfit-${charId}`).value.trim() || null,
+    portraitPrompts: portraitPrompts.length ? portraitPrompts : null,
+  };
+
+  try {
+    await adminFetch(`/characters/${charId}/assets`, { method: 'PATCH', body: JSON.stringify(body) });
+    resultEl.style.color = 'var(--green)';
+    resultEl.textContent = '✅ 已保存';
+    setTimeout(() => resultEl.textContent = '', 3000);
+  } catch(e) {
+    resultEl.style.color = 'var(--red)';
+    resultEl.textContent = '❌ ' + e.message;
+  }
+  btn.disabled = false; btn.textContent = orig;
 }
 
 function togglePhasesRow(charId) {
@@ -1312,6 +1566,7 @@ async function createCharacter() {
     avatarEmoji: get('cf-emoji') || '🌸',
     openingScene: get('cf-opening') || undefined,
     isPublic: document.getElementById('cf-public').value === 'true',
+    imageModel: get('cf-imageModel') || undefined,
   };
 
   const missing = ['name','occupation','personality','background','speakingStyle'].filter(k => !body[k]);
@@ -1346,6 +1601,280 @@ async function createCharacter() {
     result.textContent = '请求失败：' + e.message;
   }
   btn.disabled = false; btn.textContent = '创建角色';
+}
+
+// ── Worker ────────────────────────────────────────────────────────────────────
+async function pingWorker() {
+  const dot  = document.getElementById('workerDot');
+  const text = document.getElementById('workerStatusText');
+  dot.style.background = '#fbbf24';
+  text.textContent = '检查中...';
+  try {
+    const data = await adminFetch('/worker/ping');
+    if (data.online) {
+      dot.style.background = '#4ade80';
+      text.innerHTML = `<strong style="color:#4ade80">在线</strong> — ComfyUI: <code>${data.comfyui}</code>`;
+    } else {
+      dot.style.background = '#f87171';
+      text.innerHTML = `<strong style="color:#f87171">离线</strong>${data.error ? ' — ' + data.error : ''}`;
+    }
+  } catch (e) {
+    dot.style.background = '#f87171';
+    text.innerHTML = `<strong style="color:#f87171">离线</strong> — ${e.message}`;
+  }
+}
+
+async function triggerAlbumGen() {
+  const charId = document.getElementById('albumCharSelect').value;
+  const count  = parseInt(document.getElementById('albumCount').value) || 3;
+  const result = document.getElementById('albumGenResult');
+  if (!charId) { alert('请选择角色'); return; }
+
+  result.style.display = 'block';
+  result.innerHTML = '<span style="color:var(--yellow)">⟳ 生成中，请等待（每张约1-2分钟）...</span>';
+
+  try {
+    const data = await adminFetch(`/characters/${charId}/generate-album`, {
+      method: 'POST',
+      body: JSON.stringify({ count }),
+    });
+    if (data.ok) {
+      const imgs = data.urls.map(u => `<a href="${u}" target="_blank"><img src="${u}" style="height:120px;border-radius:6px;object-fit:cover"></a>`).join('');
+      result.innerHTML = `<div style="color:var(--green);margin-bottom:10px">✓ 生成完成，共 ${data.urls.length} 张（数据库已更新）</div><div style="display:flex;gap:8px;flex-wrap:wrap">${imgs}</div>`;
+    } else {
+      result.innerHTML = `<span style="color:var(--red)">错误: ${data.error}</span>`;
+    }
+  } catch (e) {
+    result.innerHTML = `<span style="color:var(--red)">请求失败: ${e.message}</span>`;
+  }
+}
+
+async function generateAlbumForChar(charId, charName, btn) {
+  const result = document.getElementById(`album-gen-result-${charId}`);
+  const orig = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '⟳ 排队中…';
+  result.style.color = 'var(--yellow)';
+  result.textContent = '提交中…';
+
+  let jobId;
+  try {
+    const data = await adminFetch(`/characters/${charId}/generate-album`, {
+      method: 'POST',
+      body: JSON.stringify({ normalCount: 4, revealingCount: 1 }),
+    });
+    if (!data.ok) throw new Error(data.error || '提交失败');
+    jobId = data.jobId;
+    const pos = data.position > 1 ? `（队列第 ${data.position} 位）` : '（立即开始）';
+    result.textContent = `已排队，共 ${data.total} 张 ${pos}`;
+  } catch(e) {
+    result.style.color = 'var(--red)';
+    result.textContent = '❌ ' + e.message;
+    btn.disabled = false; btn.textContent = orig;
+    return;
+  }
+
+  // Poll until done
+  btn.textContent = '⟳ 生成中…';
+  while (true) {
+    await new Promise(r => setTimeout(r, 4000));
+    try {
+      const job = await adminFetch(`/characters/${charId}/job/${jobId}`);
+      if (job.status === 'done') {
+        result.style.color = 'var(--green)';
+        result.textContent = `✓ 完成，${job.done}/${job.total} 张已保存`;
+        break;
+      } else if (job.status === 'failed') {
+        result.style.color = 'var(--red)';
+        result.textContent = '❌ ' + (job.error || '生成失败');
+        break;
+      } else {
+        result.style.color = 'var(--yellow)';
+        const statusText = job.status === 'pending' ? '排队中' : '生成中';
+        result.textContent = `${statusText} ${job.done}/${job.total} 张…`;
+      }
+    } catch(e) { /* ignore poll errors, keep trying */ }
+  }
+
+  btn.disabled = false;
+  btn.textContent = orig;
+}
+
+async function loadWorkerChars() {
+  try {
+    const chars = await api('/characters');
+    const sel = document.getElementById('albumCharSelect');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">选择角色...</option>';
+    (Array.isArray(chars) ? chars : []).forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.id;
+      opt.textContent = c.name;
+      sel.appendChild(opt);
+    });
+  } catch(e) {}
+}
+
+// ── Redeem Codes ──────────────────────────────────────────────────────────────
+let _lastGeneratedCodes = [];
+
+async function generateRedeemCodes() {
+  const btn = document.getElementById('rcGenBtn');
+  btn.disabled = true; btn.textContent = '生成中…';
+  const count = parseInt(document.getElementById('rc-count').value) || 1;
+  const diamonds = parseInt(document.getElementById('rc-diamonds').value) || 100;
+  try {
+    const res = await adminFetch('/redeem-codes/generate', { method: 'POST', body: JSON.stringify({ count, diamonds }) });
+    _lastGeneratedCodes = res.codes;
+    const listEl = document.getElementById('rcNewList');
+    listEl.innerHTML = '';
+    res.codes.forEach(code => {
+      const chip = document.createElement('div');
+      chip.textContent = code;
+      chip.title = '点击复制';
+      chip.style.cssText = 'font-family:monospace;font-size:13px;padding:6px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;cursor:pointer;letter-spacing:0.05em;transition:background 0.15s';
+      chip.onclick = () => { navigator.clipboard.writeText(code); chip.style.background='rgba(74,222,128,0.15)'; setTimeout(()=>chip.style.background='var(--bg3)',1000); };
+      listEl.appendChild(chip);
+    });
+    document.getElementById('rcNewCodes').style.display = 'block';
+    loadRedeemCodes();
+  } catch(e) { alert('生成失败: ' + e.message); }
+  btn.disabled = false; btn.textContent = '生成兑换码';
+}
+
+function copyAllCodes() {
+  navigator.clipboard.writeText(_lastGeneratedCodes.join('\n'));
+  const btn = event.target; btn.textContent = '✅ 已复制';
+  setTimeout(() => btn.textContent = '📋 全部复制', 1500);
+}
+
+// ── Payments ──────────────────────────────────────────────────────────────────
+let payCurrentPage = 1;
+
+async function loadPayments(page = 1) {
+  payCurrentPage = page;
+  const status   = document.getElementById('pay-filter-status')?.value || '';
+  const provider = document.getElementById('pay-filter-provider')?.value || '';
+  const userQ    = document.getElementById('pay-filter-user')?.value.trim() || '';
+
+  const wrap = document.getElementById('pay-table-wrap');
+  wrap.innerHTML = '<div class="loading">⏳ 加载中…</div>';
+
+  const params = new URLSearchParams({ page, limit: 50 });
+  if (status)   params.set('status', status);
+  if (provider) params.set('provider', provider);
+  if (userQ)    params.set('user', userQ);
+
+  try {
+    const d = await adminFetch(`/payments?${params}`);
+
+    // ── Summary stats (only on first load with no filters) ───────────────
+    if (page === 1 && !status && !provider && !userQ) {
+      const completed = d.payments.filter(p => p.status === 'completed');
+      const pending   = d.payments.filter(p => p.status === 'pending');
+      const totalUsd  = completed.reduce((s, p) => s + (p.amountUsd || 0), 0);
+      const totalDia  = completed.reduce((s, p) => s + (p.diamondsGranted || 0), 0);
+      // fetch all completed for accurate totals when paginated
+      document.getElementById('pay-total-usd').textContent      = '$' + totalUsd.toFixed(2);
+      document.getElementById('pay-total-count').textContent    = completed.length + (d.total > 50 ? '+' : '');
+      document.getElementById('pay-total-diamonds').textContent = totalDia + (d.total > 50 ? '+' : '');
+      document.getElementById('pay-pending-count').textContent  = pending.length;
+    }
+
+    document.getElementById('pay-total-label').textContent = `共 ${d.total} 条`;
+
+    if (!d.payments.length) {
+      wrap.innerHTML = '<div class="loading">暂无数据</div>';
+      document.getElementById('pay-pagination').innerHTML = '';
+      return;
+    }
+
+    const providerBadge = p => {
+      if (p === 'stripe')     return '<span class="badge badge-purple">💳 Stripe</span>';
+      if (p === 'usdt_trc20') return '<span class="badge badge-green">💵 USDT</span>';
+      if (p === 'admin')      return '<span class="badge badge-yellow">🔧 手动</span>';
+      return `<span class="badge badge-yellow">${p}</span>`;
+    };
+    const statusBadge = s => {
+      if (s === 'completed') return '<span class="badge badge-green">✅ 完成</span>';
+      if (s === 'pending')   return '<span class="badge badge-yellow">⏳ 待确认</span>';
+      if (s === 'failed')    return '<span class="badge badge-red">❌ 失败</span>';
+      if (s === 'expired')   return '<span class="badge" style="background:rgba(255,255,255,0.06);color:var(--hint)">🚫 过期</span>';
+      return `<span class="badge">${s}</span>`;
+    };
+    const fmtTime = iso => {
+      const d = new Date(iso);
+      return d.toLocaleDateString('zh-CN') + ' ' + d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+    };
+
+    wrap.innerHTML = `
+      <table>
+        <thead><tr>
+          <th>时间</th><th>用户</th><th>渠道</th><th>金额</th><th>钻石</th><th>状态</th><th>交易ID</th>
+        </tr></thead>
+        <tbody>
+          ${d.payments.map(p => `
+            <tr>
+              <td style="white-space:nowrap;color:var(--hint)">${fmtTime(p.createdAt)}</td>
+              <td>
+                <div style="font-weight:600">${p.user?.username ? '@' + p.user.username : p.user?.firstName || '—'}</div>
+                <div style="font-size:11px;color:var(--hint)">${p.user?.telegramId || ''}</div>
+              </td>
+              <td>${providerBadge(p.provider)}</td>
+              <td style="font-weight:700;color:${p.status==='completed'?'var(--green)':'var(--text2)'}">
+                $${(p.amountUsd||0).toFixed(2)} <span style="font-size:11px;color:var(--hint)">${p.currency||'USD'}</span>
+              </td>
+              <td style="font-weight:700">💎 ${p.diamondsGranted}</td>
+              <td>${statusBadge(p.status)}</td>
+              <td style="font-size:11px;color:var(--hint);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.externalId||''}">
+                ${p.externalId ? p.externalId.slice(0, 24) + (p.externalId.length > 24 ? '…' : '') : '—'}
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>`;
+
+    // Pagination
+    const pages = d.pages || 1;
+    const pg = document.getElementById('pay-pagination');
+    if (pages <= 1) { pg.innerHTML = ''; return; }
+    let html = '';
+    const btnStyle = (active) =>
+      `padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid var(--border);` +
+      (active ? `background:var(--grad);color:white;border-color:transparent;` : `background:var(--bg2);color:var(--text2);`);
+    if (page > 1)   html += `<button style="${btnStyle(false)}" onclick="loadPayments(${page-1})">← 上一页</button>`;
+    html += `<span style="padding:7px 14px;font-size:13px;color:var(--hint)">${page} / ${pages}</span>`;
+    if (page < pages) html += `<button style="${btnStyle(false)}" onclick="loadPayments(${page+1})">下一页 →</button>`;
+    pg.innerHTML = html;
+
+  } catch(e) {
+    wrap.innerHTML = `<div class="loading" style="color:var(--red)">加载失败: ${e.message}</div>`;
+  }
+}
+
+async function loadRedeemCodes() {
+  const tbody = document.getElementById('rcTableBody');
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text2)">加载中…</td></tr>';
+  try {
+    const codes = await adminFetch('/redeem-codes');
+    if (!codes.length) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text2)">暂无兑换码</td></tr>'; return; }
+    tbody.innerHTML = codes.map(c => {
+      const usedBy = c.usedBy ? (c.usedBy.username || c.usedBy.firstName || c.usedBy.telegramId) : '—';
+      const usedAt = c.usedAt ? new Date(c.usedAt).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
+      const createdAt = new Date(c.createdAt).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+      const statusBadge = c.isUsed
+        ? '<span style="color:var(--hint);font-size:11px">已使用</span>'
+        : '<span style="color:var(--green);font-size:11px;font-weight:600">未使用</span>';
+      return `<tr>
+        <td><span style="font-family:monospace;font-size:13px;cursor:pointer" onclick="navigator.clipboard.writeText('${c.code}');this.style.color='var(--green)';setTimeout(()=>this.style.color='',800)">${c.code}</span></td>
+        <td>💎 ${c.diamondsGranted}</td>
+        <td>${statusBadge}</td>
+        <td style="color:var(--text2)">${usedBy}</td>
+        <td style="color:var(--text2)">${usedAt}</td>
+        <td style="color:var(--hint)">${createdAt}</td>
+      </tr>`;
+    }).join('');
+  } catch(e) { tbody.innerHTML = `<tr><td colspan="6" style="color:var(--red)">${e.message}</td></tr>`; }
 }
 
 // ── Setup Pipeline (phases → album queue → QA) ────────────────────────────────

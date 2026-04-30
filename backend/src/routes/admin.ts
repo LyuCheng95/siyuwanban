@@ -83,6 +83,8 @@ adminRouter.get('/characters', async (req: Request, res: Response): Promise<void
       isPublic: true, createdAt: true,
       qaStatus: true, qaScore: true, qaRunAt: true,
       storyPhases: true,
+      imageModel: true, height: true, weight: true,
+      faceFeatures: true, faceAnchor: true, defaultOutfit: true, portraitPrompts: true,
     },
   });
 
@@ -145,15 +147,34 @@ adminRouter.get('/logs', async (req: Request, res: Response): Promise<void> => {
   });
 });
 
-// GET /api/admin/payments?key=...&page=1&limit=50 — 充值流水
+// GET /api/admin/payments?key=...&page=1&limit=50&status=&provider=&user= — 充值流水
 adminRouter.get('/payments', async (req: Request, res: Response): Promise<void> => {
   if (!checkKey(req, res)) return;
-  const page = Math.max(1, parseInt(req.query.page as string || '1', 10));
-  const limit = Math.min(100, parseInt(req.query.limit as string || '50', 10));
-  const skip = (page - 1) * limit;
+  const page     = Math.max(1, parseInt(req.query.page as string || '1', 10));
+  const limit    = Math.min(100, parseInt(req.query.limit as string || '50', 10));
+  const skip     = (page - 1) * limit;
+  const status   = req.query.status   as string | undefined;
+  const provider = req.query.provider as string | undefined;
+  const userQ    = req.query.user     as string | undefined;
+
+  // Build where clause
+  const where: any = {};
+  if (status)   where.status   = status;
+  if (provider) where.provider = provider;
+  if (userQ) {
+    where.user = {
+      OR: [
+        { username:  { contains: userQ, mode: 'insensitive' } },
+        { firstName: { contains: userQ, mode: 'insensitive' } },
+        // If numeric, also match telegramId
+        ...(isNaN(Number(userQ)) ? [] : [{ telegramId: BigInt(userQ) }]),
+      ],
+    };
+  }
 
   const [payments, total] = await Promise.all([
     prisma.payment.findMany({
+      where,
       orderBy: { createdAt: 'desc' },
       skip,
       take: limit,
@@ -161,7 +182,7 @@ adminRouter.get('/payments', async (req: Request, res: Response): Promise<void> 
         user: { select: { username: true, firstName: true, telegramId: true, paidCredits: true } },
       },
     }),
-    prisma.payment.count(),
+    prisma.payment.count({ where }),
   ]);
 
   res.json({
@@ -375,11 +396,11 @@ adminRouter.post('/characters/create', async (req: Request, res: Response): Prom
 
   const {
     name, age, gender, occupation, personality, background,
-    speakingStyle, avatarEmoji, openingScene, isPublic,
+    speakingStyle, avatarEmoji, openingScene, isPublic, imageModel,
   } = req.body as {
     name: string; age: number; gender: string; occupation: string;
     personality: string; background: string; speakingStyle: string;
-    avatarEmoji?: string; openingScene?: string; isPublic?: boolean;
+    avatarEmoji?: string; openingScene?: string; isPublic?: boolean; imageModel?: string;
   };
 
   if (!name || !age || !gender || !occupation || !personality || !background || !speakingStyle) {
@@ -405,10 +426,69 @@ adminRouter.post('/characters/create', async (req: Request, res: Response): Prom
       avatarEmoji: avatarEmoji || '🌸',
       openingScene: openingScene || null,
       isPublic: isPublic !== false,
+      imageModel: imageModel || null,
     },
   });
 
   res.json({ ok: true, character });
+});
+
+// ── Character Visual Assets ────────────────────────────────────────────────────
+
+// PATCH /api/admin/characters/:id/assets — update physical/visual attributes
+adminRouter.patch('/characters/:id/assets', async (req: Request, res: Response): Promise<void> => {
+  if (!checkKey(req, res)) return;
+  const id = req.params.id as string;
+  const { height, weight, imageModel, faceFeatures, faceAnchor, defaultOutfit, portraitPrompts } = req.body;
+
+  const updated = await prisma.character.update({
+    where: { id },
+    data: {
+      ...(height !== undefined ? { height: height ? Number(height) : null } : {}),
+      ...(weight !== undefined ? { weight: weight ? Number(weight) : null } : {}),
+      ...(imageModel !== undefined ? { imageModel: imageModel || null } : {}),
+      ...(faceFeatures !== undefined ? { faceFeatures: faceFeatures || null } : {}),
+      ...(faceAnchor !== undefined ? { faceAnchor: faceAnchor || null } : {}),
+      ...(defaultOutfit !== undefined ? { defaultOutfit: defaultOutfit || null } : {}),
+      ...(portraitPrompts !== undefined ? { portraitPrompts: portraitPrompts ?? [] } : {}),
+    },
+    select: { id: true, name: true },
+  });
+  res.json({ ok: true, id: updated.id, name: updated.name });
+});
+
+// ── Redeem Codes ──────────────────────────────────────────────────────────────
+
+function generateCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no confusable I/O/0/1
+  const rand = (n: number) => Array.from({ length: n }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  return `${rand(4)}-${rand(4)}-${rand(4)}`;
+}
+
+// POST /api/admin/redeem-codes/generate  { count?: number, diamonds?: number }
+adminRouter.post('/redeem-codes/generate', async (req: Request, res: Response): Promise<void> => {
+  if (!checkKey(req, res)) return;
+  const count = Math.min(parseInt(req.body.count || '1', 10), 100);
+  const diamonds = parseInt(req.body.diamonds || '100', 10);
+
+  const codes = Array.from({ length: count }, () => ({
+    code: generateCode(),
+    diamondsGranted: diamonds,
+  }));
+
+  await prisma.redeemCode.createMany({ data: codes, skipDuplicates: true });
+  res.json({ ok: true, codes: codes.map(c => c.code) });
+});
+
+// GET /api/admin/redeem-codes
+adminRouter.get('/redeem-codes', async (req: Request, res: Response): Promise<void> => {
+  if (!checkKey(req, res)) return;
+  const codes = await prisma.redeemCode.findMany({
+    orderBy: { createdAt: 'desc' },
+    take: 200,
+    include: { usedBy: { select: { username: true, firstName: true, telegramId: true } } },
+  });
+  res.json(codes);
 });
 
 // POST /api/admin/characters/:id/qa?key=... — 触发角色自检（SSE，逐轮可视化）
@@ -692,6 +772,215 @@ adminRouter.post('/simulate-chat', async (req: Request, res: Response): Promise<
   send({ type: 'done', finalState: { intimacy, phase, mood, dominance, desire, attach } });
   res.end();
 });
+
+// ── Worker: Image Upload ──────────────────────────────────────────────────────
+
+// POST /api/admin/images/upload?key=... — multipart upload from local worker
+// Returns: { url: string }
+adminRouter.post('/images/upload', async (req: Request, res: Response): Promise<void> => {
+  if (!checkKey(req, res)) return;
+
+  const SAVE_DIR = process.env.IMAGE_SAVE_DIR || '/var/www/siyuwanban/images';
+  const FRONTEND_URL = process.env.FRONTEND_URL || 'https://siyuwanban.shangzongcai.com';
+
+  // Accept multipart/form-data (the worker sends FormData)
+  // We read the raw body manually since express.json() won't parse multipart.
+  // Use a simple boundary parser for the `image` field.
+  try {
+    const contentType = req.headers['content-type'] || '';
+    if (!contentType.includes('multipart/form-data')) {
+      res.status(400).json({ error: 'multipart/form-data required' }); return;
+    }
+
+    const boundary = contentType.split('boundary=')[1]?.trim();
+    if (!boundary) { res.status(400).json({ error: 'missing boundary' }); return; }
+
+    const chunks: Buffer[] = [];
+    await new Promise<void>((resolve, reject) => {
+      req.on('data', (chunk: Buffer) => chunks.push(chunk));
+      req.on('end', resolve);
+      req.on('error', reject);
+    });
+    const body = Buffer.concat(chunks);
+
+    // Extract filename from Content-Disposition and the image bytes
+    const boundaryBuf = Buffer.from(`--${boundary}`);
+    const parts = splitBuffer(body, boundaryBuf);
+    let imageBuffer: Buffer | null = null;
+    let originalFilename = `upload_${Date.now()}.png`;
+
+    for (const part of parts) {
+      const headerEnd = indexOf(part, Buffer.from('\r\n\r\n'));
+      if (headerEnd === -1) continue;
+      const headerStr = part.slice(0, headerEnd).toString();
+      if (!headerStr.includes('name="image"')) continue;
+      const match = headerStr.match(/filename="([^"]+)"/);
+      if (match) originalFilename = path.basename(match[1]);
+      // +4 to skip \r\n\r\n, -2 to trim trailing \r\n before boundary
+      imageBuffer = part.slice(headerEnd + 4, part.length - 2);
+      break;
+    }
+
+    if (!imageBuffer || imageBuffer.length === 0) {
+      res.status(400).json({ error: 'no image data found' }); return;
+    }
+
+    const saveName = originalFilename.startsWith('album_') || originalFilename.startsWith('scene_') || originalFilename.startsWith('worker_')
+      ? originalFilename
+      : `worker_${Date.now()}_${originalFilename}`;
+    const savePath = path.join(SAVE_DIR, saveName);
+    fs.mkdirSync(SAVE_DIR, { recursive: true });
+    fs.writeFileSync(savePath, imageBuffer);
+
+    const url = `${FRONTEND_URL}/images/${saveName}`;
+    console.log(`[admin/upload] saved ${savePath} (${imageBuffer.length} bytes)`);
+    res.json({ url });
+  } catch (e: any) {
+    console.error('[admin/upload] error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /api/admin/characters/:id/generate-album?key=... — proxy to local worker
+// Body: { prompts?, normalCount?, revealingCount? }
+// Default: 4 normal + 1 revealing (5 total)
+adminRouter.post('/characters/:id/generate-album', async (req: Request, res: Response): Promise<void> => {
+  if (!checkKey(req, res)) return;
+
+  const charId = req.params.id as string;
+  const char = await prisma.character.findUnique({
+    where: { id: charId },
+    select: { id: true, name: true, imageModel: true, portraitPrompts: true, faceAnchor: true, faceFeatures: true },
+  });
+  if (!char) { res.status(404).json({ error: 'character not found' }); return; }
+
+  const WORKER_URL = process.env.WORKER_URL || 'http://localhost:7080';
+  const WORKER_KEY = process.env.WORKER_KEY || '';
+
+  const normalCount   = parseInt(req.body.normalCount   ?? '4', 10);
+  const revealingCount = parseInt(req.body.revealingCount ?? '1', 10);
+
+  // Normal prompts: from body override or DB portraitPrompts
+  const dbPrompts: string[] = Array.isArray(char.portraitPrompts) ? (char.portraitPrompts as string[]) : [];
+  const normalPrompts: string[] = (Array.isArray(req.body.prompts) && req.body.prompts.length)
+    ? (req.body.prompts as string[]).slice(0, normalCount)
+    : dbPrompts.slice(0, normalCount);
+
+  if (!normalPrompts.length) {
+    res.status(400).json({ error: 'no prompts — set portraitPrompts in DB or pass prompts in body' }); return;
+  }
+
+  // Build revealing prompts from character anchor fields
+  const revealingPrompts: string[] = [];
+  if (revealingCount > 0) {
+    const anchor = [char.faceAnchor, char.faceFeatures].filter(Boolean).join(', ') || char.name;
+    // Variants of revealing poses
+    const revealingVariants = [
+      `${anchor}, completely naked, bare breasts fully exposed, (erect nipples:1.5), (pussy visible:1.5), lying on bed, seductive pose, bedroom, soft lighting, sultry expression, legs slightly apart`,
+      `${anchor}, topless, bare breasts, sitting on bed edge, hands behind back, arching back, intimate lighting, looking at viewer with desire`,
+      `${anchor}, completely naked, standing by window, soft natural light, hands covering chest partially, shy seductive expression`,
+    ];
+    for (let i = 0; i < revealingCount; i++) {
+      revealingPrompts.push(revealingVariants[i % revealingVariants.length]);
+    }
+  }
+
+  const prompts = [...normalPrompts, ...revealingPrompts];
+  const count   = prompts.length;
+
+  const workerHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (WORKER_KEY) workerHeaders['X-Worker-Key'] = WORKER_KEY;
+
+  try {
+    // Submit job to worker — returns immediately with jobId
+    const submitRes = await fetch(`${WORKER_URL}/generate-album`, {
+      method: 'POST',
+      headers: workerHeaders,
+      body: JSON.stringify({ charId, characterName: char.name, modelFile: char.imageModel || undefined, prompts, count }),
+    });
+    if (!submitRes.ok) {
+      const err = await submitRes.text();
+      res.status(502).json({ error: `worker error: ${err}` }); return;
+    }
+    const { jobId, position, total } = await submitRes.json() as { jobId: string; position: number; total: number };
+    res.json({ ok: true, jobId, position, total });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/admin/characters/:id/job/:jobId?key=... — poll worker job status
+adminRouter.get('/characters/:id/job/:jobId', async (req: Request, res: Response): Promise<void> => {
+  if (!checkKey(req, res)) return;
+  const WORKER_URL = process.env.WORKER_URL || 'http://localhost:7080';
+  const WORKER_KEY = process.env.WORKER_KEY || '';
+  try {
+    const r = await fetch(`${WORKER_URL}/job/${req.params.jobId}`, {
+      signal: AbortSignal.timeout(5000),
+      headers: WORKER_KEY ? { 'X-Worker-Key': WORKER_KEY } : {},
+    });
+    const data = await r.json();
+    res.json(data);
+  } catch (e: any) {
+    res.status(502).json({ error: e.message });
+  }
+});
+
+// POST /api/admin/characters/:id/append-image?key=... — worker calls this per image
+adminRouter.post('/characters/:id/append-image', async (req: Request, res: Response): Promise<void> => {
+  if (!checkKey(req, res)) return;
+  const { url } = req.body as { url: string };
+  if (!url) { res.status(400).json({ error: 'url required' }); return; }
+  const charId = req.params.id as string;
+  const char = await prisma.character.findUnique({ where: { id: charId }, select: { portraitImages: true, portraitUrl: true } });
+  if (!char) { res.status(404).json({ error: 'not found' }); return; }
+  const current = Array.isArray(char.portraitImages) ? char.portraitImages as string[] : [];
+  const merged = [...current, url];
+  await prisma.character.update({
+    where: { id: charId },
+    data: { portraitImages: merged, ...(char.portraitUrl ? {} : { portraitUrl: url }) },
+  });
+  console.log(`[append-image] ${charId} +1 → total ${merged.length}`);
+  res.json({ ok: true, total: merged.length });
+});
+
+// GET /api/admin/worker/ping?key=... — check if local worker is reachable
+adminRouter.get('/worker/ping', async (req: Request, res: Response): Promise<void> => {
+  if (!checkKey(req, res)) return;
+  const WORKER_URL = process.env.WORKER_URL || 'http://localhost:7080';
+  try {
+    const r = await fetch(`${WORKER_URL}/ping`, { signal: AbortSignal.timeout(5000) });
+    if (r.ok) {
+      const data = await r.json();
+      res.json({ online: true, ...data as object });
+    } else {
+      res.json({ online: false, status: r.status });
+    }
+  } catch (e: any) {
+    res.json({ online: false, error: e.message });
+  }
+});
+
+// ── Multipart helpers ─────────────────────────────────────────────────────────
+function indexOf(buf: Buffer, search: Buffer, start = 0): number {
+  for (let i = start; i <= buf.length - search.length; i++) {
+    if (buf.slice(i, i + search.length).equals(search)) return i;
+  }
+  return -1;
+}
+
+function splitBuffer(buf: Buffer, delimiter: Buffer): Buffer[] {
+  const parts: Buffer[] = [];
+  let start = 0;
+  let idx = indexOf(buf, delimiter, start);
+  while (idx !== -1) {
+    parts.push(buf.slice(start, idx));
+    start = idx + delimiter.length;
+    idx = indexOf(buf, delimiter, start);
+  }
+  parts.push(buf.slice(start));
+  return parts.filter(p => p.length > 4); // drop empty boundary lines
+}
 
 // ── Scene Image Cache ─────────────────────────────────────────────────────────
 
