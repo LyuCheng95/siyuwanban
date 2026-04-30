@@ -27,6 +27,7 @@ model User {
   conversations Conversation[]
   reviews       Review[]
   payments      Payment[]
+  redeemedCodes RedeemCode[]
 
   @@index([telegramId])
 }
@@ -51,6 +52,13 @@ model Character {
   avgRating     Float    @default(0)
   reviewCount   Int      @default(0)
   storyPhases   Json?             // [p0, p1, p2, p3, p4] — AI-generated or manually written
+  imageModel      String?           // leosam | jugger | noob | pony (defaults to leosam)
+  height          Int?              // cm
+  weight          Int?              // kg
+  faceFeatures    String?  @db.Text // distinctive face/body prompt (eye shape, jaw, skin tone…)
+  faceAnchor      String?  @db.Text // mood/style anchor keywords for consistent face across images
+  defaultOutfit   String?  @db.Text // default clothing description used in scene generation
+  portraitPrompts Json?             // pre-written ComfyUI portrait prompts (replaces ALBUM_CONFIGS)
   qaStatus      String?           // pending | running | passed | failed
   qaScore       Int?              // 0-100
   qaReport      Json?             // { categories, score, summary, issues, suggestions }
@@ -149,4 +157,16 @@ model Payment {
 
   @@index([userId, createdAt])
   @@index([status])
+}
+
+model RedeemCode {
+  id              String    @id @default(uuid())
+  code            String    @unique
+  diamondsGranted Int       @default(100)
+  isUsed          Boolean   @default(false)
+  usedById        String?
+  usedAt          DateTime?
+  createdAt       DateTime  @default(now())
+
+  usedBy          User?     @relation(fields: [usedById], references: [id])
 }
