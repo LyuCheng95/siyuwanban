@@ -1,13 +1,16 @@
 import { Router, Response } from 'express';
+import fetch from 'node-fetch';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
-import { generateSceneImage } from '../services/comfyui';
 import { findCachedScene, saveSceneImage } from '../services/sceneCache';
 import { prisma } from '../utils/prisma';
 
 export const imagesRouter = Router();
 imagesRouter.use(authMiddleware);
 
-// POST /api/images/generate — generate or reuse a cached scene image
+const WORKER_URL = process.env.WORKER_URL || 'http://localhost:7080';
+const WORKER_KEY = process.env.WORKER_KEY || '';
+
+// POST /api/images/generate — generate or reuse a cached scene image (via local worker)
 imagesRouter.post('/generate', async (req: AuthRequest, res: Response): Promise<void> => {
   const { prompt, negative, characterName, characterId } = req.body;
 
@@ -48,15 +51,29 @@ imagesRouter.post('/generate', async (req: AuthRequest, res: Response): Promise<
 
     let url: string;
     try {
-      // characterName is used by comfyui to pick the right model internally
-      url = await generateSceneImage(prompt, negative ?? '', characterName ?? '');
+      // Route through local worker (SSH tunnel: server localhost:7080 → local worker)
+      // Worker handles ComfyUI queue, model selection and LoRA logic
+      const workerRes = await fetch(`${WORKER_URL}/generate-scene-by-name`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(WORKER_KEY ? { 'x-worker-key': WORKER_KEY } : {}),
+        },
+        body: JSON.stringify({ prompt, negative, characterName }),
+      });
+      if (!workerRes.ok) {
+        const errText = await workerRes.text().catch(() => '');
+        throw new Error(`Worker error ${workerRes.status}: ${errText}`);
+      }
+      const data = await workerRes.json() as { url: string };
+      url = data.url;
     } catch (genErr: any) {
-      // Refund the diamond — generation failed (worker not running, ComfyUI down, etc.)
+      // Refund the diamond — generation failed (worker offline, ComfyUI down, etc.)
       await prisma.user.update({
         where: { id: req.userId! },
         data: { paidCredits: { increment: 1 } },
       }).catch(() => {});
-      console.error('[ImageGen]', genErr.message);
+      console.error('[ImageGen] Worker call failed:', genErr.message);
       res.status(503).json({ error: 'worker_offline', detail: genErr.message });
       return;
     }
