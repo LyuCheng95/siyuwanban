@@ -47,18 +47,8 @@ imagesRouter.post('/generate', async (req: AuthRequest, res: Response): Promise<
       select: { paidCredits: true },
     });
 
-    let dbImageModel: string | null = null;
-    let dbFaceFeatures: string | null = null;
-    if (characterId) {
-      const char = await prisma.character.findUnique({
-        where: { id: characterId as string },
-        select: { imageModel: true, faceFeatures: true },
-      });
-      dbImageModel = char?.imageModel ?? null;
-      dbFaceFeatures = char?.faceFeatures ?? null;
-    }
-
-    const url = await generateSceneImage(prompt, negative ?? '', characterName ?? '', dbImageModel, dbFaceFeatures);
+    // characterName is used by comfyui to pick the right model internally
+    const url = await generateSceneImage(prompt, negative ?? '', characterName ?? '');
 
     // Save to cache for future reuse
     if (characterId) {
