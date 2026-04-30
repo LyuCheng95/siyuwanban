@@ -134,33 +134,41 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
     ]);
   }, []);
 
-  // ── 场景图生成（inline，不弹窗）──────────────────────────────────────────
-  async function generateInlineImage(prompt: string) {
+  // ── 场景图生成（inline，不弹窗，扣1钻石）───────────────────────────────
+  async function generateInlineImage(prompt: string, msgIdx: number) {
     if (!character || !characterId) return;
-    const genMsg: Message = { role: 'assistant', content: '', imageGenerating: true };
-    setMessages(prev => [...prev, genMsg]);
+    // Mark this specific message as generating (not appending a new message)
+    setMessages(prev => {
+      const next = [...prev];
+      next[msgIdx] = { ...next[msgIdx], imageGenerating: true, imagePrompt: undefined };
+      return next;
+    });
     try {
       const res = await api.images.generate(prompt, character.name, characterId);
       setMessages(prev => {
         const next = [...prev];
-        const idx = [...next].reverse().findIndex(m => m.imageGenerating);
-        if (idx !== -1) {
-          const realIdx = next.length - 1 - idx;
-          next[realIdx] = { role: 'assistant', content: '', imageUrl: res.url };
-        }
+        next[msgIdx] = { ...next[msgIdx], imageGenerating: false, imageUrl: res.url, imagePrompt: undefined };
         return next;
       });
+      // Update diamond balance from server response
+      if (typeof res.paid === 'number') {
+        setCredits(prev => ({ ...prev, paid: res.paid as number }));
+        onCreditsUpdate(credits.free, res.paid as number);
+      }
       // Save to album (fire-and-forget)
       api.chat.saveImage(characterId, res.url).then(() => {
         setAlbumImages(prev => prev.includes(res.url) ? prev : [...prev, res.url]);
       }).catch(() => {});
-    } catch {
+    } catch (err: any) {
+      // Reset the message back to its pre-generating state
       setMessages(prev => {
         const next = [...prev];
-        const idx = [...next].reverse().findIndex(m => m.imageGenerating);
-        if (idx !== -1) next.splice(next.length - 1 - idx, 1);
+        next[msgIdx] = { ...next[msgIdx], imageGenerating: false };
         return next;
       });
+      if (err?.status === 402) {
+        setShowPaywall(true);
+      }
     }
   }
 
@@ -515,20 +523,39 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
             )}
 
             <div className="bubble-content-wrap" style={{ display:'flex', flexDirection:'column', gap:6 }}>
-              {/* Image generating / loaded */}
+              {/* ── Scene image loading state ── */}
               {msg.imageGenerating && (
-                <div className="inline-image-wrap">
-                  <div className="inline-image-loading">
-                    <div className="loading-ring" style={{ width:24, height:24, borderWidth:2 }} />
-                    <div>{t.chat.imageGenerating}</div>
-                    <div className="inline-image-shimmer" />
+                <div className="scene-image-loading">
+                  <div className="scene-image-loading-glow" />
+                  <div style={{ position:'relative', zIndex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:10 }}>
+                    {avatarSrc && (
+                      <div style={{ width:44, height:44, borderRadius:'50%', overflow:'hidden',
+                        border:'2px solid rgba(232,53,108,0.4)', boxShadow:'0 0 16px rgba(232,53,108,0.3)' }}>
+                        <img src={avatarSrc} alt="" style={{ width:'100%', height:'100%', objectFit:'cover', objectPosition:'top center' }} />
+                      </div>
+                    )}
+                    <div className="loading-ring" style={{ width:20, height:20, borderWidth:2 }} />
+                    <div style={{ fontSize:11, color:'rgba(200,140,225,0.7)', letterSpacing:'0.08em', textAlign:'center' }}>
+                      {t.chat.imageGenerating}
+                    </div>
+                    <div className="inline-image-shimmer" style={{ width:'60%' }} />
                   </div>
                 </div>
               )}
+
+              {/* ── Scene image loaded — cinematic card ── */}
               {msg.imageUrl && (
-                <div className="inline-image-wrap" onClick={() => setLightboxUrl(msg.imageUrl!)}>
-                  <img src={msg.imageUrl} alt="scene" />
-                  <div className="inline-image-hint">{t.chat.clickEnlarge}</div>
+                <div className="scene-image-card" onClick={() => setLightboxUrl(msg.imageUrl!)}>
+                  <img src={msg.imageUrl} alt="scene" className="scene-image-card-img" />
+                  <div className="scene-image-card-overlay">
+                    <div className="scene-image-card-hint">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+                      </svg>
+                      {t.chat.clickEnlarge}
+                    </div>
+                  </div>
+                  <div className="scene-image-card-glow" />
                 </div>
               )}
 
@@ -544,26 +571,29 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
                 </div>
               )}
 
-              {/* Scene image trigger button */}
-              {msg.role === 'assistant' && !streaming && !msg.imageGenerating && !msg.imageUrl && (
+              {/* ── Scene trigger button — premium ── */}
+              {msg.role === 'assistant' && msg.imagePrompt && !streaming && !msg.imageGenerating && !msg.imageUrl && (
                 <button
+                  className="scene-btn"
                   onClick={() => generateInlineImage(
-                    buildScenePrompt(character, msg.imagePrompt, desire, currentPhase, mood, msg.imageTwoShot)
+                    buildScenePrompt(character, msg.imagePrompt, desire, currentPhase, mood, msg.imageTwoShot),
+                    i,
                   )}
-                  style={{
-                    alignSelf:'flex-start',
-                    background:'linear-gradient(135deg,rgba(255,61,127,0.12),rgba(192,38,211,0.12))',
-                    border:'1px solid rgba(255,61,127,0.25)',
-                    borderRadius:20, padding:'5px 14px',
-                    fontSize:12, color:'rgba(255,150,200,0.85)', cursor:'pointer',
-                    display:'flex', alignItems:'center', gap:5,
-                    fontWeight:600, marginTop:2,
-                  }}
                 >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-                  </svg>
-                  {t.chat.viewScene}
+                  <div className="scene-btn-shimmer" />
+                  <div className="scene-btn-left">
+                    <div className="scene-btn-icon">
+                      {/* Camera/sparkle icon */}
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                        <circle cx="12" cy="13" r="4"/>
+                      </svg>
+                    </div>
+                    <span>{t.chat.sceneLabel}</span>
+                  </div>
+                  <div className="scene-btn-cost">
+                    <span>{t.chat.sceneCost}</span>
+                  </div>
                 </button>
               )}
             </div>

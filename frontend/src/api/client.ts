@@ -136,7 +136,7 @@ export const api = {
 
   images: {
     generate: (prompt: string, characterName?: string, characterId?: string) =>
-      request<{ url: string }>('/images/generate', {
+      request<{ url: string; paid?: number }>('/images/generate', {
         method: 'POST',
         body: JSON.stringify({ prompt, characterName, characterId }),
       }),

@@ -99,6 +99,9 @@ export const en: Strings = {
     chapterPrefix: '',
     upgradeHint: 'more affection to level up',
     upgradeHintPrefix: '',
+    sceneLabel: 'See her now',
+    sceneCost: '💎×1',
+    sceneInsufficientDiamonds: 'Not enough diamonds',
   },
 
   // Status panel

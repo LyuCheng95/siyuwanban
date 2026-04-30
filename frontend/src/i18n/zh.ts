@@ -102,6 +102,9 @@ export const zh = {
     chapterPrefix: '第',
     upgradeHint: '点好感升级关系',
     upgradeHintPrefix: '还需 ',
+    sceneLabel: '看她现在的样子',
+    sceneCost: '💎×1',
+    sceneInsufficientDiamonds: '钻石不足',
   },
 
   // Status panel
