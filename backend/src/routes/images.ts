@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import fetch from 'node-fetch';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
-import { findCachedScene, saveSceneImage } from '../services/sceneCache';
+import { saveSceneImage } from '../services/sceneCache';
 import { prisma } from '../utils/prisma';
 
 export const imagesRouter = Router();
@@ -20,20 +20,8 @@ imagesRouter.post('/generate', async (req: AuthRequest, res: Response): Promise<
   }
 
   try {
-    // Check cache first — cache hits are FREE (no diamond charge)
-    if (characterId) {
-      const cached = await findCachedScene(characterId, prompt);
-      if (cached) {
-        const user = await prisma.user.findUnique({
-          where: { id: req.userId! },
-          select: { paidCredits: true },
-        });
-        res.json({ url: cached, paid: user?.paidCredits ?? 0 });
-        return;
-      }
-    }
-
-    // New generation costs 1 diamond
+    // Each user-triggered generation always creates a fresh image (no cache lookup)
+    // Users pay 1 diamond per image and expect a new scene each time
     const user = await prisma.user.findUnique({
       where: { id: req.userId! },
       select: { paidCredits: true },

@@ -668,13 +668,15 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
                 }
               </div>
               <div>
-                <div style={{ fontWeight:700, fontSize:17 }}>{character.name}</div>
-                <div style={{ fontSize:12, color:'var(--text-2)', marginTop:2 }}>{character.occupation}</div>
+                <div style={{ fontWeight:700, fontSize:17 }}>{displayName}</div>
+                <div style={{ fontSize:12, color:'var(--text-2)', marginTop:2 }}>
+                  {charField(character.occupationEn, character.occupation)}
+                </div>
               </div>
               <div style={{ marginLeft:'auto', textAlign:'center' }}>
                 <div style={{ display:'inline-block', background: intimacyColor(intimacy),
                   borderRadius:20, padding:'4px 12px', fontSize:12, fontWeight:700, color:'white' }}>
-                  {intimacyLabel(intimacy)}
+                  {intimacyLabel(intimacy, lang)}
                 </div>
                 <div style={{ fontSize:10, color:'var(--text-hint)', marginTop:4 }}>{t.chat.chapterPrefix}{currentPhase}/4 {t.chat.chapter}</div>
               </div>
