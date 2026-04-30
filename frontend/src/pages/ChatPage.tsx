@@ -137,7 +137,9 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
   // ── 场景图生成（inline，不弹窗，扣1钻石）───────────────────────────────
   async function generateInlineImage(prompt: string, msgIdx: number) {
     if (!character || !characterId) return;
-    // Mark this specific message as generating (not appending a new message)
+    // Store original imagePrompt so we can restore if it fails
+    const originalImagePrompt = messages[msgIdx]?.imagePrompt;
+    // Mark this specific message as generating
     setMessages(prev => {
       const next = [...prev];
       next[msgIdx] = { ...next[msgIdx], imageGenerating: true, imagePrompt: undefined };
@@ -160,14 +162,24 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
         setAlbumImages(prev => prev.includes(res.url) ? prev : [...prev, res.url]);
       }).catch(() => {});
     } catch (err: any) {
-      // Reset the message back to its pre-generating state
+      const status = err?.status;
+      // Restore message to button state (with original imagePrompt so button reappears)
       setMessages(prev => {
         const next = [...prev];
-        next[msgIdx] = { ...next[msgIdx], imageGenerating: false };
+        next[msgIdx] = { ...next[msgIdx], imageGenerating: false, imagePrompt: originalImagePrompt };
         return next;
       });
-      if (err?.status === 402) {
+      if (status === 402) {
         setShowPaywall(true);
+      } else {
+        // Worker offline or generation failed — show error toast
+        const errMsg: Message = {
+          role: 'assistant',
+          content: lang === 'en'
+            ? '⚠️ Image generation offline — please try again later'
+            : '⚠️ 图片生成服务暂时不可用，请稍后再试',
+        };
+        setMessages(prev => [...prev, errMsg]);
       }
     }
   }

@@ -41,21 +41,37 @@ imagesRouter.post('/generate', async (req: AuthRequest, res: Response): Promise<
     }
 
     // Deduct before generating (prevents double-spend on retry)
-    const updated = await prisma.user.update({
+    await prisma.user.update({
       where: { id: req.userId! },
       data: { paidCredits: { decrement: 1 } },
-      select: { paidCredits: true },
     });
 
-    // characterName is used by comfyui to pick the right model internally
-    const url = await generateSceneImage(prompt, negative ?? '', characterName ?? '');
+    let url: string;
+    try {
+      // characterName is used by comfyui to pick the right model internally
+      url = await generateSceneImage(prompt, negative ?? '', characterName ?? '');
+    } catch (genErr: any) {
+      // Refund the diamond — generation failed (worker not running, ComfyUI down, etc.)
+      await prisma.user.update({
+        where: { id: req.userId! },
+        data: { paidCredits: { increment: 1 } },
+      }).catch(() => {});
+      console.error('[ImageGen]', genErr.message);
+      res.status(503).json({ error: 'worker_offline', detail: genErr.message });
+      return;
+    }
 
     // Save to cache for future reuse
     if (characterId) {
       saveSceneImage(characterId, prompt, url).catch(() => {});
     }
 
-    res.json({ url, paid: updated.paidCredits });
+    const updatedUser = await prisma.user.findUnique({
+      where: { id: req.userId! },
+      select: { paidCredits: true },
+    });
+
+    res.json({ url, paid: updatedUser?.paidCredits ?? 0 });
   } catch (err: any) {
     console.error('[ImageGen]', err.message);
     res.status(503).json({ error: 'Image generation failed', detail: err.message });
