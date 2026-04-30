@@ -16,7 +16,7 @@ chatRouter.get('/', async (req: AuthRequest, res: Response): Promise<void> => {
     orderBy: { updatedAt: 'desc' },
     include: {
       character: {
-        select: { id: true, name: true, avatarEmoji: true, occupation: true, portraitUrl: true },
+        select: { id: true, name: true, nameEn: true, avatarEmoji: true, occupation: true, occupationEn: true, portraitUrl: true },
       },
       messages: { orderBy: { createdAt: 'desc' }, take: 1 },
     },
