@@ -55,8 +55,9 @@ export interface Message {
   imagePrompt?: string;
   imageTwoShot?: boolean;
   imageGenerating?: boolean;
-  streaming?: boolean;  // currently receiving chunks — show dots, hide text
-  fresh?: boolean;      // just received — animate paragraphs in
+  imageError?: boolean;   // generation failed — show inline error on the button
+  streaming?: boolean;    // currently receiving chunks — show dots, hide text
+  fresh?: boolean;        // just received — animate paragraphs in
 }
 
 export interface Conversation {

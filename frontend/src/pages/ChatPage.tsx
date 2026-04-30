@@ -137,19 +137,17 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
   // ── 场景图生成（inline，不弹窗，扣1钻石）───────────────────────────────
   async function generateInlineImage(prompt: string, msgIdx: number) {
     if (!character || !characterId) return;
-    // Store original imagePrompt so we can restore if it fails
-    const originalImagePrompt = messages[msgIdx]?.imagePrompt;
-    // Mark this specific message as generating
+    // Mark this specific message as generating; clear any previous error
     setMessages(prev => {
       const next = [...prev];
-      next[msgIdx] = { ...next[msgIdx], imageGenerating: true, imagePrompt: undefined };
+      next[msgIdx] = { ...next[msgIdx], imageGenerating: true, imageError: false };
       return next;
     });
     try {
       const res = await api.images.generate(prompt, character.name, characterId);
       setMessages(prev => {
         const next = [...prev];
-        next[msgIdx] = { ...next[msgIdx], imageGenerating: false, imageUrl: res.url, imagePrompt: undefined };
+        next[msgIdx] = { ...next[msgIdx], imageGenerating: false, imageUrl: res.url, imageError: false };
         return next;
       });
       // Update diamond balance from server response
@@ -163,23 +161,20 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
       }).catch(() => {});
     } catch (err: any) {
       const status = err?.status;
-      // Restore message to button state (with original imagePrompt so button reappears)
-      setMessages(prev => {
-        const next = [...prev];
-        next[msgIdx] = { ...next[msgIdx], imageGenerating: false, imagePrompt: originalImagePrompt };
-        return next;
-      });
       if (status === 402) {
+        setMessages(prev => {
+          const next = [...prev];
+          next[msgIdx] = { ...next[msgIdx], imageGenerating: false };
+          return next;
+        });
         setShowPaywall(true);
       } else {
-        // Worker offline or generation failed — show error toast
-        const errMsg: Message = {
-          role: 'assistant',
-          content: lang === 'en'
-            ? '⚠️ Image generation offline — please try again later'
-            : '⚠️ 图片生成服务暂时不可用，请稍后再试',
-        };
-        setMessages(prev => [...prev, errMsg]);
+        // Show inline error on this message — no new bubble added
+        setMessages(prev => {
+          const next = [...prev];
+          next[msgIdx] = { ...next[msgIdx], imageGenerating: false, imageError: true };
+          return next;
+        });
       }
     }
   }
@@ -535,7 +530,44 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
             )}
 
             <div className="bubble-content-wrap" style={{ display:'flex', flexDirection:'column', gap:6 }}>
-              {/* ── Scene image loading state ── */}
+              {/* ── Text bubble FIRST ── */}
+              {(msg.content || (!msg.imageUrl && !msg.imageGenerating)) && (
+                <div className={`bubble ${msg.role}${msg.streaming ? ' bubble-streaming' : ''}${msg.fresh && msg.role === 'assistant' ? ' bubble-fresh' : ''}`}>
+                  {msg.streaming
+                    ? <StreamingDots />
+                    : msg.content
+                      ? renderContent(msg.content, msg.fresh)
+                      : null
+                  }
+                </div>
+              )}
+
+              {/* ── Scene trigger button — below text ── */}
+              {msg.role === 'assistant' && !streaming && !msg.imageGenerating && !msg.imageUrl && (
+                <button
+                  className="scene-btn"
+                  onClick={() => generateInlineImage(
+                    buildScenePrompt(character, msg.imagePrompt, desire, currentPhase, mood, msg.imageTwoShot),
+                    i,
+                  )}
+                >
+                  <div className="scene-btn-shimmer" />
+                  <div className="scene-btn-left">
+                    <div className="scene-btn-icon">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                        <circle cx="12" cy="13" r="4"/>
+                      </svg>
+                    </div>
+                    <span>{t.chat.sceneLabel}</span>
+                  </div>
+                  <div className="scene-btn-cost">
+                    <span>{msg.imageError ? (lang === 'en' ? '⚠️ Retry' : '⚠️ 重试') : t.chat.sceneCost}</span>
+                  </div>
+                </button>
+              )}
+
+              {/* ── Scene image loading state — below text ── */}
               {msg.imageGenerating && (
                 <div className="scene-image-loading">
                   <div className="scene-image-loading-glow" />
@@ -555,7 +587,7 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
                 </div>
               )}
 
-              {/* ── Scene image loaded — cinematic card ── */}
+              {/* ── Scene image loaded — cinematic card, below text ── */}
               {msg.imageUrl && (
                 <div className="scene-image-card" onClick={() => setLightboxUrl(msg.imageUrl!)}>
                   <img src={msg.imageUrl} alt="scene" className="scene-image-card-img" />
@@ -569,44 +601,6 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
                   </div>
                   <div className="scene-image-card-glow" />
                 </div>
-              )}
-
-              {/* Text bubble — only if there's content or it's not a pure image message */}
-              {(msg.content || (!msg.imageUrl && !msg.imageGenerating)) && (
-                <div className={`bubble ${msg.role}${msg.streaming ? ' bubble-streaming' : ''}${msg.fresh && msg.role === 'assistant' ? ' bubble-fresh' : ''}`}>
-                  {msg.streaming
-                    ? <StreamingDots />
-                    : msg.content
-                      ? renderContent(msg.content, msg.fresh)
-                      : null
-                  }
-                </div>
-              )}
-
-              {/* ── Scene trigger button — premium ── */}
-              {msg.role === 'assistant' && !streaming && !msg.imageGenerating && !msg.imageUrl && (
-                <button
-                  className="scene-btn"
-                  onClick={() => generateInlineImage(
-                    buildScenePrompt(character, msg.imagePrompt, desire, currentPhase, mood, msg.imageTwoShot),
-                    i,
-                  )}
-                >
-                  <div className="scene-btn-shimmer" />
-                  <div className="scene-btn-left">
-                    <div className="scene-btn-icon">
-                      {/* Camera/sparkle icon */}
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-                        <circle cx="12" cy="13" r="4"/>
-                      </svg>
-                    </div>
-                    <span>{t.chat.sceneLabel}</span>
-                  </div>
-                  <div className="scene-btn-cost">
-                    <span>{t.chat.sceneCost}</span>
-                  </div>
-                </button>
               )}
             </div>
           </div>
