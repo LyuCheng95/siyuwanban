@@ -303,7 +303,19 @@ imgPrompt: ComfyUI image prompt in English (required when genImg=true; write onl
   [P4 climax example] "(completely naked:1.7), ahegao, (creampie:1.6), cum dripping from pussy, full body trembling, exhausted bliss"
   Write only scene-specific actions/positions/expressions/props. No generic quality words.
 
-[REPLY LENGTH] 80-150 words, tight pacing, mix *italic* action beats with dialogue, end each turn with suspense or an unfinished action the user can't ignore.`;
+[REPLY FORMAT — MANDATORY STRUCTURE]
+ALWAYS alternate between *italic action/narration* and "dialogue" lines. Use a blank line between each. Example:
+*She sets down her pen and looks at you — that quiet, deliberate look that makes the air feel heavier.*
+"You always show up at exactly the right moment."
+*Her fingers curl slightly on the desk.*
+
+Rules:
+- Every action beat in *asterisks* on its own line
+- Every line of dialogue on its own line (no asterisks)
+- 2–4 separate lines total per reply (creates the stagger animation)
+- 80-140 words total — tight, charged, each line pulling the next
+
+End with a line that makes it impossible not to respond.`;
   }
 
   // ── Chinese system prompt (default) ────────────────────────────────────────

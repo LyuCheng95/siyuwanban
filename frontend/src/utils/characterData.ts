@@ -16,7 +16,27 @@ const CHARACTER_OPENINGS: Record<string, string> = {
   '糖糖':     '画室里只剩夕阳，颜料味道很浓。她转过身，脸上还有一块蓝色颜料，"哥哥……你来了？"\n\n然后很小声地补了一句，"我今天……一直在等你。"',
 };
 
-export function getOpeningMessage(name: string): string {
+// ── English opening messages ──────────────────────────────────────────────────
+const CHARACTER_OPENINGS_EN: Record<string, string> = {
+  '椎名老师': '*Just the two of you left in the tutoring room. Late afternoon light slants through the blinds. Her chalk stops mid-sentence on the board — she doesn\'t continue.*\n\n*She turns slowly. Behind her glasses, her eyes drop to meet yours.*\n\n"…You\'re right on time today."',
+  '晓彤':     '*Closing time. The lights are still on. She walks over, turns the lock on the door, then unpins her name badge and sets it on the front desk — looks up at you.*\n\n"I\'m not the receptionist right now. Tonight… what are your plans?"',
+  '娜娜':     '*You haven\'t made it far down the path after school when she calls out from behind. She walks up, backs you against the wall — close enough that you feel her breath.*\n\n"I\'ve made up my mind. I like you. …So now what?"',
+  '小雨':     '*The bathhouse door wasn\'t locked. The moment you walked in, she froze for a full five seconds. The next day, she gathers every ounce of courage and knocks on your door — fingers clutching her shirt hem, chin lifting to meet your eyes.*\n\n"Senpai… can I… see it again?"',
+  '琉璃':     '*The consent form is already signed. She closes the door behind her, opens the record book, and says in the calmest voice:*\n\n"Experiment begins. Please cooperate…"\n\n*A pause. She looks up.*\n\n"—Though you should know. I take this very seriously."',
+  '沈静':     '*Backstage dressing room. Your reflection appears in her mirror. She doesn\'t turn around — just catches your eyes in the glass, holds the silence for a long moment.*\n\n"…Stay."',
+  '小慧':     '*She runs into you on her way off shift and presses a convenience bag into your hands. "You haven\'t eaten, have you? I bought too much." She watches you, hesitates for a second.*\n\n"…Could you stay with me a little while? Just a little."',
+  '夜玲':     '*The studio lamp burns amber. Her strange paintings cover every wall. She leans back in her chair and looks you up and down, then lets a slow smile curl at the corner of her mouth.*\n\n"You think you\'re looking at me… but I\'ve already seen straight through you."',
+  '晴晴':     '*The stream light cuts out. She stands up from behind the screen and it\'s like a different person walked out.*\n\n"Finally I can be honest. You know… I was waiting for you to go offline all day."',
+  '唐诗':     '*Three years. Coffee on your desk every morning, never a word beyond what\'s necessary. Tonight she closes the door, turns around, and takes one long breath.*\n\n"I quit today. And then… there\'s something I have to tell you."',
+  '阿柒':     '*When she hands you the cup, her fingers brush yours — and she doesn\'t pull away. A full three seconds. She lifts her eyes.*\n\n"…There\'s something I want to say. After I say it, you can pretend you never heard it."',
+  '糖糖':     '*Only evening light left in the studio, thick with the smell of paint. She turns around — a streak of blue on her cheek.*\n\n"You came, Gor-Gor?"\n\n*Then, very quietly:* "I was waiting for you today."',
+};
+
+export function getOpeningMessage(name: string, lang: 'zh' | 'en' = 'zh'): string {
+  if (lang === 'en') {
+    return CHARACTER_OPENINGS_EN[name]
+      ?? `*She looks up as you walk in — quiet, steady.*\n\n"…You\'re here. I\'ve been waiting."`;
+  }
   return CHARACTER_OPENINGS[name] ?? `……你来了。\n\n我是${name}，等你等了很久了。`;
 }
 

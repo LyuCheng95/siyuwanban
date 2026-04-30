@@ -27,6 +27,7 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
   const [credits, setCredits] = useState({ free: user.freeCredits, paid: user.paidCredits });
   const [showPaywall, setShowPaywall] = useState(false);
   const [openingScene, setOpeningScene] = useState<string | null>(null);
+  const [openingSceneEn, setOpeningSceneEn] = useState<string | null>(null);
 
   // stats
   const [mood, setMood] = useState('期待');
@@ -81,6 +82,7 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
       if (data.attach != null)    setAttach(data.attach);
       if (data.mood)              setMood(data.mood);
       if (data.openingScene)      setOpeningScene(data.openingScene);
+      if (data.openingSceneEn)    setOpeningSceneEn(data.openingSceneEn);
       if (data.questionCount)     setQuestionCount(data.questionCount);
       if (data.phase != null)     setCurrentPhase(data.phase);
       if (data.albumImages?.length) setAlbumImages(data.albumImages);
@@ -90,7 +92,16 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
           content: m.content,
         })));
       } else {
-        setMessages([{ role: 'assistant', content: getOpeningMessage(data.character.name) }]);
+        // Animate opening message in — use lang from i18n module (already loaded)
+        const { getLang } = await import('../i18n');
+        const openingLang = getLang();
+        const opening = getOpeningMessage(data.character.name, openingLang);
+        setMessages([{ role: 'assistant', content: opening, fresh: true }]);
+        // Clear fresh after animation finishes
+        const segCount = opening.split(/\n+/).filter(Boolean).length;
+        setTimeout(() => {
+          setMessages(prev => prev.map((m, i) => i === 0 ? { ...m, fresh: false } : m));
+        }, segCount * 900 + 800);
       }
       // Initial load: scroll to bottom after render
       setTimeout(() => forceScrollToBottom(), 50);
@@ -462,22 +473,30 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
       <div className="chat-messages" ref={messagesContainerRef} onScroll={handleMessagesScroll}>
 
         {/* Opening scene card */}
-        {openingScene && messages.length <= 2 && (
-          <div style={{
-            margin:'2px 0 6px',
-            padding:'16px 16px 14px',
-            background:'linear-gradient(135deg,rgba(30,8,42,0.97),rgba(50,10,60,0.94))',
-            border:'1px solid rgba(255,61,127,0.18)',
-            borderRadius:16,
-            fontSize:13.5, lineHeight:1.85,
-            color:'rgba(210,175,240,0.8)',
-            fontStyle:'italic', position:'relative', overflow:'hidden',
-          }}>
-            <div style={{ position:'absolute', top:0, left:0, right:0, height:1,
-              background:'linear-gradient(90deg,transparent,rgba(255,61,127,0.5),transparent)' }} />
-            {openingScene}
-          </div>
-        )}
+        {messages.length <= 2 && (() => {
+          const sceneText = lang === 'en'
+            ? (openingSceneEn || null)
+            : (openingScene || null);
+          if (!sceneText) return null;
+          return (
+            <div style={{
+              margin:'2px 0 6px',
+              padding:'16px 16px 14px',
+              background:'linear-gradient(135deg,rgba(30,8,42,0.97),rgba(50,10,60,0.94))',
+              border:'1px solid rgba(255,61,127,0.18)',
+              borderRadius:16,
+              fontSize:13.5, lineHeight:1.85,
+              color:'rgba(210,175,240,0.8)',
+              position:'relative', overflow:'hidden',
+              animation:'paraIn 0.7s cubic-bezier(0.22,1,0.36,1) both',
+              animationDelay:'200ms',
+            }}>
+              <div style={{ position:'absolute', top:0, left:0, right:0, height:1,
+                background:'linear-gradient(90deg,transparent,rgba(255,61,127,0.5),transparent)' }} />
+              <em style={{ fontStyle:'italic' }}>{sceneText}</em>
+            </div>
+          );
+        })()}
 
         {/* Message bubbles */}
         {messages.map((msg, i) => (
@@ -516,7 +535,7 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
 
               {/* Text bubble — only if there's content or it's not a pure image message */}
               {(msg.content || (!msg.imageUrl && !msg.imageGenerating)) && (
-                <div className={`bubble ${msg.role}${msg.streaming ? ' bubble-streaming' : ''}`}>
+                <div className={`bubble ${msg.role}${msg.streaming ? ' bubble-streaming' : ''}${msg.fresh && msg.role === 'assistant' ? ' bubble-fresh' : ''}`}>
                   {msg.streaming
                     ? <StreamingDots />
                     : msg.content
