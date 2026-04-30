@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useLang } from '../hooks/useLang';
-import { charField } from '../i18n';
+import { charField, getLang } from '../i18n';
 import type { Character, Message, User } from '../types';
 import { getOpeningMessage, buildScenePrompt } from '../utils/characterData';
 import { intimacyColor, intimacyLabel, dominanceColor, dominanceLabel, desireColor, desireLabel, attachColor, attachLabel } from '../utils/intimacyStats';
@@ -93,7 +93,6 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
         })));
       } else {
         // Animate opening message in — use lang from i18n module (already loaded)
-        const { getLang } = await import('../i18n');
         const openingLang = getLang();
         const opening = getOpeningMessage(data.character.name, openingLang);
         setMessages([{ role: 'assistant', content: opening, fresh: true }]);
