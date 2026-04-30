@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api, setToken, clearToken } from '../api/client';
+import { getLang } from '../i18n';
 import type { User } from '../types';
 
 // 生成或读取设备唯一 ID（匿名登录用）
@@ -48,6 +49,11 @@ export function useAuth() {
 
         setToken(result.token);
         setUser(result.user);
+        // Sync local language preference to server (in case localStorage differs from DB)
+        const localLang = getLang();
+        if (localLang !== result.user.language) {
+          api.auth.setLanguage(localLang).catch(() => {});
+        }
       } catch (err) {
         clearToken();
         setError('登录失败，请刷新重试');

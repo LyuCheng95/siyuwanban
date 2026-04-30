@@ -360,7 +360,7 @@ export async function sendDailyMessages() {
 
   const users = await prisma.user.findMany({
     where: {
-      NOT: { telegramId: null },
+      telegramId: { gte: BigInt(1) },
       conversations: {
         some: { updatedAt: { gte: cutoff } },
       },
