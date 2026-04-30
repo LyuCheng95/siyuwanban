@@ -1,11 +1,23 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
+import { useLang } from '../hooks/useLang';
+import { charField } from '../i18n';
+import type { Lang } from '../i18n';
 import type { Character, Review } from '../types';
 
-function timeAgo(dateStr: string): string {
+function timeAgo(dateStr: string, lang: Lang = 'zh'): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
+  if (lang === 'en') {
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    if (days < 30) return `${days}d ago`;
+    return `${Math.floor(days / 30)}mo ago`;
+  }
   if (mins < 1) return '刚刚';
   if (mins < 60) return `${mins}分钟前`;
   const hrs = Math.floor(mins / 60);
@@ -22,6 +34,7 @@ function tagList(personality: string): string[] {
 export function CharacterProfilePage() {
   const { characterId } = useParams<{ characterId: string }>();
   const navigate = useNavigate();
+  const { t, lang } = useLang();
   const [character, setCharacter] = useState<Character | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
@@ -72,7 +85,13 @@ export function CharacterProfilePage() {
     );
   }
 
-  const tags = tagList(character.personality);
+  const displayName = charField(character.nameEn, character.name);
+  const displayOcc = charField(character.occupationEn, character.occupation);
+  const displayBg = charField(character.backgroundEn, character.background);
+  const displayOpening = charField(character.openingSceneEn, character.openingScene);
+  const displayPersonality = charField(character.personalityEn, character.personality);
+
+  const tags = tagList(displayPersonality || character.personality);
   const rawImages: string[] = Array.isArray(character.portraitImages) && character.portraitImages.length > 0
     ? character.portraitImages
     : (character.portraitUrl && !imgError ? [character.portraitUrl] : []);
@@ -158,10 +177,10 @@ export function CharacterProfilePage() {
         {/* Name */}
         <div style={{ position: 'absolute', bottom: 18, left: 16, right: 16, zIndex: 5 }}>
           <div style={{ fontSize: 30, fontWeight: 800, color: '#fff', textShadow: '0 2px 20px rgba(0,0,0,0.9)', letterSpacing: '-0.02em' }}>
-            {character.name}
+            {displayName}
           </div>
           <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', marginTop: 4, letterSpacing: '0.05em' }}>
-            {character.age} 岁 · {character.occupation}
+            {character.age} {t.profile.age} · {displayOcc}
           </div>
         </div>
       </div>
@@ -172,8 +191,8 @@ export function CharacterProfilePage() {
         borderBottom: '1px solid var(--border)',
       }}>
         <div style={{ display: 'flex', gap: 8 }}>
-          <StatChip value={String(character.usageCount)} label="对话" />
-          {character.reviewCount > 0 && <StatChip value={character.avgRating.toFixed(1)} label="评分" gold />}
+          <StatChip value={String(character.usageCount)} label={t.profile.conversations} />
+          {character.reviewCount > 0 && <StatChip value={character.avgRating.toFixed(1)} label={t.profile.ratingLabel} gold />}
         </div>
         <div style={{ flex: 1 }} />
         <button
@@ -181,7 +200,7 @@ export function CharacterProfilePage() {
           style={{ padding: '10px 28px', fontSize: 14, fontWeight: 700, borderRadius: 24, letterSpacing: '0.04em' }}
           onClick={() => navigate(`/chat/${characterId}`)}
         >
-          开始聊天
+          {t.profile.startChat}
         </button>
       </div>
 
@@ -199,8 +218,8 @@ export function CharacterProfilePage() {
       </div>
 
       {/* Opening scene */}
-      {character.openingScene && (
-        <Section title="故事简介">
+      {displayOpening && (
+        <Section title={t.profile.story}>
           <div style={{
             fontSize: 14, lineHeight: 1.85, color: 'var(--text-2)',
             fontStyle: 'italic',
@@ -208,15 +227,15 @@ export function CharacterProfilePage() {
             border: '1px solid rgba(232,53,108,0.1)',
             borderRadius: 12, padding: 14,
           }}>
-            {character.openingScene}
+            {displayOpening}
           </div>
         </Section>
       )}
 
       {/* Background */}
-      <Section title="角色背景">
+      <Section title={t.profile.background}>
         <div style={{ fontSize: 14, lineHeight: 1.85, color: 'var(--text-2)' }}>
-          {character.background}
+          {displayBg}
         </div>
       </Section>
 
@@ -235,13 +254,13 @@ export function CharacterProfilePage() {
             </svg>
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-hint)', letterSpacing: '0.03em' }}>
-            创建者：{character.creator.firstName || character.creator.username || '匿名'}
+            {t.profile.creator}：{character.creator.firstName || character.creator.username || t.profile.anon}
           </div>
         </div>
       )}
 
       {/* Reviews */}
-      <Section title={`评论 ${reviews.length > 0 ? `(${reviews.length})` : ''}`} action={
+      <Section title={`${t.profile.reviews}${reviews.length > 0 ? ` (${reviews.length})` : ''}`} action={
         canReview ? (
           <button
             onClick={() => setShowReviewForm(true)}
@@ -250,12 +269,12 @@ export function CharacterProfilePage() {
               color: 'var(--accent)', borderRadius: 16, padding: '4px 12px',
               fontSize: 11, cursor: 'pointer', letterSpacing: '0.04em',
             }}
-          >写评论</button>
+          >{t.profile.writeReview}</button>
         ) : undefined
       }>
         {reviews.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-hint)', fontSize: 13 }}>
-            还没有评论，聊聊之后来说说感受吧
+            {t.profile.noReviews}
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -271,7 +290,7 @@ export function CharacterProfilePage() {
         <div className="sheet-overlay" onClick={() => setShowReviewForm(false)}>
           <div className="sheet" onClick={e => e.stopPropagation()}>
             <div className="sheet-handle" />
-            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16, letterSpacing: '-0.01em' }}>评价 {character.name}</div>
+            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16, letterSpacing: '-0.01em' }}>{t.profile.reviewFor} {displayName}</div>
             <div style={{ display: 'flex', gap: 8, marginBottom: 16, justifyContent: 'center' }}>
               {[1,2,3,4,5].map(n => (
                 <button
@@ -288,7 +307,7 @@ export function CharacterProfilePage() {
               ))}
             </div>
             <textarea
-              placeholder="分享你的感受… (可选)"
+              placeholder={t.profile.reviewPlaceholder}
               value={reviewComment}
               onChange={e => setReviewComment(e.target.value)}
               rows={3}
@@ -299,9 +318,9 @@ export function CharacterProfilePage() {
               }}
             />
             <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowReviewForm(false)}>取消</button>
+              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowReviewForm(false)}>{t.common.cancel}</button>
               <button className="btn btn-primary" style={{ flex: 1 }} onClick={submitReview} disabled={submitting}>
-                {submitting ? '提交中…' : '提交评价'}
+                {submitting ? t.profile.submitting : t.profile.submit}
               </button>
             </div>
           </div>
@@ -320,7 +339,7 @@ export function CharacterProfilePage() {
           style={{ borderRadius: 28, fontSize: 15, fontWeight: 700, padding: '14px 0', letterSpacing: '0.06em' }}
           onClick={() => navigate(`/chat/${characterId}`)}
         >
-          开始聊天
+          {t.profile.startChat}
         </button>
       </div>
     </div>
@@ -353,7 +372,8 @@ function StatChip({ value, label, gold }: { value: string; label: string; gold?:
 }
 
 function ReviewCard({ review }: { review: Review }) {
-  const name = review.user?.firstName || review.user?.username || '用户';
+  const { t, lang } = useLang();
+  const name = review.user?.firstName || review.user?.username || t.profile.anon;
   const initial = name.charAt(0);
   return (
     <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
@@ -372,7 +392,7 @@ function ReviewCard({ review }: { review: Review }) {
           <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.6 }}>{review.comment}</div>
         )}
         <div style={{ fontSize: 10, color: 'var(--text-hint)', marginTop: 4, letterSpacing: '0.04em' }}>
-          {timeAgo(review.createdAt)}
+          {timeAgo(review.createdAt, lang)}
         </div>
       </div>
     </div>

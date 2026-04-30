@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
+import { useLang } from './hooks/useLang';
 import { DiscoverPage } from './pages/DiscoverPage';
 import { MyCharsPage } from './pages/MyCharsPage';
 import { ChatPage } from './pages/ChatPage';
@@ -10,10 +11,10 @@ import { LeaderboardPage } from './pages/LeaderboardPage';
 import { CheckInModal } from './components/CheckInModal';
 import { NicknameModal } from './components/NicknameModal';
 
-const NAV = [
+const NAV_PATHS = [
   {
     path: '/',
-    label: '广场',
+    key: 'discover' as const,
     icon: (active: boolean) => (
       <svg width="22" height="22" viewBox="0 0 24 24" fill={active ? 'url(#grad)' : 'none'} stroke={active ? 'url(#grad)' : 'currentColor'} strokeWidth="1.8">
         <defs>
@@ -31,7 +32,7 @@ const NAV = [
   },
   {
     path: '/mine',
-    label: '聊天',
+    key: 'home' as const,
     icon: (active: boolean) => (
       <svg width="22" height="22" viewBox="0 0 24 24" fill={active ? 'url(#grad2)' : 'none'} stroke={active ? 'url(#grad2)' : 'currentColor'} strokeWidth="1.8">
         <defs>
@@ -46,7 +47,7 @@ const NAV = [
   },
   {
     path: '/profile',
-    label: '我的',
+    key: 'profile' as const,
     icon: (active: boolean) => (
       <svg width="22" height="22" viewBox="0 0 24 24" fill={active ? 'url(#grad3)' : 'none'} stroke={active ? 'url(#grad3)' : 'currentColor'} strokeWidth="1.8">
         <defs>
@@ -67,6 +68,7 @@ const CHECKIN_KEY = 'sywb_last_checkin_shown';
 
 export default function App() {
   const { user, loading, error, updateCredits, setUser } = useAuth();
+  const { t } = useLang();
   const navigate = useNavigate();
   const location = useLocation();
   const [showCheckIn, setShowCheckIn] = useState(false);
@@ -150,7 +152,7 @@ export default function App() {
 
       {!hideNav && (
         <nav className="nav-bar">
-          {NAV.map(item => {
+          {NAV_PATHS.map(item => {
             const active = item.path === '/'
               ? location.pathname === '/'
               : location.pathname.startsWith(item.path);
@@ -161,7 +163,7 @@ export default function App() {
                 onClick={() => navigate(item.path, { replace: true })}
               >
                 {item.icon(active)}
-                <span>{item.label}</span>
+                <span>{t.nav[item.key]}</span>
                 {active && <span className="nav-dot" />}
               </button>
             );

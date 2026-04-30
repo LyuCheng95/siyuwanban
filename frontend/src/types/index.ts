@@ -8,6 +8,7 @@ export interface User {
   freeCredits: number;
   paidCredits: number;
   isAnonymous?: boolean;
+  language?: 'zh' | 'en';
 }
 
 export interface PaymentTier {
@@ -21,12 +22,17 @@ export interface PaymentTier {
 export interface Character {
   id: string;
   name: string;
+  nameEn?: string | null;
   age: number;
   gender: string;
   occupation: string;
+  occupationEn?: string | null;
   personality: string;
+  personalityEn?: string | null;
   background: string;
+  backgroundEn?: string | null;
   speakingStyle: string;
+  speakingStyleEn?: string | null;
   avatarEmoji: string;
   portraitUrl?: string | null;
   faceUrl?: string | null;
@@ -36,6 +42,7 @@ export interface Character {
   avgRating: number;
   reviewCount: number;
   openingScene?: string;
+  openingSceneEn?: string | null;
   createdAt: string;
   creator?: { username?: string; firstName?: string };
   reviews?: Review[];
@@ -70,7 +77,7 @@ export interface ChatHistoryItem {
   id: string;
   totalTurns: number;
   updatedAt: string;
-  character: { id: string; name: string; avatarEmoji: string; occupation: string; portraitUrl?: string | null };
+  character: { id: string; name: string; nameEn?: string | null; avatarEmoji: string; occupation: string; occupationEn?: string | null; portraitUrl?: string | null };
   lastMessage: { role: string; content: string } | null;
   intimacy: number;
   mood: string;

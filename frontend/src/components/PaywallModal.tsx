@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { api } from '../api/client';
+import { useLang } from '../hooks/useLang';
 import type { PaymentTier } from '../types';
 
 interface Props {
@@ -11,6 +12,7 @@ interface Props {
 type Tab = 'usdt' | 'card';
 
 export function PaywallModal({ currentDiamonds, onClose, onSuccess }: Props) {
+  const { t } = useLang();
   const [tiers, setTiers] = useState<PaymentTier[]>([]);
   const [tab, setTab] = useState<Tab>('usdt');
   const [loading, setLoading] = useState(false);
@@ -39,7 +41,7 @@ export function PaywallModal({ currentDiamonds, onClose, onSuccess }: Props) {
     function poll() {
       if (attempts >= 60) { // ~5 min
         pollingRef.current = false;
-        setUsdtStatus('等待超时，转账完成后请刷新页面。');
+        setUsdtStatus(t.paywall.timeout);
         return;
       }
       attempts++;
@@ -60,7 +62,7 @@ export function PaywallModal({ currentDiamonds, onClose, onSuccess }: Props) {
     setSelectedTier(tierIndex);
     setLoading(true);
     setInvoice(null);
-    setUsdtStatus('生成收款地址中…');
+    setUsdtStatus(t.paywall.creating);
     try {
       const inv = await api.payments.cryptoInvoice(tierIndex, 'USDT');
       setInvoice({
@@ -146,9 +148,9 @@ export function PaywallModal({ currentDiamonds, onClose, onSuccess }: Props) {
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: 'rgba(245,225,255,0.95)' }}>💎 充值钻石</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: 'rgba(245,225,255,0.95)' }}>💎 {t.paywall.title}</div>
             <div style={{ fontSize: 13, color: 'rgba(180,130,210,0.6)', marginTop: 3 }}>
-              当前余额：{currentDiamonds} 颗
+              {t.paywall.balance}：{currentDiamonds} {t.paywall.diamonds}
             </div>
           </div>
           <button onClick={onClose} style={{
@@ -163,12 +165,12 @@ export function PaywallModal({ currentDiamonds, onClose, onSuccess }: Props) {
           display: 'flex', background: 'rgba(255,255,255,0.06)',
           borderRadius: 12, padding: 4, marginBottom: 20,
         }}>
-          {([['usdt', '💵 USDT 加密货币'], ['card', '💳 银行卡']] as [Tab, string][]).map(([t, label]) => (
-            <button key={t} onClick={() => { setTab(t); resetUsdt(); }} style={{
+          {([['usdt', t.paywall.tabUsdt], ['card', t.paywall.tabCard]] as [Tab, string][]).map(([tabKey, label]) => (
+            <button key={tabKey} onClick={() => { setTab(tabKey); resetUsdt(); }} style={{
               flex: 1, padding: '9px 0', border: 'none', borderRadius: 9, cursor: 'pointer',
               fontSize: 13, fontWeight: 600, transition: 'all 0.2s',
-              background: tab === t ? 'rgba(232,53,108,0.25)' : 'transparent',
-              color: tab === t ? '#ff6ba0' : 'rgba(255,255,255,0.4)',
+              background: tab === tabKey ? 'rgba(232,53,108,0.25)' : 'transparent',
+              color: tab === tabKey ? '#ff6ba0' : 'rgba(255,255,255,0.4)',
             }}>{label}</button>
           ))}
         </div>
@@ -177,7 +179,7 @@ export function PaywallModal({ currentDiamonds, onClose, onSuccess }: Props) {
         {tab === 'usdt' && !invoice && (
           <>
             <div style={{ fontSize: 12, color: 'rgba(180,130,210,0.5)', marginBottom: 12, textAlign: 'center' }}>
-              选择档位 → 获得专属金额 → 转账 → 自动到账
+              {t.paywall.selectTier}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {tiers.map((tier, i) => (
@@ -189,7 +191,7 @@ export function PaywallModal({ currentDiamonds, onClose, onSuccess }: Props) {
                     {tier.bonus && <div style={{ fontSize: 12, color: '#e8356c', marginTop: 2 }}>{tier.bonus}</div>}
                   </div>
                   <div style={priceTagStyle(i)}>
-                    {selectedTier === i && loading ? '处理中…' : `≈$${(tier as any).usdt ?? tier.usd}`}
+                    {selectedTier === i && loading ? t.paywall.processing : `≈$${(tier as any).usdt ?? tier.usd}`}
                   </div>
                 </button>
               ))}
@@ -202,7 +204,7 @@ export function PaywallModal({ currentDiamonds, onClose, onSuccess }: Props) {
             )}
 
             <div style={{ textAlign: 'center', marginTop: 14, fontSize: 12, color: 'rgba(255,255,255,0.2)' }}>
-              USDT TRC-20 · 0手续费 · 自动到账
+              {t.paywall.usdtFee}
             </div>
           </>
         )}
@@ -217,7 +219,7 @@ export function PaywallModal({ currentDiamonds, onClose, onSuccess }: Props) {
               borderRadius: 14, padding: '16px 18px', marginBottom: 14,
             }}>
               <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginBottom: 6 }}>
-                请转入【精确金额】（差一分钱无法自动匹配）
+                {t.paywall.exactAmount}
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
@@ -234,11 +236,11 @@ export function PaywallModal({ currentDiamonds, onClose, onSuccess }: Props) {
                   color: copied === 'amt' ? '#80e080' : 'rgba(255,255,255,0.6)',
                   fontSize: 13, cursor: 'pointer',
                 }}>
-                  {copied === 'amt' ? '已复制 ✓' : '复制金额'}
+                  {copied === 'amt' ? t.paywall.copied : t.paywall.copyAmount}
                 </button>
               </div>
               <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 6 }}>
-                换算 {invoice.diamonds} 颗💎 · {invoice.label}
+                {invoice.diamonds} {t.paywall.diamondCount} · {invoice.label}
               </div>
             </div>
 
@@ -249,7 +251,7 @@ export function PaywallModal({ currentDiamonds, onClose, onSuccess }: Props) {
               borderRadius: 14, padding: '14px 16px', marginBottom: 14,
             }}>
               <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginBottom: 6 }}>
-                收款地址（TRON 网络）
+                {t.paywall.walletAddress}
               </div>
               <div style={{ fontSize: 12, color: 'rgba(200,200,200,0.8)', wordBreak: 'break-all', lineHeight: 1.6 }}>
                 {invoice.address}
@@ -260,7 +262,7 @@ export function PaywallModal({ currentDiamonds, onClose, onSuccess }: Props) {
                 color: copied === 'addr' ? '#80e080' : 'rgba(255,255,255,0.6)',
                 fontSize: 13, cursor: 'pointer', width: '100%',
               }}>
-                {copied === 'addr' ? '已复制 ✓' : '复制地址'}
+                {copied === 'addr' ? t.paywall.copied : t.paywall.copyAddress}
               </button>
             </div>
 
@@ -269,15 +271,14 @@ export function PaywallModal({ currentDiamonds, onClose, onSuccess }: Props) {
               background: 'rgba(255,255,255,0.03)', borderRadius: 12, padding: '12px 14px',
               fontSize: 12, color: 'rgba(180,210,180,0.75)', lineHeight: 1.8,
             }}>
-              <div>① 打开你的加密货币钱包（OKX / Binance / TronLink…）</div>
-              <div>② 选择 <b style={{ color: 'rgba(255,210,100,0.9)' }}>USDT · TRC-20 · TRON</b> 链</div>
-              <div>③ 粘贴收款地址，输入<b style={{ color: '#ff6ba0' }}>精确金额 {invoice.amount}</b></div>
-              <div>④ 确认转账 — 约 30 秒后自动到账</div>
+              {t.paywall.steps.map((step, i) => (
+                <div key={i}>{'①②③④'[i]} {step}</div>
+              ))}
             </div>
 
             {/* Waiting indicator */}
             <div style={{ textAlign: 'center', marginTop: 14, fontSize: 13, color: 'rgba(180,130,210,0.6)' }}>
-              ⏳ 等待链上确认中，转账后无需操作…
+              {t.paywall.waiting}
             </div>
 
             {/* Change tier */}
@@ -287,7 +288,7 @@ export function PaywallModal({ currentDiamonds, onClose, onSuccess }: Props) {
               borderRadius: 10, padding: '10px 0', cursor: 'pointer',
               color: 'rgba(255,255,255,0.35)', fontSize: 13,
             }}>
-              ← 选择其他档位
+              {t.paywall.changeTier}
             </button>
           </div>
         )}
@@ -305,7 +306,7 @@ export function PaywallModal({ currentDiamonds, onClose, onSuccess }: Props) {
                     {tier.bonus && <div style={{ fontSize: 12, color: '#e8356c', marginTop: 2 }}>{tier.bonus}</div>}
                   </div>
                   <div style={priceTagStyle(i)}>
-                    {selectedTier === i && loading ? '跳转中…' : `$${tier.usd}`}
+                    {selectedTier === i && loading ? t.paywall.redirecting : `$${tier.usd}`}
                   </div>
                 </button>
               ))}
@@ -313,12 +314,12 @@ export function PaywallModal({ currentDiamonds, onClose, onSuccess }: Props) {
 
             {loading && (
               <div style={{ textAlign: 'center', marginTop: 14, fontSize: 13, color: 'rgba(180,130,210,0.55)' }}>
-                支付完成后钻石将自动到账，请稍候…
+                {t.paywall.stripeWaiting}
               </div>
             )}
 
             <div style={{ textAlign: 'center', marginTop: 14, fontSize: 12, color: 'rgba(255,255,255,0.2)' }}>
-              通过 Stripe 安全支付 · 不自动续费
+              {t.paywall.stripeFee}
             </div>
           </>
         )}

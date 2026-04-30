@@ -51,6 +51,7 @@ authRouter.post('/anonymous', async (req: Request, res: Response): Promise<void>
       freeCredits: user.freeCredits,
       paidCredits: user.paidCredits,
       isAnonymous: true,
+      language: (user as any).language ?? 'zh',
     },
   });
 });
@@ -68,7 +69,15 @@ authRouter.post('/telegram', async (req: Request, res: Response): Promise<void> 
   const telegramUser = JSON.parse(data.user || '{}');
   if (!telegramUser.id) { res.status(400).json({ error: 'No user in initData' }); return; }
 
+  // Detect language from Telegram user profile
+  const tgLang = telegramUser.language_code as string | undefined;
+  const language = tgLang && !tgLang.startsWith('zh') ? 'en' : 'zh';
+
   const user = await getOrCreateUser(telegramUser);
+
+  // Update language if Telegram tells us (non-destructive — user can override later)
+  await prisma.user.update({ where: { id: user.id }, data: { language } });
+
   const token = jwt.sign(
     { userId: user.id, telegramId: user.telegramId.toString() },
     JWT_SECRET,
@@ -85,8 +94,19 @@ authRouter.post('/telegram', async (req: Request, res: Response): Promise<void> 
       freeCredits: user.freeCredits,
       paidCredits: user.paidCredits,
       isAnonymous: false,
+      language,
     },
   });
+});
+
+// PATCH /api/auth/language — save user language preference
+authRouter.patch('/language', authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
+  const { language } = req.body as { language: string };
+  if (language !== 'zh' && language !== 'en') {
+    res.status(400).json({ error: 'language must be zh or en' }); return;
+  }
+  await prisma.user.update({ where: { id: req.userId! }, data: { language } });
+  res.json({ ok: true, language });
 });
 
 // PATCH /api/auth/nickname — save user's chosen in-app nickname

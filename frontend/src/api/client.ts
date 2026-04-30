@@ -46,6 +46,11 @@ export const api = {
         method: 'PATCH',
         body: JSON.stringify({ nickname }),
       }),
+    setLanguage: (language: 'zh' | 'en') =>
+      request<{ ok: boolean; language: string }>('/auth/language', {
+        method: 'PATCH',
+        body: JSON.stringify({ language }),
+      }),
   },
 
   characters: {

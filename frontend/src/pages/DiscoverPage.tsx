@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
+import { useLang } from '../hooks/useLang';
+import { charField } from '../i18n';
 import type { Character } from '../types';
 
 const CHARACTER_CATEGORY: Record<string, string> = {
@@ -10,9 +12,11 @@ const CHARACTER_CATEGORY: Record<string, string> = {
   '椎名老师': '禁忌', '小慧': '禁忌', '夜玲': '禁忌',
   '狐九': '妖魔', '魅罗': '妖魔', '冷霜': '妖魔',
   'X-23': '科幻', '幻音': '科幻',
+  '桃桃': '学妹',
 };
 
-const CATEGORIES = ['全部', '御姐', '学妹', '禁忌', '妖魔', '科幻'];
+// Internal keys (always Chinese for filtering)
+const CATEGORY_KEYS = ['全部', '御姐', '学妹', '禁忌', '妖魔', '科幻'];
 
 const GRADIENTS = [
   'linear-gradient(160deg, #2d0a3e, #6b1560)',
@@ -42,6 +46,7 @@ function formatCount(n: number): string {
 
 export function DiscoverPage() {
   const navigate = useNavigate();
+  const { t } = useLang();
   const [characters, setCharacters] = useState<Character[]>([]);
   const [category, setCategory] = useState('全部');
   const [search, setSearch] = useState('');
@@ -65,13 +70,17 @@ export function DiscoverPage() {
 
   useEffect(() => { setPage(1); load(search, sort, 1); }, [sort]);
   useEffect(() => {
-    const t = setTimeout(() => { setPage(1); load(search, sort, 1); }, 400);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => { setPage(1); load(search, sort, 1); }, 400);
+    return () => clearTimeout(timer);
   }, [search]);
 
   const displayed = category === '全部'
     ? characters
     : characters.filter(c => matchesCategory(c, category));
+
+  // Category label: map internal key → translated display
+  const catLabel = (key: string) =>
+    key === '全部' ? t.discover.all : (t.discover.categories as Record<string, string>)[key] || key;
 
   return (
     <div className="page">
@@ -92,13 +101,13 @@ export function DiscoverPage() {
           </div>
           <div>
             <div style={{ fontWeight: 800, fontSize: 17, letterSpacing: '-0.3px', lineHeight: 1.1 }}>
-              角色<span style={{ color: 'var(--accent)' }}>广场</span>
+              {t.discover.title}
             </div>
-            <div style={{ fontSize: 11, color: 'var(--text-hint)', marginTop: 1 }}>发现你的专属陪伴</div>
+            <div style={{ fontSize: 11, color: 'var(--text-hint)', marginTop: 1 }}>{t.discover.subtitle}</div>
           </div>
         </div>
         <div style={{ fontSize: 12, color: 'var(--text-hint)', fontWeight: 500 }}>
-          {total > 0 && `${total} 位`}
+          {total > 0 && `${total}${t.discover.charCount ? ' ' + t.discover.charCount : ''}`}
         </div>
       </div>
 
@@ -109,7 +118,7 @@ export function DiscoverPage() {
             <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
           </svg>
           <input
-            placeholder="搜索名字、职业、性格..."
+            placeholder={t.discover.searchPlaceholder}
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
@@ -122,17 +131,17 @@ export function DiscoverPage() {
       {/* Sort tabs */}
       {!search && (
         <div className="tabs" style={{ marginTop: 6 }}>
-          <button className={`tab ${sort === 'popular' ? 'active' : ''}`} onClick={() => setSort('popular')}>最热门</button>
-          <button className={`tab ${sort === 'rating' ? 'active' : ''}`} onClick={() => setSort('rating')}>最高分</button>
-          <button className={`tab ${sort === 'newest' ? 'active' : ''}`} onClick={() => setSort('newest')}>最新</button>
+          <button className={`tab ${sort === 'popular' ? 'active' : ''}`} onClick={() => setSort('popular')}>{t.discover.sortPopular}</button>
+          <button className={`tab ${sort === 'rating' ? 'active' : ''}`} onClick={() => setSort('rating')}>{t.discover.sortRating}</button>
+          <button className={`tab ${sort === 'newest' ? 'active' : ''}`} onClick={() => setSort('newest')}>{t.discover.sortNewest}</button>
         </div>
       )}
 
       {/* Category pills */}
       <div className="pill-scroll">
-        {CATEGORIES.map(cat => (
+        {CATEGORY_KEYS.map(cat => (
           <button key={cat} className={`pill ${category === cat ? 'active' : ''}`} onClick={() => setCategory(cat)}>
-            {cat}
+            {catLabel(cat)}
           </button>
         ))}
       </div>
@@ -150,7 +159,7 @@ export function DiscoverPage() {
               <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
             </svg>
           </div>
-          <div style={{ fontSize: 14, color: 'var(--text-hint)' }}>暂无角色</div>
+          <div style={{ fontSize: 14, color: 'var(--text-hint)' }}>{t.discover.noResults}</div>
         </div>
       ) : (
         <div className="char-grid">
@@ -179,7 +188,7 @@ export function DiscoverPage() {
       {!loading && characters.length < total && (
         <div style={{ padding: '0 12px 20px' }}>
           <button className="btn btn-secondary btn-full" onClick={() => { const n = page + 1; setPage(n); load(search, sort, n); }}>
-            加载更多
+            {t.discover.loadMore}
           </button>
         </div>
       )}
@@ -190,9 +199,14 @@ export function DiscoverPage() {
 }
 
 function CharCard({ char, gradient, onClick }: { char: Character; gradient: string; onClick: () => void }) {
+  const { t } = useLang();
   const isHot = char.usageCount >= 50;
   const [imgErr, setImgErr] = useState(false);
   const hasPortrait = char.portraitUrl && !imgErr;
+
+  const displayName = charField(char.nameEn, char.name);
+  const displayOcc = charField(char.occupationEn, char.occupation);
+  const displayBg = charField(char.backgroundEn, char.background);
 
   return (
     <div className="char-card" onClick={onClick}>
@@ -202,11 +216,11 @@ function CharCard({ char, gradient, onClick }: { char: Character; gradient: stri
           fontSize: 10, fontWeight: 700, letterSpacing: 0.8,
           background: 'linear-gradient(135deg, #ff3d7f, #c026d3)',
           color: 'white', padding: '3px 8px', borderRadius: 20,
-        }}>热门</div>
+        }}>{t.discover.hot}</div>
       )}
       <div className="char-card-img" style={{ background: gradient }}>
         {hasPortrait ? (
-          <img src={char.portraitUrl!} alt={char.name} onError={() => setImgErr(true)} />
+          <img src={char.portraitUrl!} alt={displayName} onError={() => setImgErr(true)} />
         ) : (
           <>
             <div className="char-card-glow" />
@@ -218,19 +232,19 @@ function CharCard({ char, gradient, onClick }: { char: Character; gradient: stri
           </>
         )}
         <div className="char-card-overlay">
-          <div className="char-card-overlay-name">{char.name}</div>
-          <div className="char-card-overlay-age">{char.age}岁</div>
+          <div className="char-card-overlay-name">{displayName}</div>
+          <div className="char-card-overlay-age">{char.age}{t.profile.age}</div>
         </div>
       </div>
       <div className="char-card-info">
-        <div className="char-card-occ">{char.occupation}</div>
-        {char.background && (
+        <div className="char-card-occ">{displayOcc}</div>
+        {displayBg && (
           <div style={{
             fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.45,
             display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
             overflow: 'hidden', marginTop: 3, marginBottom: 2,
           }}>
-            {char.background}
+            {displayBg}
           </div>
         )}
         <div className="char-card-footer">
@@ -242,7 +256,7 @@ function CharCard({ char, gradient, onClick }: { char: Character; gradient: stri
               {char.avgRating.toFixed(1)}
             </span>
           ) : (
-            <span style={{ fontSize: 10, color: 'var(--text-hint)', fontWeight: 500 }}>新角色</span>
+            <span style={{ fontSize: 10, color: 'var(--text-hint)', fontWeight: 500 }}>{t.discover.new}</span>
           )}
           <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'var(--text-hint)' }}>
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

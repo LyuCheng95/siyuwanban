@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
+import { useLang } from '../hooks/useLang';
+import { charField } from '../i18n';
 import type { Character, Message, User } from '../types';
 import { getOpeningMessage, buildScenePrompt } from '../utils/characterData';
 import { intimacyColor, intimacyLabel, dominanceColor, dominanceLabel, desireColor, desireLabel, attachColor, attachLabel } from '../utils/intimacyStats';
@@ -16,6 +18,7 @@ interface Props {
 export function ChatPage({ user, onCreditsUpdate }: Props) {
   const { characterId } = useParams<{ characterId: string }>();
   const navigate = useNavigate();
+  const { t, lang } = useLang();
 
   const [character, setCharacter] = useState<Character | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -300,6 +303,7 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
 
   const totalCredits = credits.paid; // diamonds only
   const avatarSrc = character.faceUrl || character.portraitUrl || null;
+  const displayName = charField(character.nameEn, character.name);
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -343,7 +347,7 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
         <div style={{ flex:1, minWidth:0 }}>
           <div style={{ fontWeight:700, fontSize:15, whiteSpace:'nowrap', overflow:'hidden',
             textOverflow:'ellipsis', color:'rgba(245,225,255,0.95)', letterSpacing:'-0.2px' }}>
-            {character.name}
+            {displayName}
           </div>
           <div style={{ fontSize:11, color:'rgba(180,130,210,0.6)', display:'flex',
             alignItems:'center', gap:4, marginTop:1 }}>
@@ -400,11 +404,11 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
           padding: '6px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           fontSize: 12, color: 'rgba(245,180,200,0.9)',
         }}>
-          <span>💎 还剩 {credits.paid} 颗钻石</span>
+          <span>💎 {lang === 'en' ? `${credits.paid} diamonds left` : `还剩 ${credits.paid} 颗钻石`}</span>
           <button onClick={() => setShowPaywall(true)} style={{
             background: 'rgba(232,53,108,0.3)', border: 'none', borderRadius: 8,
             color: 'white', fontSize: 11, padding: '3px 10px', cursor: 'pointer',
-          }}>充值</button>
+          }}>{t.me.topup}</button>
         </div>
       )}
 
@@ -415,11 +419,11 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
           padding: '8px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           fontSize: 12, color: 'rgba(255,180,200,0.95)',
         }}>
-          <span>钻石已用完，充值后继续聊天</span>
+          <span>{t.chat.insufficientDiamonds}</span>
           <button onClick={() => setShowPaywall(true)} style={{
             background: 'linear-gradient(135deg, #e8356c, #9a1258)', border: 'none', borderRadius: 8,
             color: 'white', fontSize: 12, fontWeight: 700, padding: '4px 14px', cursor: 'pointer',
-          }}>立即充值</button>
+          }}>{t.chat.topup}</button>
         </div>
       )}
 
@@ -564,7 +568,7 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
       <div className="chat-input-area">
         <textarea
           className="chat-input"
-          placeholder={`对${character.name}说…`}
+          placeholder={lang === 'en' ? t.chat.inputPlaceholder : `对${displayName}说…`}
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={onKey}

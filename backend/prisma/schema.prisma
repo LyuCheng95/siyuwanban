@@ -20,6 +20,7 @@ model User {
   paidCredits   Int      @default(0)   // 钻石 (diamonds, paid currency for chat)
   lastCheckIn   DateTime?              // last daily check-in timestamp
   checkInStreak Int      @default(0)   // consecutive check-in days
+  language      String   @default("zh") // "zh" | "en"
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -59,6 +60,13 @@ model Character {
   faceAnchor      String?  @db.Text // mood/style anchor keywords for consistent face across images
   defaultOutfit   String?  @db.Text // default clothing description used in scene generation
   portraitPrompts Json?             // pre-written ComfyUI portrait prompts (replaces ALBUM_CONFIGS)
+  // English fields for bilingual support
+  nameEn          String?           // English name (e.g. "Serena")
+  occupationEn    String?           // English occupation
+  personalityEn   String?  @db.Text
+  backgroundEn    String?  @db.Text
+  speakingStyleEn String?  @db.Text
+  openingSceneEn  String?  @db.Text
   qaStatus      String?           // pending | running | passed | failed
   qaScore       Int?              // 0-100
   qaReport      Json?             // { categories, score, summary, issues, suggestions }

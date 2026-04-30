@@ -1,13 +1,25 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
+import { useLang } from '../hooks/useLang';
+import { charField } from '../i18n';
 import type { ChatHistoryItem, User } from '../types';
+import type { Lang } from '../i18n';
 
 interface Props { user: User; }
 
-function timeAgo(dateStr: string): string {
+function timeAgo(dateStr: string, lang: Lang = 'zh'): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
+  if (lang === 'en') {
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    if (days < 30) return `${days}d ago`;
+    return `${Math.floor(days / 30)}mo ago`;
+  }
   if (mins < 1) return '刚刚';
   if (mins < 60) return `${mins}分钟前`;
   const hrs = Math.floor(mins / 60);
@@ -17,7 +29,15 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(days / 30)}个月前`;
 }
 
-function intimacyLabel(n: number): string {
+function intimacyLabel(n: number, lang: Lang = 'zh'): string {
+  if (lang === 'en') {
+    if (n < 20) return 'Acquaintance';
+    if (n < 40) return 'Familiar';
+    if (n < 60) return 'Close';
+    if (n < 80) return 'Intimate';
+    if (n < 95) return 'Devoted';
+    return 'Soulmate';
+  }
   if (n < 20) return '初识';
   if (n < 40) return '熟悉';
   if (n < 60) return '亲近';
@@ -49,6 +69,7 @@ function CharInitial({ name, size = 52 }: { name: string; size?: number }) {
 
 export function MyCharsPage({ user }: Props) {
   const navigate = useNavigate();
+  const { t, lang } = useLang();
   const [history, setHistory] = useState<ChatHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -65,15 +86,15 @@ export function MyCharsPage({ user }: Props) {
       <div style={{ padding: '20px 14px 8px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
         <div>
           <div style={{ fontSize: 12, color: 'var(--text-hint)', marginBottom: 4, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-            {user.firstName || '你'} 的
+            {user.firstName || (lang === 'en' ? 'Your' : '你的')}
           </div>
-          <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em' }}>聊天记录</div>
+          <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em' }}>{t.home.chatHistory}</div>
         </div>
         <button
           className="btn btn-primary btn-sm"
           onClick={() => navigate('/')}
           style={{ marginBottom: 4 }}
-        >发现角色</button>
+        >{t.home.discoverBtn}</button>
       </div>
 
       {loading ? (
@@ -87,9 +108,9 @@ export function MyCharsPage({ user }: Props) {
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
             </svg>
           </div>
-          <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: 15 }}>还没有聊天记录</div>
-          <div style={{ fontSize: 13, color: 'var(--text-2)' }}>去广场找一个她，开始你们的故事</div>
-          <button className="btn btn-primary" onClick={() => navigate('/')}>去广场</button>
+          <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: 15 }}>{t.home.noHistory}</div>
+          <div style={{ fontSize: 13, color: 'var(--text-2)' }}>{t.home.noHistoryHint}</div>
+          <button className="btn btn-primary" onClick={() => navigate('/')}>{t.home.goSquare}</button>
         </div>
       ) : (
         <div style={{ padding: '8px 0' }}>
@@ -97,6 +118,8 @@ export function MyCharsPage({ user }: Props) {
             <HistoryCard
               key={item.id}
               item={item}
+              lang={lang}
+              turns={t.home.turns}
               onClick={() => navigate(`/chat/${item.character.id}`)}
               onProfile={() => navigate(`/character/${item.character.id}`)}
             />
@@ -107,15 +130,18 @@ export function MyCharsPage({ user }: Props) {
   );
 }
 
-function HistoryCard({ item, onClick, onProfile }: {
+function HistoryCard({ item, lang, turns, onClick, onProfile }: {
   item: ChatHistoryItem;
+  lang: Lang;
+  turns: string;
   onClick: () => void;
   onProfile: () => void;
 }) {
   const { character, lastMessage, mood, intimacy, updatedAt, totalTurns } = item;
+  const displayName = charField(character.nameEn, character.name);
   const preview = lastMessage
-    ? (lastMessage.role === 'user' ? '你：' : '') + lastMessage.content.replace(/[\u{1F300}-\u{1FFFF}\u{2600}-\u{27FF}]/gu, '').slice(0, 40) + (lastMessage.content.length > 40 ? '…' : '')
-    : '点击继续聊天';
+    ? (lastMessage.role === 'user' ? (lang === 'en' ? 'You: ' : '你：') : '') + lastMessage.content.replace(/[\u{1F300}-\u{1FFFF}\u{2600}-\u{27FF}]/gu, '').slice(0, 40) + (lastMessage.content.length > 40 ? '…' : '')
+    : (lang === 'en' ? 'Tap to continue…' : '点击继续聊天');
 
   const moodClean = mood?.replace(/[\u{1F300}-\u{1FFFF}\u{2600}-\u{27FF}]/gu, '').trim() || '';
 
@@ -139,7 +165,7 @@ function HistoryCard({ item, onClick, onProfile }: {
         {character.portraitUrl ? (
           <img
             src={character.portraitUrl}
-            alt={character.name}
+            alt={displayName}
             style={{ width: 52, height: 52, borderRadius: '50%', objectFit: 'cover', objectPosition: 'top' }}
           />
         ) : (
@@ -156,9 +182,9 @@ function HistoryCard({ item, onClick, onProfile }: {
       {/* Content */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
-          <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text)', letterSpacing: '0.01em' }}>{character.name}</div>
+          <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text)', letterSpacing: '0.01em' }}>{displayName}</div>
           <div style={{ fontSize: 10, color: 'var(--text-hint)', flexShrink: 0, marginLeft: 8, letterSpacing: '0.03em' }}>
-            {timeAgo(updatedAt)}
+            {timeAgo(updatedAt, lang)}
           </div>
         </div>
         <div style={{
@@ -176,14 +202,14 @@ function HistoryCard({ item, onClick, onProfile }: {
             letterSpacing: '0.04em',
           }}>
             <span style={{ width: 4, height: 4, borderRadius: '50%', background: intimacyColor(intimacy), display: 'inline-block' }} />
-            <span>{intimacyLabel(intimacy)}</span>
+            <span>{intimacyLabel(intimacy, lang)}</span>
             <span style={{ opacity: 0.5 }}>{intimacy}</span>
           </div>
           {moodClean && (
             <div style={{ fontSize: 11, color: 'var(--text-hint)' }}>{moodClean}</div>
           )}
           <div style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--text-hint)', letterSpacing: '0.05em' }}>
-            {totalTurns} 轮
+            {totalTurns} {turns}
           </div>
         </div>
       </div>

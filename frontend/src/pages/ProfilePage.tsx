@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
+import { useLang, toggleLang } from '../hooks/useLang';
+import { setLang } from '../i18n';
 import type { Character, User } from '../types';
 import { PaywallModal } from '../components/PaywallModal';
 
@@ -24,23 +26,43 @@ function CharInitial({ name, size = 52 }: { name: string; size?: number }) {
 
 export function ProfilePage({ user, setUser }: Props) {
   const navigate = useNavigate();
+  const { t, lang } = useLang();
   const [myChars, setMyChars] = useState<Character[]>([]);
   const [showPayment, setShowPayment] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState('');
   const [savingName, setSavingName] = useState(false);
+  const [redeemCode, setRedeemCode] = useState('');
+  const [redeemStatus, setRedeemStatus] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [redeemLoading, setRedeemLoading] = useState(false);
 
   useEffect(() => {
     api.characters.mine().then(setMyChars).catch(console.error);
   }, []);
 
   async function deleteChar(id: string) {
-    if (!window.confirm('确定删除这个角色吗？所有对话记录也会删除。')) return;
+    if (!window.confirm(lang === 'en' ? 'Delete this character? All conversation history will also be removed.' : '确定删除这个角色吗？所有对话记录也会删除。')) return;
     setDeletingId(id);
     await api.characters.delete(id).catch(console.error);
     setMyChars(prev => prev.filter(c => c.id !== id));
     setDeletingId(null);
+  }
+
+  async function handleRedeem() {
+    if (!redeemCode.trim()) return;
+    setRedeemLoading(true);
+    setRedeemStatus(null);
+    try {
+      const res = await api.redeem.use(redeemCode.trim());
+      setUser({ ...user, paidCredits: res.newBalance });
+      setRedeemStatus({ ok: true, msg: `✅ 成功兑换 ${res.diamondsGranted} 钻石！` });
+      setRedeemCode('');
+    } catch (e: any) {
+      setRedeemStatus({ ok: false, msg: e.message || '兑换失败' });
+    } finally {
+      setRedeemLoading(false);
+    }
   }
 
   async function saveName() {
@@ -87,7 +109,7 @@ export function ProfilePage({ user, setUser }: Props) {
                 onChange={e => setNameInput(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') saveName(); if (e.key === 'Escape') setEditingName(false); }}
                 maxLength={20}
-                placeholder="输入昵称（最多20字）"
+                placeholder={lang === 'en' ? 'Enter nickname (max 20 chars)' : '输入昵称（最多20字）'}
                 style={{
                   flex: 1, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.18)',
                   borderRadius: 8, padding: '5px 10px', color: 'var(--text-1)', fontSize: 14, outline: 'none',
@@ -96,11 +118,11 @@ export function ProfilePage({ user, setUser }: Props) {
               <button onClick={saveName} disabled={savingName} style={{
                 background: 'var(--gradient)', border: 'none', borderRadius: 8,
                 color: 'white', fontSize: 13, padding: '5px 12px', cursor: 'pointer',
-              }}>保存</button>
+              }}>{t.common.save}</button>
               <button onClick={() => setEditingName(false)} style={{
                 background: 'transparent', border: '1px solid rgba(255,255,255,0.18)', borderRadius: 8,
                 color: 'var(--text-2)', fontSize: 13, padding: '5px 10px', cursor: 'pointer',
-              }}>取消</button>
+              }}>{t.common.cancel}</button>
             </div>
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -124,7 +146,7 @@ export function ProfilePage({ user, setUser }: Props) {
             borderRadius: 12, padding: '14px', textAlign: 'center',
           }}>
             <div style={{ fontSize: 30, fontWeight: 800, color: '#8090f8', letterSpacing: '-0.02em' }}>💎 {user.paidCredits}</div>
-            <div style={{ fontSize: 11, color: 'var(--text-hint)', marginTop: 3, letterSpacing: '0.08em', textTransform: 'uppercase' }}>钻石 · 聊天消耗</div>
+            <div style={{ fontSize: 11, color: 'var(--text-hint)', marginTop: 3, letterSpacing: '0.08em', textTransform: 'uppercase' }}>{t.me.diamondHint}</div>
           </div>
           {/* Coins — secondary, check-in only */}
           <div style={{
@@ -132,12 +154,12 @@ export function ProfilePage({ user, setUser }: Props) {
             borderRadius: 12, padding: '14px', textAlign: 'center',
           }}>
             <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--accent-gold)', letterSpacing: '-0.02em' }}>{user.freeCredits}</div>
-            <div style={{ fontSize: 11, color: 'var(--text-hint)', marginTop: 3, letterSpacing: '0.08em', textTransform: 'uppercase' }}>金币</div>
-            <div style={{ fontSize: 10, color: 'var(--text-hint)', marginTop: 1 }}>签到获取</div>
+            <div style={{ fontSize: 11, color: 'var(--text-hint)', marginTop: 3, letterSpacing: '0.08em', textTransform: 'uppercase' }}>{t.me.gold}</div>
+            <div style={{ fontSize: 10, color: 'var(--text-hint)', marginTop: 1 }}>{t.me.goldHint}</div>
           </div>
         </div>
         <button className="btn btn-primary btn-full" onClick={() => setShowPayment(true)}>
-          充值钻石
+          {t.me.topup}
         </button>
         {user.freeCredits >= 10 && (
           <button
@@ -150,9 +172,56 @@ export function ProfilePage({ user, setUser }: Props) {
               } catch {}
             }}
           >
-            兑换 10 金币 → 1 钻石
+            {t.me.exchangeCoins}
           </button>
         )}
+
+        {/* Language toggle */}
+        <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 2px' }}>
+          <div style={{ fontSize: 12, color: 'var(--text-hint)' }}>🌐 {t.me.language}</div>
+          <button
+            onClick={() => setLang(toggleLang(lang))}
+            style={{
+              background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)',
+              borderRadius: 20, padding: '5px 14px', cursor: 'pointer',
+              color: 'var(--text)', fontSize: 13, fontWeight: 600,
+            }}
+          >
+            {lang === 'zh' ? 'English' : '中文'}
+          </button>
+        </div>
+
+        {/* Redeem code */}
+        <div style={{ marginTop: 12, padding: '14px', background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border)' }}>
+          <div style={{ fontSize: 12, color: 'var(--text-hint)', marginBottom: 8 }}>🎁 {t.me.redeem}</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              value={redeemCode}
+              onChange={e => { setRedeemCode(e.target.value.toUpperCase()); setRedeemStatus(null); }}
+              placeholder="XXXX-XXXX-XXXX"
+              maxLength={14}
+              style={{
+                flex: 1, padding: '9px 12px', background: 'var(--bg)', border: '1.5px solid var(--border)',
+                borderRadius: 8, color: 'var(--text)', fontSize: 14, outline: 'none',
+                fontFamily: 'monospace', letterSpacing: '0.05em',
+              }}
+              onKeyDown={e => e.key === 'Enter' && !redeemLoading && handleRedeem()}
+            />
+            <button
+              className="btn btn-primary"
+              style={{ padding: '9px 16px', fontSize: 13, flexShrink: 0 }}
+              disabled={redeemLoading || !redeemCode.trim()}
+              onClick={handleRedeem}
+            >
+              {redeemLoading ? '…' : t.me.redeemBtn}
+            </button>
+          </div>
+          {redeemStatus && (
+            <div style={{ marginTop: 8, fontSize: 12, color: redeemStatus.ok ? 'var(--accent-green, #4ade80)' : '#f87171' }}>
+              {redeemStatus.msg}
+            </div>
+          )}
+        </div>
       </div>
 
       {showPayment && (
@@ -168,7 +237,7 @@ export function ProfilePage({ user, setUser }: Props) {
 
       {/* My characters */}
       <div style={{ padding: '16px 14px 6px', fontSize: 12, fontWeight: 700, color: 'var(--text-2)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-        我创建的角色
+        {t.me.myChars}
       </div>
       {myChars.length === 0 ? (
         <div className="empty-state" style={{ padding: '24px 0' }}>
@@ -178,7 +247,7 @@ export function ProfilePage({ user, setUser }: Props) {
               <line x1="12" y1="14" x2="12" y2="14"/>
             </svg>
           </div>
-          <div style={{ fontSize: 14, color: 'var(--text-2)' }}>还没有创建角色</div>
+          <div style={{ fontSize: 14, color: 'var(--text-2)' }}>{t.me.noChars}</div>
         </div>
       ) : (
         myChars.map(char => (
@@ -195,10 +264,10 @@ export function ProfilePage({ user, setUser }: Props) {
             </div>
             <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => navigate(`/chat/${char.id}`)}>
               <div style={{ fontWeight: 700, fontSize: 14 }}>{char.name}</div>
-              <div style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2 }}>{char.occupation} · {char.usageCount} 次对话</div>
+              <div style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2 }}>{char.occupation} · {char.usageCount} {t.me.chatCount}</div>
               <div style={{ fontSize: 11, color: 'var(--text-hint)', marginTop: 1, letterSpacing: '0.04em' }}>
-                {char.isPublic ? '公开' : '私密'}
-                {char.reviewCount > 0 && ` · ${char.avgRating.toFixed(1)} 分`}
+                {char.isPublic ? t.me.public : t.me.private}
+                {char.reviewCount > 0 && ` · ${char.avgRating.toFixed(1)} ${t.profile.ratingLabel}`}
               </div>
             </div>
             <button

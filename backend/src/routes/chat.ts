@@ -127,7 +127,8 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
     .slice(-3)
     .reverse()
     .map(m => m.content);
-  const systemPrompt = buildCharacterSystemPrompt(character as any, userMemory, recentAiReplies, user.nickname);
+  const userLang = ((user as any).language ?? 'zh') as 'zh' | 'en';
+  const systemPrompt = buildCharacterSystemPrompt(character as any, userMemory, recentAiReplies, user.nickname, userLang);
   const contextWindow = existingContext.slice(-CONTEXT_WINDOW);
   const messages: Message[] = [
     { role: 'system', content: systemPrompt },
