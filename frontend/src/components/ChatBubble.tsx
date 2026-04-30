@@ -1,9 +1,17 @@
 // ── 拆分为动画段落：每个 *旁白* 和每行对话分别成段 ────────────────────────────
 interface Segment { content: string; type: 'narration' | 'text' }
 
+// Strip any <META>...</META> block (safety net for leaked tags or old DB content)
+function stripMeta(text: string): string {
+  return text
+    .replace(/<META>[\s\S]*?<\/META>/gi, '')
+    .replace(/<META>[\s\S]*/gi, '')   // unclosed tag at end
+    .trim();
+}
+
 function splitIntoSegments(text: string): Segment[] {
   const out: Segment[] = [];
-  for (const line of text.split(/\n+/)) {
+  for (const line of stripMeta(text).split(/\n+/)) {
     const t = line.trim();
     if (!t) continue;
     const parts = t.split(/(\*[^*\n]+\*)/g);

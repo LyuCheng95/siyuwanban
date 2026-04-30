@@ -572,7 +572,7 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
               )}
 
               {/* ── Scene trigger button — premium ── */}
-              {msg.role === 'assistant' && msg.imagePrompt && !streaming && !msg.imageGenerating && !msg.imageUrl && (
+              {msg.role === 'assistant' && !streaming && !msg.imageGenerating && !msg.imageUrl && (
                 <button
                   className="scene-btn"
                   onClick={() => generateInlineImage(
