@@ -21,7 +21,7 @@ export const cryptobotRouter = Router();
 // ── Config ────────────────────────────────────────────────────────────────────
 const WALLET_ADDRESS = process.env.USDT_WALLET || 'TFt6Q3LoYkzVWsXNAsiz5gcR2f62h9opkr';
 const USDT_CONTRACT  = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t'; // mainnet USDT TRC-20
-const TRON_API       = 'https://apilist.tronscanapi.com/api';
+const TRONGRID_API   = 'https://api.trongrid.io';
 
 // ── Tiers ─────────────────────────────────────────────────────────────────────
 // base amounts (USD / USDT).  Unique invoices add 1-99 cents on top.
@@ -37,16 +37,16 @@ function tierForFrontend(t: typeof TIERS[0]) {
            usd: t.baseUsdt.toFixed(2), usdt: t.baseUsdt.toFixed(2) };
 }
 
-// ── TronScan helper ───────────────────────────────────────────────────────────
+// ── TronGrid helper ───────────────────────────────────────────────────────────
 async function getRecentTransfers(limit = 50): Promise<any[]> {
-  const url = `${TRON_API}/token_trc20/transfers` +
-    `?toAddress=${WALLET_ADDRESS}` +
-    `&contractAddress=${USDT_CONTRACT}` +
-    `&limit=${limit}&start=0&direction=in`;
-  const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-  if (!r.ok) throw new Error(`TronScan HTTP ${r.status}`);
+  const url = `${TRONGRID_API}/v1/accounts/${WALLET_ADDRESS}/transactions/trc20` +
+    `?limit=${limit}&contract_address=${USDT_CONTRACT}&only_to=true`;
+  const headers: Record<string, string> = { 'Accept': 'application/json' };
+  if (process.env.TRONGRID_API_KEY) headers['TRON-PRO-API-KEY'] = process.env.TRONGRID_API_KEY;
+  const r = await fetch(url, { headers });
+  if (!r.ok) throw new Error(`TronGrid HTTP ${r.status}`);
   const j = await r.json() as any;
-  return j.token_transfers ?? j.data ?? [];
+  return j.data ?? [];
 }
 
 // ── Background poller ─────────────────────────────────────────────────────────
@@ -61,7 +61,8 @@ export function startUsdtPoller() {
     try {
       const transfers = await getRecentTransfers(50);
       for (const tx of transfers) {
-        const txHash = String(tx.transaction_id ?? tx.transactionHash ?? tx.hash ?? '');
+        // TronGrid: transaction_id is the tx hash
+        const txHash = String(tx.transaction_id ?? '');
         if (!txHash) continue;
 
         // Already recorded?
@@ -70,8 +71,8 @@ export function startUsdtPoller() {
         });
         if (exists) continue;
 
-        // Parse amount — USDT has 6 decimals on TRON
-        const rawAmt: string = tx.quant ?? tx.amount ?? '0';
+        // TronGrid: value is the raw amount string (6 decimals for USDT)
+        const rawAmt: string = String(tx.value ?? tx.amount ?? '0');
         const usdtAmt = parseFloat(rawAmt) / 1e6;
 
         // Find matching pending invoice (within $0.005 rounding tolerance)
