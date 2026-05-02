@@ -2,7 +2,7 @@ import { prisma } from './utils/prisma';
 
 async function main() {
   const chars = await prisma.character.findMany({
-    where: { storyPhases: { not: null } },
+    where: { NOT: [{ storyPhases: null as any }] },
     select: { name: true, storyPhases: true },
     orderBy: { name: 'asc' },
   });
