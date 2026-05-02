@@ -488,7 +488,10 @@ adminRouter.get('/redeem-codes', async (req: Request, res: Response): Promise<vo
     take: 200,
     include: { usedBy: { select: { username: true, firstName: true, telegramId: true } } },
   });
-  res.json(codes);
+  res.json(codes.map(c => ({
+    ...c,
+    usedBy: c.usedBy ? { ...c.usedBy, telegramId: c.usedBy.telegramId.toString() } : null,
+  })));
 });
 
 // POST /api/admin/characters/:id/qa?key=... — 触发角色自检（SSE，逐轮可视化）
