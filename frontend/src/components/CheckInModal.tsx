@@ -49,6 +49,12 @@ export function CheckInModal({ onClose }: Props) {
   const reward = result?.reward ?? status?.nextReward;
   const alreadyDone = result?.alreadyDone ?? status?.alreadyDone ?? false;
 
+  // 日历中"当前"应显示今天要签的那一天：
+  // - 未签到时：streak + 1（昨天已完成 streak 天，今天是第 streak+1 天）
+  // - 签到后 / 今日已签：streak（已完成的那天）
+  // - 首次打开（streak=0）：第1天
+  const currentDay = (done || alreadyDone) ? streak : (streak > 0 ? streak + 1 : 1);
+
   return (
     <div style={{
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
@@ -95,7 +101,9 @@ export function CheckInModal({ onClose }: Props) {
           </div>
           {streak > 0 && (
             <div style={{ fontSize: 13, color: 'var(--accent)', marginTop: 4, fontWeight: 600 }}>
-              连续签到 {streak} 天
+              {done || alreadyDone
+                ? `连续签到 ${streak} 天`
+                : `已连续 ${streak} 天，今日第 ${currentDay} 天`}
             </div>
           )}
         </div>
@@ -103,10 +111,10 @@ export function CheckInModal({ onClose }: Props) {
         {/* 7-day streak calendar */}
         <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 20 }}>
           {STREAK_DAYS.map((d) => {
-            const isCurrent = d.day === streak;
-            const isPast = d.day < streak;
-            const isFuture = d.day > streak;
-            const completed = isPast || (done && isCurrent);
+            const isCurrent = d.day === currentDay;
+            const isPast = d.day < currentDay;
+            const isFuture = d.day > currentDay;
+            const completed = isPast || ((done || alreadyDone) && isCurrent);
             return (
               <div key={d.day} style={{
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
