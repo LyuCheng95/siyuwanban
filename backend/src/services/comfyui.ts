@@ -6,36 +6,148 @@ import { MODEL_FILES, ImageModel } from './generatePortraitPrompts';
 const WORKER_URL = process.env.WORKER_URL || 'http://localhost:7080';
 const WORKER_KEY = process.env.WORKER_KEY || '';
 
-// Main entry: generate image from scene description — routes through Worker (SSH tunnel → local ComfyUI)
-export async function generateSceneImage(
-  scenePrompt: string,
-  negative = '',
-  characterName = '',
-  _dbImageModel?: string | null,
-  dbFaceFeatures?: string | null
-): Promise<string> {
-  // Build face/body anchor prefix server-side (Worker doesn't have this data)
-  const bodyAnchor = dbFaceFeatures || CHARACTER_BODY[characterName];
-  const faceAnchor = CHARACTER_FACE[characterName];
-  const anchor = faceAnchor ? `${faceAnchor}, ${bodyAnchor || ''}` : (bodyAnchor || '');
-  const fullPrompt = anchor ? `${anchor}, ${scenePrompt}` : scenePrompt;
+// ── Clothing state system ─────────────────────────────────────────────────────
+// Stored in userMemory._clothingState as a ratchet (only escalates, never drops)
 
-  console.log(`[ImageGen] char=${characterName} prompt=${fullPrompt.slice(0, 120)}`);
+export type ClothingState = 'fully_clothed' | 'disheveled' | 'topless' | 'bottomless' | 'naked';
 
-  const res = await fetch(`${WORKER_URL}/generate-scene-by-name`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(WORKER_KEY ? { 'x-worker-key': WORKER_KEY } : {}),
-    },
-    body: JSON.stringify({ prompt: fullPrompt, characterName, negative }),
-  });
-  if (!res.ok) throw new Error(`Worker error ${res.status}: ${await res.text()}`);
-  const data = await res.json() as { url: string };
-  return data.url;
+export const CLOTHING_STATE_RANK: Record<ClothingState, number> = {
+  fully_clothed: 0,
+  disheveled:    1,
+  topless:       2,
+  bottomless:    2,
+  naked:         3,
+};
+
+/** Derive clothing state from cumulative act list (code-driven, no AI inference) */
+export function deriveClothingState(acts: string[]): ClothingState {
+  if (acts.length === 0) return 'fully_clothed';
+  const str = acts.join(' ');
+
+  const sexKws    = ['插入', '性交', '抽插', '骑乘', '后入', '传教士', '侧入', '射精', '高潮', '潮吹', '阴道', '阴茎插入', 'penetration', 'intercourse', 'cowgirl', 'doggy', 'missionary'];
+  const topKws    = ['脱上衣', '脱内衣', '解胸罩', '脱胸罩', '裸胸', '露出胸部', '乳头', '乳房', '口交', 'topless', 'bare breasts', 'bra removed'];
+  const bottomKws = ['脱裤', '脱内裤', '脱裙', '阴部', '阴蒂', '手指刺激', '潮吹', 'bottomless', 'pussy', 'fingering', 'panties removed'];
+  const dishKws   = ['接吻', '拥抱', '抚摸', '脱', '解开', '掀起', '撩起', '露出', 'kissing', 'touching', 'caressing', 'undress'];
+
+  const hasSex      = sexKws.some(k => str.includes(k));
+  const isTopless   = hasSex || topKws.some(k => str.includes(k));
+  const isBottomless= hasSex || bottomKws.some(k => str.includes(k));
+  const isDish      = dishKws.some(k => str.includes(k));
+
+  if (hasSex || (isTopless && isBottomless)) return 'naked';
+  if (isTopless)    return 'topless';
+  if (isBottomless) return 'bottomless';
+  if (isDish || acts.length > 0) return 'disheveled';
+  return 'fully_clothed';
 }
 
-// Physical anchor — face/hair/build ONLY, no clothing (clothing comes from context)
+// ── Shot focus system ─────────────────────────────────────────────────────────
+// Code decides the shot type — Grok never controls composition.
+
+type ShotFocus =
+  | 'portrait'
+  | 'medium'
+  | 'breast'
+  | 'pussy'
+  | 'fingering'
+  | 'blowjob'
+  | 'cunnilingus'
+  | 'penetration_cowgirl'
+  | 'penetration_doggy'
+  | 'penetration_missionary'
+  | 'penetration_spooning'
+  | 'penetration_generic'
+  | 'ahegao'
+  | 'creampie';
+
+/**
+ * Hardcoded ComfyUI shot prefixes — weights ensure these dominate the final image.
+ * Prepended to the front of the prompt so they take highest priority.
+ */
+const SHOT_PREFIXES: Record<ShotFocus, string> = {
+  portrait:
+    'portrait shot, head and shoulders, looking at viewer',
+  medium:
+    'medium shot waist up, slight lean forward, flushed cheeks',
+  breast:
+    '(chest close-up:1.5), (bare breasts:1.8), (erect nipples:1.7), hands cupping or squeezing, camera angle slightly down',
+  pussy:
+    '(between spread thighs close-up:1.5), (wet pussy:1.8), (glistening labia:1.6), fingers spreading or touching, inner thighs trembling',
+  fingering:
+    '(fingering close-up:1.6), (fingers inside pussy:1.7), (wet:1.6), (love juice:1.4), thighs trembling, moaning',
+  blowjob:
+    '(POV close-up:1.4), face looking up at camera, (penis in mouth:1.8), (blowjob:1.7), saliva dripping, flushed teary eyes',
+  cunnilingus:
+    '(cunnilingus close-up:1.7), (tongue on clit:1.6), fingers spreading labia, moaning expression, thighs pressing inward',
+  penetration_cowgirl:
+    '(cowgirl position:1.7), (vaginal penetration:1.8), riding motion, (breasts bouncing:1.5), (pussy gripping cock:1.6), love juice dripping',
+  penetration_doggy:
+    '(doggy style:1.8), rear close-up, (vaginal penetration:1.8), ass and wet pussy clearly visible from behind, back arched deeply',
+  penetration_missionary:
+    '(missionary position:1.7), overhead close-up, (vaginal penetration:1.8), legs spread wide, penis deep inside, intense eye contact',
+  penetration_spooning:
+    '(spooning sex:1.7), side-angle close-up, (vaginal penetration:1.8), entry from behind, bodies pressed together',
+  penetration_generic:
+    '(vaginal penetration:1.9), (penis deep inside pussy:1.8), explicit penetration close-up, (love juice:1.5)',
+  ahegao:
+    '(face close-up:1.5), (ahegao:1.9), (eyes rolled back:1.8), mouth wide open, drooling, tears of pleasure, deep red blush',
+  creampie:
+    '(pussy close-up:1.5), (creampie:1.8), (cum dripping from pussy:1.7), swollen lips, satisfied exhausted expression',
+};
+
+/** Select shot focus based on clothing state + acts — fully deterministic, no AI */
+function selectShotFocus(
+  clothingState: ClothingState,
+  allActs: string[],
+  intimacy: number,
+  lastFocus: string,
+): ShotFocus {
+  const str = allActs.join(' ');
+
+  // ① Climax / post-climax
+  const hasClimax = /射精|高潮|潮吹|creampie|ahegao|orgasm|squirt/i.test(str);
+  if (hasClimax) {
+    // Alternate ahegao ↔ creampie for variety
+    return lastFocus === 'ahegao' ? 'creampie' : 'ahegao';
+  }
+
+  // ② Active sex — position-specific
+  const hasSex = /插入|性交|抽插|penetration|intercourse/i.test(str);
+  if (hasSex) {
+    if (/骑乘|cowgirl|riding on top/i.test(str))   return 'penetration_cowgirl';
+    if (/后入|doggy|from behind/i.test(str))        return 'penetration_doggy';
+    if (/传教士|missionary/i.test(str))             return 'penetration_missionary';
+    if (/侧入|spooning/i.test(str))                 return 'penetration_spooning';
+    return 'penetration_generic';
+  }
+
+  // ③ Oral
+  const hasBlowjob = /口交.*阴茎|口含.*阴茎|blowjob|penis in mouth/i.test(str);
+  const hasCunni   = /口交.*阴蒂|cunnilingus|舔.*阴蒂|lick.*clit/i.test(str);
+  if (hasBlowjob) return 'blowjob';
+  if (hasCunni)   return 'cunnilingus';
+
+  // ④ Fingering
+  const hasFingering = /手指.*阴|阴蒂.*手指|fingering|finger.*pussy/i.test(str);
+  if (hasFingering && (clothingState === 'bottomless' || clothingState === 'naked')) {
+    return 'fingering';
+  }
+
+  // ⑤ Based on clothing state
+  if (clothingState === 'naked') {
+    // Alternate breast ↔ pussy for visual variety
+    return lastFocus === 'breast' ? 'pussy' : 'breast';
+  }
+  if (clothingState === 'bottomless') return 'pussy';
+  if (clothingState === 'topless')    return 'breast';
+
+  // ⑥ Clothed states
+  if (intimacy < 20) return 'portrait';
+  return 'medium';
+}
+
+// ── Physical anchors ──────────────────────────────────────────────────────────
+
 const CHARACTER_BODY: Record<string, string> = {
   '椎名老师': '24yo japanese woman, black-framed glasses, smooth black hair tied back, slender waist, fair skin',
   '晓彤':   '22yo chinese woman, athletic toned body, ponytail, fit figure, fair skin',
@@ -57,7 +169,6 @@ const CHARACTER_BODY: Record<string, string> = {
   '魅罗':   'demon girl, dark purple flowing hair, crimson slit eyes, small horns, beautiful face',
 };
 
-// Default outfit — only used when context has no clothing changes
 const CHARACTER_DEFAULT_OUTFIT: Record<string, string> = {
   '椎名老师': 'white dress shirt, short pleated skirt',
   '晓彤':   'sports bra, tight yoga pants',
@@ -79,7 +190,44 @@ const CHARACTER_DEFAULT_OUTFIT: Record<string, string> = {
   '魅罗':   'dark revealing demonic attire',
 };
 
-// Use Grok to decide if scene warrants an image and build the image prompt
+// ── Main entry: generate image ────────────────────────────────────────────────
+
+export async function generateSceneImage(
+  scenePrompt: string,
+  negative = '',
+  characterName = '',
+  _dbImageModel?: string | null,
+  dbFaceFeatures?: string | null
+): Promise<string> {
+  const bodyAnchor = dbFaceFeatures || CHARACTER_BODY[characterName];
+  const faceAnchor = CHARACTER_FACE[characterName];
+  const anchor = faceAnchor ? `${faceAnchor}, ${bodyAnchor || ''}` : (bodyAnchor || '');
+  const fullPrompt = anchor ? `${anchor}, ${scenePrompt}` : scenePrompt;
+
+  console.log(`[ImageGen] char=${characterName} prompt=${fullPrompt.slice(0, 120)}`);
+
+  const res = await fetch(`${WORKER_URL}/generate-scene-by-name`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(WORKER_KEY ? { 'x-worker-key': WORKER_KEY } : {}),
+    },
+    body: JSON.stringify({ prompt: fullPrompt, characterName, negative }),
+  });
+  if (!res.ok) throw new Error(`Worker error ${res.status}: ${await res.text()}`);
+  const data = await res.json() as { url: string };
+  return data.url;
+}
+
+// ── shouldGenerateImage ───────────────────────────────────────────────────────
+// Decides whether to generate an image and builds the final prompt.
+//
+// Architecture:
+//   Code  →  shot focus (deterministic)
+//   Code  →  shot prefix (hardcoded ComfyUI weights)
+//   Grok  →  content details only (action + expression, 10-20 words)
+//   Code  →  assembles final prompt: anchor + shotPrefix + grokDetails + scene
+
 export async function shouldGenerateImage(
   characterName: string,
   recentMessages: Array<{ role: string; content: string }>,
@@ -89,148 +237,67 @@ export async function shouldGenerateImage(
   },
   intimacyLevel = 0,
   recentActs: string[] = [],
-  sceneContext = ''
-): Promise<{ generate: boolean; prompt?: string; twoShot?: boolean }> {
-  // DB fields take priority, fall back to hardcoded maps for legacy chars
-  const bodyAnchor = character?.faceFeatures || CHARACTER_BODY[characterName] || `1girl, ${characterName}`;
+  sceneContext = '',
+  clothingState: ClothingState = 'fully_clothed',
+  lastShotFocus = 'none',
+): Promise<{ generate: boolean; prompt?: string; twoShot?: boolean; shotFocus?: string }> {
+
+  // Body anchor (face + build, no clothing)
+  const bodyAnchor    = character?.faceFeatures || CHARACTER_BODY[characterName] || `1girl`;
   const defaultOutfit = character?.defaultOutfit || CHARACTER_DEFAULT_OUTFIT[characterName] || 'casual clothes';
-  const faceAnchor = character?.faceAnchor || CHARACTER_FACE[characterName];
-  const fullBodyAnchor = faceAnchor ? `${faceAnchor}, ${bodyAnchor}` : bodyAnchor;
+  const faceAnchor    = character?.faceAnchor    || CHARACTER_FACE[characterName];
+  const fullBodyAnchor= faceAnchor ? `${faceAnchor}, ${bodyAnchor}` : bodyAnchor;
 
-  // ── 1. 从累积 acts 推导性行为状态 ─────────────────────────────────────────
-  const sexKeywords = ['插入', '性交', '抽插', '骑乘', '后入', '传教士', '侧入', '俯卧', '射精', '高潮', '潮吹', '阴茎插入', '阴道'];
-  const hasSexAct   = recentActs.some(a => sexKeywords.some(kw => a.includes(kw)));
-  const hasOralAct  = recentActs.some(a => a.includes('口交'));
-  const hasClimaxAct= recentActs.some(a => ['射精', '高潮', '潮吹'].some(kw => a.includes(kw)));
+  // ── Step 1: Code selects shot focus ─────────────────────────────────────────
+  const shotFocus  = selectShotFocus(clothingState, recentActs, intimacyLevel, lastShotFocus);
+  const shotPrefix = SHOT_PREFIXES[shotFocus];
 
-  // ── 2. 从累积 acts 精确推导着装状态（不靠 AI 推断，代码直接算）──────────────
-  const toplessKeywords   = ['脱上衣', '脱内衣', '解胸罩', '脱胸罩', '裸胸', '露出胸部', '乳头', '乳房', '口交', ...sexKeywords];
-  const bottomlessKeywords= ['脱裤', '脱内裤', '脱裙', '脱袜', '阴部', '阴蒂', '手指刺激', '插入', '性交', '抽插', '骑乘', '后入', '口交-你舔', '潮吹'];
-  const partialKeywords   = ['脱', '解开', '掀起', '撩起', '露出', '拉开'];
+  // ── Step 2: Decide whether to generate ──────────────────────────────────────
+  // Exposed body parts → always generate.
+  // Clothed → only if there's a strong visual moment (left to Grok).
+  const isExposed = clothingState !== 'fully_clothed' && clothingState !== 'disheveled';
+  const forceGenerate = isExposed;
 
-  const isTopless    = recentActs.some(a => toplessKeywords.some(kw => a.includes(kw)));
-  const isBottomless = recentActs.some(a => bottomlessKeywords.some(kw => a.includes(kw)));
-  const isPartial    = !isTopless && !isBottomless && recentActs.some(a => partialKeywords.some(kw => a.includes(kw)));
+  // ── Step 3: Build clothing state string for Grok content prompt ─────────────
+  const clothingDesc =
+    clothingState === 'naked'     ? 'completely naked, (bare breasts:1.7), (pussy visible:1.6), no clothing'  :
+    clothingState === 'topless'   ? 'topless, (bare breasts:1.7), (erect nipples:1.6), bottom clothing on'    :
+    clothingState === 'bottomless'? 'bottomless, (pussy visible:1.6), (wet:1.4), top clothing on'             :
+    clothingState === 'disheveled'? 'disheveled clothes, exposed shoulders/collarbone, partially undressed'    :
+    `wearing ${defaultOutfit}`;
 
-  // Build a definitive clothing state string that will be injected as a hard rule
-  let clothingState: string;
-  if (hasSexAct || (isTopless && isBottomless)) {
-    clothingState = 'completely naked, bare breasts fully exposed, lower body fully bare, no clothing remaining';
-  } else if (isTopless) {
-    clothingState = 'topless (bra and top fully removed, bare breasts exposed with erect nipples), still wearing bottom clothing';
-  } else if (isBottomless) {
-    clothingState = 'bottomless (panties/pants fully removed, bare lower body exposed), still wearing top clothing';
-  } else if (isPartial) {
-    clothingState = 'partially undressed — disheveled clothing, exposed shoulders/collarbone, clothes partially removed or pulled aside';
-  } else {
-    clothingState = `default outfit: ${defaultOutfit}`;
-  }
+  // twoShot: show partner when sex/oral acts
+  const hasSexOrOral = /插入|性交|抽插|口交|penetration|blowjob|cunnilingus/i.test(recentActs.join(' '));
+  const twoShot = hasSexOrOral;
 
-  // ── 3. 推导体位 ──────────────────────────────────────────────────────────────
-  const positionMap: Record<string, string> = {
-    '骑乘': 'cowgirl position (riding on top)',
-    '后入': 'doggy style position (from behind)',
-    '传教士': 'missionary position',
-    '侧入': 'spooning sex position (side entry)',
-    '站立': 'standing sex against wall',
-    '俯卧': 'prone bone position',
-  };
-  const detectedPosition = recentActs.reduce<string | null>((acc, a) => {
-    if (acc) return acc;
-    for (const [k, v] of Object.entries(positionMap)) if (a.includes(k)) return v;
-    return null;
-  }, null);
+  // ── Step 4: Ask Grok for content details ONLY (not composition) ──────────────
+  const actsStr = recentActs.length > 0 ? recentActs.join(', ') : 'none yet';
+  const sceneStr = sceneContext || character?.occupation || 'indoor setting';
 
-  // ── 4. 构建 explicitRule ──────────────────────────────────────────────────────
-  let explicitRule: string;
-  if (hasSexAct) {
-    const posHint    = detectedPosition ? `, ${detectedPosition}` : ', sex position clearly visible';
-    const climaxHint = hasClimaxAct
-      ? ', (cum dripping from pussy:1.5), (ahegao:1.3), (eyes rolled back:1.4), (shaking body:1.2)'
-      : ', (moaning open mouth:1.4), (flushed face:1.3), (sweat:1.2)';
-    explicitRule = `【性交强制生成·最高优先级】generate=true，twoShot=true。prompt必须包含：(bare breasts:1.6), (erect nipples:1.5), (pussy visible:1.7), (penis:1.6), (vaginal penetration:1.7)${posHint}${climaxHint}。角色着装状态：${clothingState}。禁止生成任何有衣服遮挡或清纯半身图。`;
-  } else if (hasOralAct) {
-    explicitRule = `generate=true，twoShot=true。prompt必须包含口交画面：(penis in mouth:1.7), (blowjob:1.6), (erect penis:1.5), (saliva:1.3)，角色着装：${clothingState}。`;
-  } else if (intimacyLevel < 20) {
-    explicitRule = '只在有明显肢体接触或强烈视觉暗示时生成。prompt保持衣着完整，侧重氛围情绪，不含裸露。';
-  } else if (intimacyLevel < 40) {
-    explicitRule = `有亲密肢体接触时生成。着装状态：${clothingState}。prompt可含 crumpled clothing、exposed shoulders/collarbone、disheveled clothes。`;
-  } else if (intimacyLevel < 60) {
-    explicitRule = `有性暗示时生成。着装状态：${clothingState}。prompt必须含 (bare breasts:1.5), (erect nipples:1.5)。如有手指/阴部接触，加 (hand between thighs:1.4), (fingering:1.4)。`;
-  } else {
-    explicitRule = `generate=true。着装状态：${clothingState}。prompt必须含 (bare breasts:1.6), (erect nipples:1.5), (pussy visible:1.6), (moaning expression:1.4)。`;
-  }
+  const systemContent = `You are a content-detail extractor for an adult image prompt system.
+The framing and shot composition are already determined by the system — do NOT describe them.
 
-  const actsHint = recentActs.length > 0
-    ? `\n【全对话累积已发生行为】${recentActs.join('、')}`
-    : '';
+Your ONLY task: extract the specific content happening RIGHT NOW from the recent dialogue.
 
-  // ── 5. 构图规则 ──────────────────────────────────────────────────────────────
-  let shotRule: string;
-  if (hasClimaxAct) {
-    shotRule = 'extreme close-up: ahegao face (eyes rolled back, mouth wide open, drooling) OR creampie close-up (cum dripping from pussy). 选最能体现高潮的镜头。';
-  } else if (hasSexAct) {
-    const posShot: Record<string, string> = {
-      'cowgirl': 'front-facing medium shot showing breasts bouncing, riding motion, penetration visible at bottom frame',
-      'doggy style': 'rear close-up: penetration from behind, ass and pussy clearly visible, back arch',
-      'missionary': 'overhead or side close-up: penis deep inside pussy, legs spread, penetration detail',
-      'spooning': 'side-angle close-up: entry from behind, bodies pressed together',
-    };
-    const pos = detectedPosition || '';
-    const matched = Object.entries(posShot).find(([k]) => pos.includes(k));
-    shotRule = matched
-      ? matched[1]
-      : 'close-up of vaginal penetration, penis inserted into pussy, explicit detail';
-  } else if (hasOralAct) {
-    shotRule = 'POV close-up: face looking up at camera with penis in mouth, saliva, flushed cheeks';
-  } else if (isBottomless && recentActs.some(a => a.includes('手指') || a.includes('阴蒂') || a.includes('指'))) {
-    shotRule = 'close-up of fingers between thighs / fingering, wet pussy visible, thighs trembling';
-  } else if (isTopless) {
-    shotRule = 'chest close-up: bare breasts with erect nipples, hands or mouth on breasts, upper body focus';
-  } else if (intimacyLevel < 20) {
-    shotRule = 'medium shot (waist up), clothed, face and upper body, scene background clearly visible';
-  } else if (intimacyLevel < 40) {
-    shotRule = 'medium shot slightly closer, disheveled clothes, face flushed, background still scene-appropriate';
-  } else {
-    shotRule = 'half-body close-up, bare chest visible, face expression matches arousal level';
-  }
+Output strict JSON (no markdown, no extra text):
+{"generate": true/false, "details": "10-20 English words: current action + expression only"}
 
-  const sceneHint = sceneContext
-    ? `【当前场景 — 必须体现在背景中】\n${sceneContext}\n→ 背景必须反映此场景（如实验室、健身房、教室等），不得用通用卧室替代。\n`
-    : '';
+Rules:
+- generate=true if: explicit body parts are involved, intimate contact is happening, or clothing state is exposed
+- generate=false if: only non-visual emotional dialogue, no intimacy
+- details: describe ONLY what's physically happening and the expression — NO framing/angle/composition words
+- details examples:
+    "nipple teasing, moaning softly, eyes half-closed, biting lip"
+    "cowgirl riding motion, breasts bouncing, ahegao, love juice dripping"
+    "fingers spreading labia, trembling thighs, whimpering, flushed red"
+    "sitting close, fingers intertwined, shy smile, flushed cheeks"
 
-  const systemContent = `你是一个专业的图片生成 prompt 构建器。
-
-【角色固定体貌 — 必须原样保留】
-${fullBodyAnchor}
-${actsHint}
-【着装状态 — 已由代码根据对话历史精确计算，必须原样使用，禁止推断或改变】
-→ ${clothingState}
-
-${sceneHint}【构图/镜头 — 必须按此规则选择，不得自由发挥】
-→ ${shotRule}
-
-【任务：构建精确的图片 prompt，提取以下维度】
-
-1. 着装状态：直接使用上方已给出的状态，不得根据对话内容重新推断
-2. 动作/体位：从对话和已发生行为中提取（优先用 acts 里的体位词）
-   - 性交场景必须使用具体体位词：cowgirl / doggy style / missionary / spooning 等
-   - 非性交场景：sitting on lab bench / standing in gym / against classroom wall 等，匹配当前场景
-3. 神态/表情（必须匹配剧情强度）：
-   - P0-P1：flushed cheeks, shy smile
-   - P2：mouth open, heavy breathing, biting lip, half-closed eyes
-   - P3：moaning, eyes rolled back, ahegao, face flushed red, tears of pleasure
-   - 高潮：ahegao, eyes rolled back, mouth wide open, drooling, shaking
-4. 双人场景：发生性行为/口交/强烈互动 → twoShot=true，必须加 1boy 1girl + 互动动作词
-
-【亲密度】${intimacyLevel}/100
-【生成规则】${explicitRule}
-
-【输出格式】只返回 JSON，不含任何其他文字：
-{"generate": true/false, "twoShot": true/false, "prompt": "完整英文 prompt"}
-
-prompt 结构：[体貌锚] + [着装状态] + [构图/镜头类型] + [动作体位] + [表情神态] + [场景背景] + [强度词]
-⚠️ 场景背景必须匹配当前对话场景，不得凭空替换为卧室或中性背景。`;
+Current state:
+- Clothing: ${clothingDesc}
+- Shot (system-determined, do not describe): ${shotFocus}
+- Scene: ${sceneStr}
+- Acts so far: ${actsStr}
+- Intimacy: ${intimacyLevel}/100`;
 
   const res = await fetch('https://api.x.ai/v1/chat/completions', {
     method: 'POST',
@@ -242,32 +309,46 @@ prompt 结构：[体貌锚] + [着装状态] + [构图/镜头类型] + [动作�
       model: 'grok-3',
       messages: [
         { role: 'system', content: systemContent },
-        ...recentMessages.slice(-6),
+        ...recentMessages.slice(-4),
       ],
-      max_tokens: 350,
-      temperature: 0.2,
+      max_tokens: 120,
+      temperature: 0.15,
     }),
   });
 
   try {
     const data = await res.json() as any;
     const content = data.choices?.[0]?.message?.content ?? '{}';
-    // Strip markdown code fences if present
     const cleaned = content.trim().replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
-    const parsed = JSON.parse(cleaned) as { generate: boolean; prompt?: string; twoShot?: boolean };
+    const parsed  = JSON.parse(cleaned) as { generate?: boolean; details?: string };
 
-    // Guarantee scene is in the prompt — inject directly so ComfyUI always
-    // sees the correct background even when Grok skips the scene hint.
-    if (sceneContext && parsed.generate && parsed.prompt) {
-      const sceneWords = sceneContext.split(',').map(w => w.trim().split(' ')[0]).filter(Boolean);
-      const alreadyPresent = sceneWords.some(w => parsed.prompt!.toLowerCase().includes(w.toLowerCase()));
-      if (!alreadyPresent) {
-        parsed.prompt = `${parsed.prompt}, ${sceneContext}`;
-      }
-    }
+    const shouldGen = forceGenerate || (parsed.generate === true);
+    if (!shouldGen) return { generate: false, shotFocus };
 
-    return parsed;
+    // ── Step 5: Assemble final prompt ───────────────────────────────────────────
+    // Structure: [bodyAnchor], [shotPrefix], [details], [scene], [twoShot flag]
+    const details   = (parsed.details || '').trim();
+    const scenePart = sceneContext || '';
+    const twoShotTag= twoShot ? ', 1boy 1girl' : '';
+
+    const finalPrompt = [
+      fullBodyAnchor,
+      shotPrefix,
+      details,
+      scenePart,
+      twoShotTag,
+    ].filter(Boolean).join(', ');
+
+    console.log(`[ImageGen] shot=${shotFocus} clothing=${clothingState} prompt=${finalPrompt.slice(0, 150)}`);
+
+    return { generate: true, prompt: finalPrompt, twoShot, shotFocus };
+
   } catch {
-    return { generate: false };
+    // On parse error: if exposed, still generate with shot prefix + minimal details
+    if (forceGenerate) {
+      const fallback = `${fullBodyAnchor}, ${shotPrefix}, ${clothingDesc}${sceneContext ? ', ' + sceneContext : ''}`;
+      return { generate: true, prompt: fallback, twoShot, shotFocus };
+    }
+    return { generate: false, shotFocus };
   }
 }

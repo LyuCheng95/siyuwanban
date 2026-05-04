@@ -8,7 +8,7 @@ import fs from 'fs';
 import path from 'path';
 import { prisma } from '../utils/prisma';
 import { chat, parseMeta, buildCharacterSystemPrompt, type Message } from '../services/grok';
-import { generateSceneImage, shouldGenerateImage } from '../services/comfyui';
+import { generateSceneImage, shouldGenerateImage, deriveClothingState, CLOTHING_STATE_RANK, ClothingState } from '../services/comfyui';
 import { runCharacterQA, generateStoryPhases, getBaseline, saveBaseline, DEFAULT_BASELINE } from '../services/characterQA';
 import { STORY_PHASES } from '../services/storyPhases';
 import { genericPhases } from '../services/characterScripts';
@@ -738,6 +738,15 @@ adminRouter.post('/simulate-chat', async (req: Request, res: Response): Promise<
     userMemory._attachLevel    = attach;
     userMemory._totalTurns     = i + 1;
 
+    // Ratchet clothing state
+    const allActsSoFar = (userMemory._unlockedActs as string[] | undefined) ?? [];
+    const newActsSoFar = Array.from(new Set([...allActsSoFar, ...meta.acts]));
+    userMemory._unlockedActs = newActsSoFar;
+    const prevCS = ((userMemory._clothingState ?? 'fully_clothed') as ClothingState);
+    const derivedCS = deriveClothingState(newActsSoFar);
+    const nextCS: ClothingState = CLOTHING_STATE_RANK[derivedCS] >= CLOTHING_STATE_RANK[prevCS] ? derivedCS : prevCS;
+    userMemory._clothingState = nextCS;
+
     context.push({ role: 'user', content: userMsg });
     context.push({ role: 'assistant', content: cleanReply });
 
@@ -758,7 +767,9 @@ adminRouter.post('/simulate-chat', async (req: Request, res: Response): Promise<
           { role: 'user' as const, content: userMsg },
           { role: 'assistant' as const, content: cleanReply },
         ];
-        const imgDecision = await shouldGenerateImage(character.name, recentForImage, character, intimacy, meta.acts, meta.scene || character.occupation || '') as { generate: boolean; prompt?: string; twoShot?: boolean };
+        const lastFocus = (userMemory._lastShotFocus as string | undefined) ?? 'none';
+        const imgDecision = await shouldGenerateImage(character.name, recentForImage, character, intimacy, newActsSoFar, meta.scene || character.occupation || '', nextCS, lastFocus);
+        if (imgDecision.shotFocus) userMemory._lastShotFocus = imgDecision.shotFocus;
         if (imgDecision.generate && imgDecision.prompt) {
           send({ type: 'image_pending', turn: i + 1, prompt: imgDecision.prompt });
           const imgUrl = await generateSceneImage(imgDecision.prompt, '', character.name);

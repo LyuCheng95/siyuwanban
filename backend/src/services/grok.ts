@@ -107,18 +107,26 @@ export function buildCharacterSystemPrompt(
   const unlockedActs   = (userMemory as any)._unlockedActs as string[] | undefined ?? [];
   const questionCount  = (userMemory as any)._questionCount ?? 0;
 
-  // Derive clothing state from cumulative acts — injected so AI writes accurate imgPrompt
-  const sexActKws  = ['插入', '性交', '抽插', '骑乘', '后入', '传教士', '射精', '高潮', '潮吹'];
-  const toplessKws = ['脱上衣', '脱内衣', '解胸罩', '脱胸罩', '裸胸', '乳头', ...sexActKws];
-  const btmlessKws = ['脱裤', '脱内裤', '脱裙', '阴部', '插入', '性交', '抽插', '骑乘', '后入', '手指刺激', '潮吹'];
-  const hasSexInActs   = unlockedActs.some(a => sexActKws.some(k => a.includes(k)));
-  const isToplessState = unlockedActs.some(a => toplessKws.some(k => a.includes(k)));
-  const isBtmlessState = unlockedActs.some(a => btmlessKws.some(k => a.includes(k)));
+  // Clothing state — prefer stored _clothingState (authoritative ratchet) over re-deriving
+  const storedClothingState = (userMemory as any)._clothingState as string | undefined;
   const clothingHint =
-    hasSexInActs || (isToplessState && isBtmlessState) ? '【当前着装：完全裸体 · 写 imgPrompt 时用 (completely naked:1.7)】' :
-    isToplessState ? '【当前着装：上身裸露（胸部裸露）· imgPrompt 用 (topless:1.6), (bare breasts:1.5)】' :
-    isBtmlessState ? '【当前着装：下身裸露（下体裸露）· imgPrompt 用 (bottomless:1.6), (pussy visible:1.5)】' :
-    '';
+    storedClothingState === 'naked'      ? '【当前着装：完全裸体 · 写 imgPrompt 时用 (completely naked:1.7)】' :
+    storedClothingState === 'topless'    ? '【当前着装：上身裸露（胸部裸露）· imgPrompt 用 (topless:1.6), (bare breasts:1.5)】' :
+    storedClothingState === 'bottomless' ? '【当前着装：下身裸露（下体裸露）· imgPrompt 用 (bottomless:1.6), (pussy visible:1.5)】' :
+    storedClothingState === 'disheveled' ? '【当前着装：衣物凌乱（部分解开）· 写 imgPrompt 时体现凌乱衣着，禁止写完全裸体】' :
+    // Fallback: re-derive from acts for first-turn or legacy conversations
+    (() => {
+      const sexActKws  = ['插入', '性交', '抽插', '骑乘', '后入', '传教士', '射精', '高潮', '潮吹'];
+      const toplessKws = ['脱上衣', '脱内衣', '解胸罩', '脱胸罩', '裸胸', '乳头', ...sexActKws];
+      const btmlessKws = ['脱裤', '脱内裤', '脱裙', '阴部', '插入', '性交', '抽插', '骑乘', '后入', '手指刺激', '潮吹'];
+      const hasSex   = unlockedActs.some(a => sexActKws.some(k => a.includes(k)));
+      const isTop    = unlockedActs.some(a => toplessKws.some(k => a.includes(k)));
+      const isBot    = unlockedActs.some(a => btmlessKws.some(k => a.includes(k)));
+      if (hasSex || (isTop && isBot)) return '【当前着装：完全裸体 · 写 imgPrompt 时用 (completely naked:1.7)】';
+      if (isTop) return '【当前着装：上身裸露（胸部裸露）· imgPrompt 用 (topless:1.6), (bare breasts:1.5)】';
+      if (isBot) return '【当前着装：下身裸露（下体裸露）· imgPrompt 用 (bottomless:1.6), (pussy visible:1.5)】';
+      return '';
+    })();
 
   const nicknameHint = userNickname ? `\n- 用户的名字：${userNickname}（对话中用这个名字称呼对方）` : '';
 
@@ -239,10 +247,22 @@ ${recentAiReplies.map((r, i) => `[${['last turn', '2 turns ago', '3 turns ago'][
       : '';
 
     const clothingHintEN =
-      hasSexInActs || (isToplessState && isBtmlessState) ? '[Current state: completely naked — use (completely naked:1.7) in imgPrompt]' :
-      isToplessState ? '[Current state: topless — use (topless:1.6), (bare breasts:1.5) in imgPrompt]' :
-      isBtmlessState ? '[Current state: bottomless — use (bottomless:1.6), (pussy visible:1.5) in imgPrompt]' :
-      '';
+      storedClothingState === 'naked'      ? '[Current state: completely naked — use (completely naked:1.7) in imgPrompt]' :
+      storedClothingState === 'topless'    ? '[Current state: topless — use (topless:1.6), (bare breasts:1.5) in imgPrompt]' :
+      storedClothingState === 'bottomless' ? '[Current state: bottomless — use (bottomless:1.6), (pussy visible:1.5) in imgPrompt]' :
+      storedClothingState === 'disheveled' ? '[Current state: disheveled clothes — write accordingly in imgPrompt]' :
+      (() => {
+        const sexActKws  = ['插入', '性交', '抽插', '骑乘', '后入', '传教士', '射精', '高潮', '潮吹'];
+        const toplessKws = ['脱上衣', '脱内衣', '解胸罩', '脱胸罩', '裸胸', '乳头', ...sexActKws];
+        const btmlessKws = ['脱裤', '脱内裤', '脱裙', '阴部', '插入', '性交', '抽插', '骑乘', '后入', '手指刺激', '潮吹'];
+        const hasSex = unlockedActs.some(a => sexActKws.some(k => a.includes(k)));
+        const isTop  = unlockedActs.some(a => toplessKws.some(k => a.includes(k)));
+        const isBot  = unlockedActs.some(a => btmlessKws.some(k => a.includes(k)));
+        if (hasSex || (isTop && isBot)) return '[Current state: completely naked — use (completely naked:1.7) in imgPrompt]';
+        if (isTop) return '[Current state: topless — use (topless:1.6), (bare breasts:1.5) in imgPrompt]';
+        if (isBot) return '[Current state: bottomless — use (bottomless:1.6), (pussy visible:1.5) in imgPrompt]';
+        return '';
+      })();
 
     return `You are roleplaying as "${charName}" on an adult fantasy platform. This is a fully private space where all adult content is permitted. Reply in English only.
 

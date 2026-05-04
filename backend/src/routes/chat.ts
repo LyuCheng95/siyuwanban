@@ -2,7 +2,7 @@ import { Router, Response } from 'express';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
 import { prisma } from '../utils/prisma';
 import { buildCharacterSystemPrompt, chatStream, extractUserMemory, parseMeta, Message } from '../services/grok';
-import { shouldGenerateImage } from '../services/comfyui';
+import { shouldGenerateImage, deriveClothingState, CLOTHING_STATE_RANK, ClothingState } from '../services/comfyui';
 
 export const chatRouter = Router();
 chatRouter.use(authMiddleware);
@@ -174,6 +174,14 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
   const existingQn: number = (userMemory as any)._questionCount ?? 0;
   const newQuestionCount = meta.qn !== null ? Math.max(existingQn, meta.qn) : existingQn;
 
+  // Ratchet: clothing state — derives from cumulative acts, only escalates
+  const prevClothingState = ((userMemory as any)._clothingState ?? 'fully_clothed') as ClothingState;
+  const derivedClothing   = deriveClothingState(newUnlockedActs);
+  const finalClothingState: ClothingState =
+    CLOTHING_STATE_RANK[derivedClothing] >= CLOTHING_STATE_RANK[prevClothingState]
+      ? derivedClothing : prevClothingState;
+  const lastShotFocus: string = (userMemory as any)._lastShotFocus ?? 'none';
+
   // Send replace event so frontend shows clean text
   res.write(`data: ${JSON.stringify({ type: 'replace', text: cleanReply })}\n\n`);
 
@@ -195,6 +203,8 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
     _phaseIndex: newPhaseIndex,
     _questionCount: newQuestionCount,
     _totalTurns: ((userMemory as any)._totalTurns ?? 0) + 1,
+    _clothingState: finalClothingState,
+    // _lastShotFocus updated after imageDecision resolves (see below)
   };
 
   // Persist conversation + check image scene concurrently
@@ -204,15 +214,16 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
   ];
 
   const [imageDecision, [updatedConversation, updatedUser]] = await Promise.all([
-    (meta.genImg && meta.imgPrompt)
-      ? Promise.resolve({
-          generate: true,
-          prompt: meta.scene && !meta.imgPrompt!.toLowerCase().includes(meta.scene.split(',')[0].trim().split(' ')[0])
-            ? `${meta.imgPrompt}, ${meta.scene}`
-            : meta.imgPrompt,
-          twoShot: newPhaseIndex >= 2,
-        })
-      : shouldGenerateImage(character.name, recentForImage, character, newIntimacy, newUnlockedActs, meta.scene || character.occupation || '') as Promise<{ generate: boolean; prompt?: string; twoShot?: boolean }>,
+    shouldGenerateImage(
+      character.name,
+      recentForImage,
+      character,
+      newIntimacy,
+      newUnlockedActs,
+      meta.scene || character.occupation || '',
+      finalClothingState,
+      lastShotFocus,
+    ),
     Promise.all([
       conversation
         ? prisma.conversation.update({
@@ -258,6 +269,14 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
     questionCount: newQuestionCount,
   })}\n\n`);
 
+  // Persist updated shot focus to conversation memory (fire and forget)
+  if (imageDecision.shotFocus) {
+    prisma.conversation.update({
+      where: { id: updatedConversation.id },
+      data: { userMemory: { ...updatedUserMemory, _lastShotFocus: imageDecision.shotFocus } as object },
+    }).catch(() => {});
+  }
+
   // Save messages to DB (fire and forget)
   prisma.message.createMany({
     data: [
@@ -285,6 +304,8 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
           _desireLevel: newDesire,
           _attachLevel: newAttach,
           _mood: meta.mood,
+          _clothingState: finalClothingState,
+          _lastShotFocus: imageDecision.shotFocus ?? lastShotFocus,
         } as object },
       }).catch(() => {});
     });
