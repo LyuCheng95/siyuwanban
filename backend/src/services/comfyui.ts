@@ -1,6 +1,7 @@
 import fetch from 'node-fetch';
 import { CHARACTER_FACE } from '../characterFace';
 import { MODEL_FILES, ImageModel } from './generatePortraitPrompts';
+import type { SceneState } from './grok';
 
 // All image generation is routed through the local Worker (SSH tunnel → local ComfyUI)
 const WORKER_URL = process.env.WORKER_URL || 'http://localhost:7080';
@@ -95,23 +96,43 @@ const SHOT_PREFIXES: Record<ShotFocus, string> = {
     '(pussy close-up:1.5), (creampie:1.8), (cum dripping from pussy:1.7), swollen lips, satisfied exhausted expression',
 };
 
-/** Select shot focus based on clothing state + acts — fully deterministic, no AI */
+/**
+ * Select shot focus — deterministic, code-driven.
+ * Priority: sceneState.a (current action) > cumulative acts > clothing state
+ */
 function selectShotFocus(
   clothingState: ClothingState,
   allActs: string[],
   intimacy: number,
   lastFocus: string,
+  actionHint?: string,  // sceneState.a — the exact current action this turn
 ): ShotFocus {
   const str = allActs.join(' ');
 
-  // ① Climax / post-climax
-  const hasClimax = /射精|高潮|潮吹|creampie|ahegao|orgasm|squirt/i.test(str);
-  if (hasClimax) {
-    // Alternate ahegao ↔ creampie for variety
-    return lastFocus === 'ahegao' ? 'creampie' : 'ahegao';
+  // ① Current-action override from sceneState (most precise signal)
+  if (actionHint && actionHint.trim()) {
+    const ah = actionHint;
+    // Climax signals
+    if (/潮吹|squirt/i.test(ah))                                          return 'ahegao';
+    if (/射精|creampie|内射/i.test(ah))                                    return 'creampie';
+    if (/高潮|orgasm/i.test(ah))  return lastFocus === 'ahegao' ? 'creampie' : 'ahegao';
+    // Oral
+    if (/口交.*阴茎|口含|blowjob/i.test(ah))                              return 'blowjob';
+    if (/舔阴|cunnilingus|舔.*阴蒂/i.test(ah))                            return 'cunnilingus';
+    // Penetration — position-specific
+    if (/骑乘|cowgirl|riding/i.test(ah) && clothingState === 'naked')     return 'penetration_cowgirl';
+    if (/后入|doggy|from behind/i.test(ah) && clothingState === 'naked')  return 'penetration_doggy';
+    if (/传教士|missionary/i.test(ah) && clothingState === 'naked')       return 'penetration_missionary';
+    if (/侧入|spoon/i.test(ah) && clothingState === 'naked')              return 'penetration_spooning';
+    if ((/插入|penetration|intercourse/i.test(ah)) && clothingState === 'naked') return 'penetration_generic';
+    // Fingering
+    if (/手指.*阴|fingering/i.test(ah) && (clothingState === 'bottomless' || clothingState === 'naked')) return 'fingering';
   }
 
-  // ② Active sex — position-specific
+  // ② Cumulative acts fallback (same logic as before)
+  const hasClimax = /射精|高潮|潮吹|creampie|ahegao|orgasm|squirt/i.test(str);
+  if (hasClimax) return lastFocus === 'ahegao' ? 'creampie' : 'ahegao';
+
   const hasSex = /插入|性交|抽插|penetration|intercourse/i.test(str);
   if (hasSex) {
     if (/骑乘|cowgirl|riding on top/i.test(str))   return 'penetration_cowgirl';
@@ -121,29 +142,71 @@ function selectShotFocus(
     return 'penetration_generic';
   }
 
-  // ③ Oral
   const hasBlowjob = /口交.*阴茎|口含.*阴茎|blowjob|penis in mouth/i.test(str);
   const hasCunni   = /口交.*阴蒂|cunnilingus|舔.*阴蒂|lick.*clit/i.test(str);
   if (hasBlowjob) return 'blowjob';
   if (hasCunni)   return 'cunnilingus';
 
-  // ④ Fingering
   const hasFingering = /手指.*阴|阴蒂.*手指|fingering|finger.*pussy/i.test(str);
-  if (hasFingering && (clothingState === 'bottomless' || clothingState === 'naked')) {
-    return 'fingering';
-  }
+  if (hasFingering && (clothingState === 'bottomless' || clothingState === 'naked')) return 'fingering';
 
-  // ⑤ Based on clothing state
-  if (clothingState === 'naked') {
-    // Alternate breast ↔ pussy for visual variety
-    return lastFocus === 'breast' ? 'pussy' : 'breast';
-  }
+  // ③ Clothing state
+  if (clothingState === 'naked')      return lastFocus === 'breast' ? 'pussy' : 'breast';
   if (clothingState === 'bottomless') return 'pussy';
   if (clothingState === 'topless')    return 'breast';
 
-  // ⑥ Clothed states
+  // ④ Clothed
   if (intimacy < 20) return 'portrait';
   return 'medium';
+}
+
+/**
+ * Convert SceneState physical readings to ComfyUI prompt tags.
+ * These are APPENDED to the assembled prompt for realism accuracy.
+ */
+function sceneStateToTags(ss: SceneState, clothingState: ClothingState): string {
+  const tags: string[] = [];
+
+  // ── Wetness ──────────────────────────────────────────────────────────────
+  if (clothingState !== 'fully_clothed') {
+    if      (ss.w >= 5) tags.push('(squirting:1.4)', 'love juice flooding', 'drenched');
+    else if (ss.w >= 4) tags.push('(love juice dripping:1.5)', 'soaked thighs');
+    else if (ss.w >= 3) tags.push('dripping wet', '(love juice:1.3)');
+    else if (ss.w >= 2) tags.push('glistening wetness', 'wet');
+    else if (ss.w >= 1) tags.push('slightly wet');
+  }
+
+  // ── Breath + Voice → expression ──────────────────────────────────────────
+  const isGasping = /喘不过气|gasping/.test(ss.br);
+  const isPanting = /喘息|panting/.test(ss.br);
+  const isQuick   = /急促|quick/.test(ss.br);
+  const isLost    = /失控|uncontrolled/.test(ss.v);
+  const isLoud    = /放肆|loud/.test(ss.v);
+  const isMoaning = /呻吟|moaning/.test(ss.v);
+
+  if (isGasping && (isLost || isLoud))        tags.push('(ahegao:1.2)', 'eyes rolling back', 'tongue out');
+  else if (isPanting && isMoaning)             tags.push('moaning expression', 'open mouth', 'ecstatic face');
+  else if (isQuick && isMoaning)              tags.push('panting open mouth', 'flushed');
+  else if (isQuick)                            tags.push('flushed panting expression');
+
+  // ── Blush ─────────────────────────────────────────────────────────────────
+  if      (/全脸通红|full face/.test(ss.bl))  tags.push('(deeply flushed:1.3)', 'red all over face');
+  else if (/深红|deep red/.test(ss.bl))        tags.push('heavily blushed', 'deep red cheeks');
+  else if (/红晕|flushed/.test(ss.bl))         tags.push('blushing cheeks');
+
+  // ── Character-specific cs fields → prop tags ─────────────────────────────
+  if (ss.cs) {
+    const glasses = String(ss.cs['glasses'] ?? ss.cs['glasses'] ?? '');
+    if (/歪斜|crooked/.test(glasses))  tags.push('crooked glasses');
+    if (/摘掉|removed/.test(glasses))  tags.push('glasses removed, no glasses');
+    if (/labCoat/.toString()) {
+      const lc = String(ss.cs['labCoat'] ?? '');
+      if (/解开|open/.test(lc))  tags.push('open lab coat');
+      if (/脱|off/.test(lc))     tags.push('lab coat removed');
+    }
+  }
+
+  return tags.filter(Boolean).join(', ');
 }
 
 // ── Physical anchors ──────────────────────────────────────────────────────────
@@ -240,6 +303,7 @@ export async function shouldGenerateImage(
   sceneContext = '',
   clothingState: ClothingState = 'fully_clothed',
   lastShotFocus = 'none',
+  sceneState?: SceneState | null,
 ): Promise<{ generate: boolean; prompt?: string; twoShot?: boolean; shotFocus?: string }> {
 
   // Body anchor (face + build, no clothing)
@@ -248,8 +312,8 @@ export async function shouldGenerateImage(
   const faceAnchor    = character?.faceAnchor    || CHARACTER_FACE[characterName];
   const fullBodyAnchor= faceAnchor ? `${faceAnchor}, ${bodyAnchor}` : bodyAnchor;
 
-  // ── Step 1: Code selects shot focus ─────────────────────────────────────────
-  const shotFocus  = selectShotFocus(clothingState, recentActs, intimacyLevel, lastShotFocus);
+  // ── Step 1: Code selects shot focus (sceneState.a takes priority) ────────────
+  const shotFocus  = selectShotFocus(clothingState, recentActs, intimacyLevel, lastShotFocus, sceneState?.a);
   const shotPrefix = SHOT_PREFIXES[shotFocus];
 
   // ── Step 2: Decide whether to generate ──────────────────────────────────────
@@ -274,30 +338,40 @@ export async function shouldGenerateImage(
   const actsStr = recentActs.length > 0 ? recentActs.join(', ') : 'none yet';
   const sceneStr = sceneContext || character?.occupation || 'indoor setting';
 
+  // SceneState tags (pre-computed from physical state data)
+  const sceneStateTags = sceneState ? sceneStateToTags(sceneState, clothingState) : '';
+
+  const sceneStateStr = sceneState
+    ? `- Current action: ${sceneState.a || 'none'} | Posture: ${sceneState.p || 'none'} | Wetness: ${sceneState.w}/5 | Breath: ${sceneState.br} | Voice: ${sceneState.v}`
+    : '';
+
   const systemContent = `You are a content-detail extractor for an adult image prompt system.
 The framing and shot composition are already determined by the system — do NOT describe them.
+Physical state data (wetness, expression) is also handled by the system — do NOT repeat it.
 
-Your ONLY task: extract the specific content happening RIGHT NOW from the recent dialogue.
+Your ONLY task: extract any ADDITIONAL visual detail from the recent dialogue not covered by the physical state.
 
 Output strict JSON (no markdown, no extra text):
-{"generate": true/false, "details": "10-20 English words: current action + expression only"}
+{"generate": true/false, "details": "5-15 English words: any additional visual detail only"}
 
 Rules:
 - generate=true if: explicit body parts are involved, intimate contact is happening, or clothing state is exposed
 - generate=false if: only non-visual emotional dialogue, no intimacy
-- details: describe ONLY what's physically happening and the expression — NO framing/angle/composition words
+- details: describe ONLY additional visual detail not already covered by the state data below
+  (e.g. specific props, partner's hand position, unique scene element, clothing piece being removed)
 - details examples:
-    "nipple teasing, moaning softly, eyes half-closed, biting lip"
-    "cowgirl riding motion, breasts bouncing, ahegao, love juice dripping"
-    "fingers spreading labia, trembling thighs, whimpering, flushed red"
-    "sitting close, fingers intertwined, shy smile, flushed cheeks"
+    "nipple teasing, biting lip"
+    "hands gripping sheets, back arched"
+    "fingers spreading labia, inner thighs trembling"
+    "sitting close, fingers intertwined, shy smile"
+- Do NOT include: wetness level, expression (blushing/moaning/ahegao), breath — those come from physical state
 
 Current state:
 - Clothing: ${clothingDesc}
 - Shot (system-determined, do not describe): ${shotFocus}
 - Scene: ${sceneStr}
 - Acts so far: ${actsStr}
-- Intimacy: ${intimacyLevel}/100`;
+- Intimacy: ${intimacyLevel}/100${sceneStateStr ? '\n' + sceneStateStr : ''}`;
 
   const res = await fetch('https://api.x.ai/v1/chat/completions', {
     method: 'POST',
@@ -326,27 +400,30 @@ Current state:
     if (!shouldGen) return { generate: false, shotFocus };
 
     // ── Step 5: Assemble final prompt ───────────────────────────────────────────
-    // Structure: [bodyAnchor], [shotPrefix], [details], [scene], [twoShot flag]
-    const details   = (parsed.details || '').trim();
-    const scenePart = sceneContext || '';
-    const twoShotTag= twoShot ? ', 1boy 1girl' : '';
+    // Structure: [bodyAnchor], [shotPrefix], [grokDetails], [sceneStateTags], [scene], [twoShot]
+    const details    = (parsed.details || '').trim();
+    const scenePart  = sceneContext || '';
+    const twoShotTag = twoShot ? '1boy 1girl' : '';
 
     const finalPrompt = [
       fullBodyAnchor,
       shotPrefix,
       details,
+      sceneStateTags,   // ← physical state tags from SceneState
       scenePart,
       twoShotTag,
     ].filter(Boolean).join(', ');
 
-    console.log(`[ImageGen] shot=${shotFocus} clothing=${clothingState} prompt=${finalPrompt.slice(0, 150)}`);
+    console.log(`[ImageGen] shot=${shotFocus} clothing=${clothingState} sceneState_w=${sceneState?.w ?? '-'} prompt=${finalPrompt.slice(0, 160)}`);
 
     return { generate: true, prompt: finalPrompt, twoShot, shotFocus };
 
   } catch {
     // On parse error: if exposed, still generate with shot prefix + minimal details
     if (forceGenerate) {
-      const fallback = `${fullBodyAnchor}, ${shotPrefix}, ${clothingDesc}${sceneContext ? ', ' + sceneContext : ''}`;
+      const fallback = [
+        fullBodyAnchor, shotPrefix, clothingDesc, sceneStateTags, sceneContext,
+      ].filter(Boolean).join(', ');
       return { generate: true, prompt: fallback, twoShot, shotFocus };
     }
     return { generate: false, shotFocus };

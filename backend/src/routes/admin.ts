@@ -746,6 +746,7 @@ adminRouter.post('/simulate-chat', async (req: Request, res: Response): Promise<
     const derivedCS = deriveClothingState(newActsSoFar);
     const nextCS: ClothingState = CLOTHING_STATE_RANK[derivedCS] >= CLOTHING_STATE_RANK[prevCS] ? derivedCS : prevCS;
     userMemory._clothingState = nextCS;
+    if (meta.sceneState) userMemory._sceneState = meta.sceneState;
 
     context.push({ role: 'user', content: userMsg });
     context.push({ role: 'assistant', content: cleanReply });
@@ -768,7 +769,8 @@ adminRouter.post('/simulate-chat', async (req: Request, res: Response): Promise<
           { role: 'assistant' as const, content: cleanReply },
         ];
         const lastFocus = (userMemory._lastShotFocus as string | undefined) ?? 'none';
-        const imgDecision = await shouldGenerateImage(character.name, recentForImage, character, intimacy, newActsSoFar, meta.scene || character.occupation || '', nextCS, lastFocus);
+        const currentSceneState = (userMemory._sceneState ?? null) as any;
+        const imgDecision = await shouldGenerateImage(character.name, recentForImage, character, intimacy, newActsSoFar, meta.scene || character.occupation || '', nextCS, lastFocus, currentSceneState);
         if (imgDecision.shotFocus) userMemory._lastShotFocus = imgDecision.shotFocus;
         if (imgDecision.generate && imgDecision.prompt) {
           send({ type: 'image_pending', turn: i + 1, prompt: imgDecision.prompt });

@@ -228,6 +228,7 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
       meta.scene || character.occupation || '',
       finalClothingState,
       lastShotFocus,
+      newSceneState,
     ),
     Promise.all([
       conversation
