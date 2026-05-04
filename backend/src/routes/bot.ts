@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { handleStarsWebhook } from './payments';
 
 export const botRouter = Router();
 
@@ -23,6 +24,14 @@ botRouter.post('/webhook', async (req: Request, res: Response): Promise<void> =>
   }
 
   const update = req.body;
+
+  // Handle Telegram Stars payments
+  if (update.pre_checkout_query || update.message?.successful_payment) {
+    await handleStarsWebhook(update);
+    res.json({ ok: true });
+    return;
+  }
+
   const msg = update.message;
 
   if (msg?.text?.startsWith('/start')) {
@@ -76,7 +85,7 @@ botRouter.post('/setup', async (req: Request, res: Response): Promise<void> => {
   const webhookRes = await tg('setWebhook', {
     url: webhookUrl,
     secret_token: WEBHOOK_SECRET,
-    allowed_updates: ['message', 'callback_query'],
+    allowed_updates: ['message', 'callback_query', 'pre_checkout_query'],
   });
 
   res.json({ menuRes, descRes, shortDescRes, webhookRes });

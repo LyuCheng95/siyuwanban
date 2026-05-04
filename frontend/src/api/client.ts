@@ -142,6 +142,11 @@ export const api = {
         '/payments/crypto/create-invoice',
         { method: 'POST', body: JSON.stringify({ tierIndex }) }
       ),
+    starsInvoice: (tierIndex: number) =>
+      request<{ invoiceLink: string; stars: number; diamonds: number }>(
+        '/payments/stars/create-invoice',
+        { method: 'POST', body: JSON.stringify({ tierIndex }) }
+      ),
   },
 
   images: {

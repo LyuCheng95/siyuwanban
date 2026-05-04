@@ -16,6 +16,7 @@ export interface PaymentTier {
   diamonds: number;
   usd: number | string;
   usdt?: string;
+  stars?: number;
   label: string;
   bonus: string;
   monthly?: boolean;

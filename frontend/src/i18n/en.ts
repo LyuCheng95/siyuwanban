@@ -149,6 +149,7 @@ export const en: Strings = {
     diamonds: '',
     tabUsdt: '💵 Crypto (USDT)',
     tabCard: '💳 Card',
+    tabStars: '⭐ Stars',
     selectTier: 'Pick a pack → get a unique amount → transfer → auto credit',
     processing: 'Processing…',
     usdtFee: 'USDT TRC-20 · 0% fee · Auto credit',
@@ -175,6 +176,9 @@ export const en: Strings = {
     monthlyBadge: 'Monthly',
     monthlyHint: 'Best value for regular users',
     tierPacks: 'Diamond Packs',
+    starsHint: 'Pay with Telegram Stars · No card needed',
+    starsWaiting: 'Diamonds will arrive automatically once payment is confirmed…',
+    starsOpening: 'Opening payment…',
   },
 
   leaderboard: {

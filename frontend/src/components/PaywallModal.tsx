@@ -9,7 +9,7 @@ interface Props {
   onSuccess: (newDiamonds: number) => void;
 }
 
-type Tab = 'usdt' | 'card';
+type Tab = 'usdt' | 'card' | 'stars';
 
 export function PaywallModal({ currentDiamonds, onClose, onSuccess }: Props) {
   const { t } = useLang();
@@ -89,6 +89,37 @@ export function PaywallModal({ currentDiamonds, onClose, onSuccess }: Props) {
     }
   }
 
+  // ── Telegram Stars ────────────────────────────────────────────────────────
+  async function buyStars(tierIndex: number) {
+    setSelectedTier(tierIndex);
+    setLoading(true);
+    setUsdtStatus(t.paywall.starsOpening);
+    try {
+      const { invoiceLink } = await api.payments.starsInvoice(tierIndex);
+      const tgWebApp = (window as any).Telegram?.WebApp;
+      if (tgWebApp?.openInvoice) {
+        tgWebApp.openInvoice(invoiceLink, (status: string) => {
+          if (status === 'paid') {
+            startPolling();
+          } else {
+            setLoading(false);
+            setSelectedTier(null);
+            setUsdtStatus(status === 'cancelled' ? null : `支付状态：${status}`);
+          }
+        });
+      } else {
+        // Fallback: open in browser (won't get callback, poll anyway)
+        window.open(invoiceLink, '_blank');
+        startPolling();
+      }
+      setUsdtStatus(null);
+    } catch (e: any) {
+      setUsdtStatus('创建失败：' + e.message);
+      setLoading(false);
+      setSelectedTier(null);
+    }
+  }
+
   // ── Card (Stripe) ─────────────────────────────────────────────────────────
   async function buyCard(tierIndex: number) {
     setSelectedTier(tierIndex);
@@ -117,6 +148,106 @@ export function PaywallModal({ currentDiamonds, onClose, onSuccess }: Props) {
     setLoading(false);
     setSelectedTier(null);
     setUsdtStatus(null);
+  }
+
+  function renderStarsTierButton(tier: PaymentTier) {
+    const isPopular = tier.id === 1;
+    const isMonthly = !!tier.monthly;
+    const isBest = tier.id === 3;
+
+    const borderColor = isMonthly
+      ? 'rgba(255,200,50,0.45)'
+      : isPopular
+        ? 'rgba(232,53,108,0.4)'
+        : isBest
+          ? 'rgba(120,80,255,0.4)'
+          : 'rgba(255,255,255,0.1)';
+
+    const bg = isMonthly
+      ? 'rgba(255,200,50,0.1)'
+      : isPopular
+        ? 'rgba(232,53,108,0.12)'
+        : isBest
+          ? 'rgba(120,80,255,0.1)'
+          : 'rgba(255,255,255,0.05)';
+
+    const effectiveDiamonds = isFirstPurchase ? tier.diamonds * 2 : tier.diamonds;
+    const stars = tier.stars ?? 0;
+
+    return (
+      <button
+        key={tier.id}
+        onClick={() => buyStars(tier.id)}
+        disabled={loading}
+        style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          padding: '14px 18px',
+          background: bg,
+          border: `1px solid ${borderColor}`,
+          borderRadius: 14, width: '100%', textAlign: 'left',
+          cursor: loading ? 'default' : 'pointer',
+          opacity: loading && selectedTier !== tier.id ? 0.5 : 1,
+          transition: 'all 0.2s',
+          position: 'relative',
+        }}
+      >
+        {isMonthly && (
+          <div style={{
+            position: 'absolute', top: -1, right: -1,
+            background: 'linear-gradient(135deg, #f5c842, #e8a020)',
+            borderRadius: '0 13px 0 10px',
+            padding: '3px 10px', fontSize: 11, fontWeight: 700, color: '#1a0a24',
+          }}>
+            {t.paywall.monthlyBadge}
+          </div>
+        )}
+        {isPopular && !isMonthly && (
+          <div style={{
+            position: 'absolute', top: -1, right: -1,
+            background: 'linear-gradient(135deg, #e8356c, #9a1258)',
+            borderRadius: '0 13px 0 10px',
+            padding: '3px 10px', fontSize: 11, fontWeight: 700, color: 'white',
+          }}>🔥</div>
+        )}
+        {isBest && !isMonthly && (
+          <div style={{
+            position: 'absolute', top: -1, right: -1,
+            background: 'linear-gradient(135deg, #7850ff, #4020c0)',
+            borderRadius: '0 13px 0 10px',
+            padding: '3px 10px', fontSize: 11, fontWeight: 700, color: 'white',
+          }}>💎</div>
+        )}
+
+        <div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: 'rgba(245,225,255,0.95)', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span>💎 {effectiveDiamonds}</span>
+            {isFirstPurchase && (
+              <span style={{ fontSize: 11, color: '#f5c842', background: 'rgba(245,200,50,0.15)', borderRadius: 6, padding: '1px 6px' }}>
+                ×2
+              </span>
+            )}
+          </div>
+          {isMonthly
+            ? <div style={{ fontSize: 12, color: 'rgba(245,200,80,0.7)', marginTop: 2 }}>{t.paywall.monthlyHint}</div>
+            : null}
+        </div>
+        <div style={{
+          background: isMonthly
+            ? 'linear-gradient(135deg, #f5c842, #c88010)'
+            : isPopular
+              ? 'linear-gradient(135deg, #e8356c, #9a1258)'
+              : isBest
+                ? 'linear-gradient(135deg, #7850ff, #4020c0)'
+                : 'rgba(255,255,255,0.1)',
+          borderRadius: 20, padding: '6px 14px',
+          fontSize: 14, fontWeight: 700,
+          color: isMonthly ? '#1a0a24' : 'white',
+          minWidth: 80, textAlign: 'center', flexShrink: 0,
+        }}>
+          {selectedTier === tier.id && loading ? t.paywall.starsOpening : `⭐ ${stars}`}
+        </div>
+      </button>
+    );
   }
 
   // Split tiers: monthly card first, then regular sorted by diamonds
@@ -286,7 +417,7 @@ export function PaywallModal({ currentDiamonds, onClose, onSuccess }: Props) {
           display: 'flex', background: 'rgba(255,255,255,0.06)',
           borderRadius: 12, padding: 4, marginBottom: 20,
         }}>
-          {([['usdt', t.paywall.tabUsdt], ['card', t.paywall.tabCard]] as [Tab, string][]).map(([tabKey, label]) => (
+          {([['usdt', t.paywall.tabUsdt], ['card', t.paywall.tabCard], ['stars', t.paywall.tabStars]] as [Tab, string][]).map(([tabKey, label]) => (
             <button key={tabKey} onClick={() => { setTab(tabKey); resetUsdt(); }} style={{
               flex: 1, padding: '9px 0', border: 'none', borderRadius: 9, cursor: 'pointer',
               fontSize: 13, fontWeight: 600, transition: 'all 0.2s',
@@ -409,6 +540,45 @@ export function PaywallModal({ currentDiamonds, onClose, onSuccess }: Props) {
               {t.paywall.changeTier}
             </button>
           </div>
+        )}
+
+        {/* ── Stars tab ── */}
+        {tab === 'stars' && (
+          <>
+            {/* Monthly card (featured) */}
+            {monthlyTier && (
+              <div style={{ marginBottom: 10 }}>
+                {renderStarsTierButton(monthlyTier)}
+              </div>
+            )}
+
+            {monthlyTier && regularTiers.length > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.08)' }} />
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)' }}>{t.paywall.tierPacks}</div>
+                <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.08)' }} />
+              </div>
+            )}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {regularTiers.map(tier => renderStarsTierButton(tier))}
+            </div>
+
+            {usdtStatus && (
+              <div style={{ marginTop: 12, textAlign: 'center', fontSize: 13, color: 'rgba(180,130,210,0.7)' }}>
+                {usdtStatus}
+              </div>
+            )}
+            {loading && !usdtStatus && (
+              <div style={{ textAlign: 'center', marginTop: 14, fontSize: 13, color: 'rgba(180,130,210,0.55)' }}>
+                {t.paywall.starsWaiting}
+              </div>
+            )}
+
+            <div style={{ textAlign: 'center', marginTop: 14, fontSize: 12, color: 'rgba(255,255,255,0.2)' }}>
+              {t.paywall.starsHint}
+            </div>
+          </>
         )}
 
         {/* ── Card tab ── */}

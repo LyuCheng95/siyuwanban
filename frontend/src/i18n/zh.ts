@@ -154,6 +154,7 @@ export const zh = {
     diamonds: '颗',
     tabUsdt: '💵 USDT 加密货币',
     tabCard: '💳 银行卡',
+    tabStars: '⭐ Stars',
     selectTier: '选择档位 → 获得专属金额 → 转账 → 自动到账',
     processing: '处理中…',
     usdtFee: 'USDT TRC-20 · 0手续费 · 自动到账',
@@ -180,6 +181,9 @@ export const zh = {
     monthlyBadge: '月卡',
     monthlyHint: '每月复购最划算',
     tierPacks: '充值套餐',
+    starsHint: '通过 Telegram Stars 支付 · 无需银行卡',
+    starsWaiting: '支付完成后钻石将自动到账，请稍候…',
+    starsOpening: '打开支付…',
   },
 
   // Leaderboard

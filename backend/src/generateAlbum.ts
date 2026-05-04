@@ -14,6 +14,7 @@ import fetch from 'node-fetch';
 import fs from 'fs';
 import path from 'path';
 import { CHARACTER_FACE } from './characterFace';
+import { generatePortraitPrompts, resolveModel, MODEL_FILES } from './services/generatePortraitPrompts';
 
 const prisma = new PrismaClient();
 const COMFYUI_URL = process.env.COMFYUI_URL || 'http://127.0.0.1:8188';
@@ -304,72 +305,90 @@ async function waitForImage(promptId: string): Promise<string> {
   throw new Error('Timeout waiting for image');
 }
 
-const CHAR_SLUG: Record<string, string> = {
-  '椎名老师': 'zhui', '晓彤': 'tong', '娜娜': 'nana', '小雨': 'yu',
-  '琉璃': 'luli', '糖糖': 'tang', '沈静': 'shen', '小慧': 'hui',
-  '夜玲': 'ling', '晴晴': 'qing', '唐诗': 'shi', '阿柒': 'qi',
-  'X-23': 'x23', '幻音': 'huan', '狐九': 'hujiu', '冷霜': 'shuang', '魅罗': 'mei',
-  '桃桃': 'taotao',
-};
+function charSlug(name: string): string {
+  const MAP: Record<string, string> = {
+    '椎名老师': 'zhui', '晓彤': 'tong', '娜娜': 'nana', '小雨': 'yu',
+    '琉璃': 'luli', '糖糖': 'tang', '沈静': 'shen', '小慧': 'hui',
+    '夜玲': 'ling', '晴晴': 'qing', '唐诗': 'shi', '阿柒': 'qi',
+    'X-23': 'x23', '幻音': 'huan', '狐九': 'hujiu', '冷霜': 'shuang', '魅罗': 'mei',
+    '桃桃': 'taotao',
+  };
+  return MAP[name] ?? name.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+}
 
 async function downloadAndSave(filename: string, charName: string, idx: number): Promise<string> {
   const res = await fetch(`${COMFYUI_URL}/view?filename=${filename}&type=output`);
   if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
   const buffer = await res.buffer();
   fs.mkdirSync(SAVE_DIR, { recursive: true });
-  const slug = CHAR_SLUG[charName] ?? charName.replace(/[^a-zA-Z0-9]/g, '_');
-  const saveName = `album_${slug}_${idx}_${Date.now()}.png`;
-  const savePath = path.join(SAVE_DIR, saveName);
-  fs.writeFileSync(savePath, buffer);
+  const saveName = `album_${charSlug(charName)}_${idx}_${Date.now()}.png`;
+  fs.writeFileSync(path.join(SAVE_DIR, saveName), buffer);
   return `${PUBLIC_BASE}/images/${saveName}`;
 }
 
-// ── 单角色生成 ──────────────────────────────────────────────────────────────
-async function generateOne(charName: string, count: number, systemUserId: string) {
-  const config = ALBUM_CONFIGS[charName];
+// Resolve modelFile from DB imageModel or ALBUM_CONFIGS or auto-detect
+function getModelFile(char: any, config?: CharConfig): string {
+  if (config?.model) return config.model;
+  const model = resolveModel(char);
+  return MODEL_FILES[model];
+}
 
-  const char = await prisma.character.findFirst({
-    where: { name: charName }
-  });
-  if (!char) { console.error(`  ⚠️  找不到角色 "${charName}"，跳过`); return; }
+function isAnimeModel(modelFile: string): boolean {
+  return modelFile.includes('noob') || modelFile.includes('pony');
+}
+
+// ── 单角色生成 ──────────────────────────────────────────────────────────────
+async function generateOne(char: any, count: number) {
+  const config = ALBUM_CONFIGS[char.name];
+  const modelFile = getModelFile(char, config);
+  const anime = isAnimeModel(modelFile);
+  const style: 'real' | 'anime' = anime ? 'anime' : 'real';
+  const modelLabel = modelFile.replace('.safetensors', '').split('_')[0];
 
   let prompts: string[];
-  let style: 'real' | 'anime';
-  if (config) {
-    prompts = config.prompts;
-    style = config.style;
+
+  // Priority: 1) DB portraitPrompts  2) hardcoded ALBUM_CONFIGS  3) AI-generated
+  const dbPrompts = Array.isArray(char.portraitPrompts) ? char.portraitPrompts as string[] : [];
+
+  if (dbPrompts.length > 0) {
+    prompts = dbPrompts.slice(0, count);
+    console.log(`  🗄️  使用 DB 预设 prompt`);
+  } else if (config) {
+    prompts = config.prompts.slice(0, count);
+    console.log(`  📋 使用代码预设 prompt`);
   } else {
-    console.log(`  ⚠️  "${charName}" 无预设 prompt，使用通用模板`);
-    prompts = REAL_FALLBACK_PROMPTS(charName, char.age, char.occupation);
-    style = 'real';
+    console.log(`  🤖 调用 AI 生成 prompt...`);
+    try {
+      prompts = await generatePortraitPrompts({ ...char });
+      console.log(`  ✅ AI 生成了 ${prompts.length} 条 prompt`);
+    } catch (e: any) {
+      console.log(`  ❌ AI 生成失败: ${e.message}，使用通用模板`);
+      prompts = REAL_FALLBACK_PROMPTS(char.name, char.age, char.occupation);
+    }
   }
 
-  // 注入面部气质锚点（每角色唯一，保证同角色三张脸一致且与他人不同）
-  const faceAnchor = CHARACTER_FACE[charName];
-  if (faceAnchor) {
-    prompts = prompts.map(p => `${faceAnchor}, ${p}`);
-  }
+  // DB faceAnchor takes priority over hardcoded CHARACTER_FACE
+  const faceAnchor = char.faceAnchor || CHARACTER_FACE[char.name];
+  if (faceAnchor) prompts = prompts.map(p => `${faceAnchor}, ${p}`);
 
-  const modelFile = config?.model ?? (style === 'anime' ? MODEL_ANIME : MODEL_JUGGER);
-  const modelLabel = modelFile.replace('.safetensors', '').split('_')[0];
-  console.log(`\n🎨 [${charName}]  模型：${modelLabel}`);
+  console.log(`\n🎨 [${char.name}]  模型：${modelLabel}  prompt数：${prompts.length}`);
 
   const urls: string[] = [];
-  for (let i = 0; i < Math.min(count, prompts.length); i++) {
-    const prompt = prompts[i];
-    process.stdout.write(`  [${i + 1}/${count}] 生成中... `);
+  const toGenerate = Math.min(count, prompts.length);
+  for (let i = 0; i < toGenerate; i++) {
+    process.stdout.write(`  [${i + 1}/${toGenerate}] 生成中... `);
     try {
       const seed = Math.floor(Math.random() * 2 ** 32);
-      const workflow = buildWorkflow(prompt, seed, style, config?.model);
+      const workflow = buildWorkflow(prompts[i], seed, style, modelFile);
       const promptId = await queuePrompt(workflow);
       const filename = await waitForImage(promptId);
-      const url = await downloadAndSave(filename, charName, i + 1);
+      const url = await downloadAndSave(filename, char.name, i + 1);
       urls.push(url);
-      console.log(`✅`);
+      console.log(`✅  ${url.split('/').pop()}`);
     } catch (err: any) {
       console.log(`❌ ${err.message}`);
     }
-    if (i < count - 1) await new Promise(r => setTimeout(r, 1500));
+    if (i < toGenerate - 1) await new Promise(r => setTimeout(r, 1500));
   }
 
   if (urls.length > 0) {
@@ -377,36 +396,47 @@ async function generateOne(charName: string, count: number, systemUserId: string
       where: { id: char.id },
       data: { portraitUrl: urls[0], portraitImages: urls },
     });
-    console.log(`  ✅ ${charName} 已写入 DB（${urls.length} 张）`);
+    console.log(`  💾 ${char.name} 已写入 DB（${urls.length} 张）`);
   }
 }
 
 // ── Main ────────────────────────────────────────────────────────────────────
 async function main() {
-  const arg      = process.argv[2] || '林晓雅';
-  const count    = parseInt(process.argv[3] || '3', 10);
-  const runAll   = arg === 'all';
+  const arg   = process.argv[2];  // 角色名 | 'all' | 'pending' | 不传=pending
+  const count = parseInt(process.argv[3] || '3', 10);
 
-  const systemUser = await prisma.user.findUnique({ where: { telegramId: BigInt(1) } });
-  if (!systemUser) { console.error('System user not found'); process.exit(1); }
+  // 'pending' or no arg: generate for all characters that have no portraitImages
+  const mode = arg === 'all' ? 'all' : (!arg || arg === 'pending') ? 'pending' : 'single';
 
-  if (runAll) {
-    const names = Object.keys(ALBUM_CONFIGS);
-    console.log(`\n🎨 全量生成模式 — 共 ${names.length} 个角色，每人 ${count} 张\n`);
-    for (let idx = 0; idx < names.length; idx++) {
-      const name = names[idx];
-      console.log(`── [${idx + 1}/${names.length}] ${name} ──`);
-      await generateOne(name, count, systemUser.id);
-      await new Promise(r => setTimeout(r, 2000));
-    }
-    console.log('\n✨ 全部完成！');
-    console.log('📤 同步到服务器：');
-    console.log('scp D:/SD/siyuwanban/portraits/*.png root@168.144.108.9:/var/www/siyuwanban/images/');
+  let chars: any[];
+
+  if (mode === 'single') {
+    const c = await prisma.character.findFirst({ where: { name: arg! } });
+    if (!c) { console.error(`找不到角色 "${arg}"`); process.exit(1); }
+    chars = [c];
+  } else if (mode === 'pending') {
+    // Only characters without portraitImages (empty array or null)
+    const all = await prisma.character.findMany({ where: { isPublic: true }, orderBy: { createdAt: 'asc' } });
+    chars = all.filter(c => {
+      const imgs = Array.isArray(c.portraitImages) ? c.portraitImages as string[] : [];
+      return imgs.length === 0;
+    });
+    if (chars.length === 0) { console.log('✅ 所有公开角色均已有图片，无需生成'); process.exit(0); }
+    console.log(`\n🔍 找到 ${chars.length} 个无图片角色：${chars.map(c => c.name).join('、')}\n`);
   } else {
-    await generateOne(arg, count, systemUser.id);
-    console.log('\n📤 同步到服务器：');
-    console.log('scp D:/SD/siyuwanban/portraits/*.png root@168.144.108.9:/var/www/siyuwanban/images/');
+    // 'all': regenerate everything
+    chars = await prisma.character.findMany({ where: { isPublic: true }, orderBy: { createdAt: 'asc' } });
+    console.log(`\n🎨 全量重新生成模式 — 共 ${chars.length} 个角色\n`);
   }
+
+  for (let i = 0; i < chars.length; i++) {
+    console.log(`\n── [${i + 1}/${chars.length}] ${chars[i].name} ──`);
+    await generateOne(chars[i], count);
+    if (i < chars.length - 1) await new Promise(r => setTimeout(r, 2000));
+  }
+
+  console.log('\n✨ 完成！');
+  console.log('📤 同步到服务器：scp "D:/SD/siyuwanban/portraits/*.png" root@168.144.108.9:/var/www/siyuwanban/images/');
 }
 
 main().catch(console.error).finally(() => prisma.$disconnect());
