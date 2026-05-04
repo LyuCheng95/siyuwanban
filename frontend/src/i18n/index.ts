@@ -12,18 +12,19 @@ function detectDefaultLang(): Lang {
   const saved = localStorage.getItem(STORAGE_KEY) as Lang | null;
   if (saved === 'zh' || saved === 'en') return saved;
 
-  // 2. Telegram language_code
+  // 2. Telegram language_code — only switch to zh if explicitly Chinese
   try {
     const tg = (window as any).Telegram?.WebApp;
     const langCode = tg?.initDataUnsafe?.user?.language_code as string | undefined;
-    if (langCode && !langCode.startsWith('zh')) return 'en';
+    if (langCode?.startsWith('zh')) return 'zh';
   } catch {}
 
-  // 3. Browser language
+  // 3. Browser language — only switch to zh if explicitly Chinese
   const bl = navigator.language || '';
-  if (!bl.startsWith('zh')) return 'en';
+  if (bl.startsWith('zh')) return 'zh';
 
-  return 'zh';
+  // 4. Default: English
+  return 'en';
 }
 
 // Singleton state

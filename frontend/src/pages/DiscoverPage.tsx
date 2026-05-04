@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
-import { useLang } from '../hooks/useLang';
-import { charField } from '../i18n';
+import { useLang, toggleLang } from '../hooks/useLang';
+import { charField, setLang } from '../i18n';
 import type { Character } from '../types';
 
 const CHARACTER_CATEGORY: Record<string, string> = {
@@ -46,7 +46,7 @@ function formatCount(n: number): string {
 
 export function DiscoverPage() {
   const navigate = useNavigate();
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const [characters, setCharacters] = useState<Character[]>([]);
   const [category, setCategory] = useState('全部');
   const [search, setSearch] = useState('');
@@ -106,8 +106,32 @@ export function DiscoverPage() {
             <div style={{ fontSize: 11, color: 'var(--text-hint)', marginTop: 1 }}>{t.discover.subtitle}</div>
           </div>
         </div>
-        <div style={{ fontSize: 12, color: 'var(--text-hint)', fontWeight: 500 }}>
-          {total > 0 && `${total}${t.discover.charCount ? ' ' + t.discover.charCount : ''}`}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {total > 0 && (
+            <div style={{ fontSize: 12, color: 'var(--text-hint)', fontWeight: 500 }}>
+              {total}{t.discover.charCount ? ' ' + t.discover.charCount : ''}
+            </div>
+          )}
+          {/* Language toggle */}
+          <button
+            onClick={() => setLang(toggleLang(lang))}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 3,
+              background: 'rgba(255,255,255,0.06)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: 16, padding: '4px 10px',
+              cursor: 'pointer', fontSize: 12, fontWeight: 600,
+              color: 'rgba(220,180,255,0.85)',
+              backdropFilter: 'blur(8px)',
+              transition: 'all 0.2s ease',
+              letterSpacing: '0.3px',
+            }}
+            title={lang === 'en' ? '切换到中文' : 'Switch to English'}
+          >
+            <span style={{ opacity: lang === 'en' ? 1 : 0.45, fontSize: 11 }}>EN</span>
+            <span style={{ opacity: 0.3, fontSize: 10, margin: '0 1px' }}>|</span>
+            <span style={{ opacity: lang === 'zh' ? 1 : 0.45, fontSize: 11 }}>中</span>
+          </button>
         </div>
       </div>
 
