@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
 import { prisma } from '../utils/prisma';
-import { buildCharacterSystemPrompt, chatStream, extractUserMemory, parseMeta, Message } from '../services/grok';
+import { buildCharacterSystemPrompt, chatStream, extractUserMemory, parseMeta, Message, SceneState } from '../services/grok';
 import { shouldGenerateImage, deriveClothingState, CLOTHING_STATE_RANK, ClothingState } from '../services/comfyui';
 
 export const chatRouter = Router();
@@ -192,6 +192,10 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
     { role: 'assistant', content: cleanReply },
   ];
 
+  // Ratchet sceneState — keep last non-null value if AI skips it
+  const prevSceneState = (userMemory as any)._sceneState ?? null;
+  const newSceneState: SceneState | null = meta.sceneState ?? prevSceneState;
+
   const updatedUserMemory = {
     ...userMemory,
     _intimacyLevel: newIntimacy,
@@ -204,6 +208,7 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
     _questionCount: newQuestionCount,
     _totalTurns: ((userMemory as any)._totalTurns ?? 0) + 1,
     _clothingState: finalClothingState,
+    _sceneState: newSceneState,
     // _lastShotFocus updated after imageDecision resolves (see below)
   };
 
@@ -267,6 +272,7 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
     imageTwoShot: imageDecision.generate ? (imageDecision.twoShot ?? false) : false,
     phase: newPhaseIndex,
     questionCount: newQuestionCount,
+    sceneState: newSceneState,
   })}\n\n`);
 
   // Persist updated shot focus to conversation memory (fire and forget)
@@ -306,6 +312,7 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
           _mood: meta.mood,
           _clothingState: finalClothingState,
           _lastShotFocus: imageDecision.shotFocus ?? lastShotFocus,
+          _sceneState: newSceneState,
         } as object },
       }).catch(() => {});
     });

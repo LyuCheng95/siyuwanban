@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useLang } from '../hooks/useLang';
@@ -8,6 +8,16 @@ import { getOpeningMessage, buildScenePrompt } from '../utils/characterData';
 import { intimacyColor, intimacyLabel, dominanceColor, dominanceLabel, desireColor, desireLabel, attachColor, attachLabel } from '../utils/intimacyStats';
 import { renderContent, countSegments, StatDeltaToast, type DeltaEntry } from '../components/ChatBubble';
 import { PaywallModal } from '../components/PaywallModal';
+
+interface SceneState {
+  a:  string;
+  p:  string;
+  w:  number;
+  br: string;
+  bl: string;
+  v:  string;
+  cs?: Record<string, string | number>;
+}
 
 interface Props {
   user: User;
@@ -43,6 +53,7 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
   const [albumImages, setAlbumImages] = useState<string[]>([]);
   const [albumOpen, setAlbumOpen] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [sceneState, setSceneState] = useState<SceneState | null>(null);
 
   // stat delta toasts
   const [deltaEntries, setDeltaEntries] = useState<DeltaEntry[]>([]);
@@ -273,6 +284,7 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
               setSuggestions(data.suggestions || []);
               if (data.questionCount) setQuestionCount(data.questionCount);
               if (data.phase != null)  setCurrentPhase(data.phase);
+              if (data.sceneState)     setSceneState(data.sceneState);
               // 浮动提示
               showDeltas(ni, prevIntimacy, nd, prevDesire, na, prevAttach, nm, prevDominance);
               // scene image
@@ -380,43 +392,87 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
           </div>
         </div>
 
-        {/* 4-metric mini dots */}
+        {/* Status button — pill with 4 colored dots */}
         <button
           onClick={() => setStatusOpen(true)}
-          style={{ background:'none', border:'none', cursor:'pointer', padding:'4px 6px',
-            flexShrink:0, display:'flex', flexDirection:'column', gap:3, alignItems:'center' }}
+          style={{
+            background: 'rgba(255,255,255,0.05)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: 20,
+            cursor: 'pointer',
+            padding: '5px 9px',
+            flexShrink: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 3,
+            alignItems: 'center',
+            backdropFilter: 'blur(8px)',
+            transition: 'all 0.2s ease',
+          }}
         >
-          <div style={{ display:'flex', gap:3 }}>
+          <div style={{ display:'flex', gap:4 }}>
             <MiniDot value={intimacy}  color='#e8356c' />
             <MiniDot value={dominance} color='#f59e0b' />
             <MiniDot value={desire}    color='#ef4444' />
             <MiniDot value={attach}    color='#a855f7' />
           </div>
-          <div style={{ fontSize:9, color:'rgba(160,100,200,0.6)', letterSpacing:0.3 }}>{t.chat.statusBtn}</div>
+          <div style={{ fontSize:8, color:'rgba(160,100,200,0.55)', letterSpacing:0.4, fontWeight:500 }}>状态</div>
         </button>
 
         {/* Album button */}
         {albumImages.length > 0 && (
           <button
             onClick={() => setAlbumOpen(true)}
-            style={{ background:'none', border:'none', cursor:'pointer', padding:'4px 6px',
-              flexShrink:0, color:'rgba(200,150,230,0.75)', display:'flex', alignItems:'center' }}
+            style={{
+              background: 'rgba(255,255,255,0.05)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: 20,
+              cursor: 'pointer',
+              padding: '5px 8px',
+              flexShrink: 0,
+              color: 'rgba(200,150,230,0.8)',
+              display: 'flex',
+              alignItems: 'center',
+              backdropFilter: 'blur(8px)',
+            }}
             title="相册"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
               <polyline points="21 15 16 10 5 21"/>
             </svg>
           </button>
         )}
 
-        {/* Credits — diamonds only */}
+        {/* Credits badge — glowing pill */}
         <button
-          className="credits-badge"
           onClick={() => setShowPaywall(true)}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+          style={{
+            background: credits.paid <= 3
+              ? 'linear-gradient(135deg, rgba(232,53,108,0.25), rgba(154,18,88,0.2))'
+              : 'linear-gradient(135deg, rgba(80,40,120,0.35), rgba(50,20,80,0.3))',
+            border: credits.paid <= 3
+              ? '1px solid rgba(232,53,108,0.4)'
+              : '1px solid rgba(168,85,247,0.25)',
+            borderRadius: 20,
+            cursor: 'pointer',
+            padding: '5px 10px',
+            flexShrink: 0,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+            backdropFilter: 'blur(8px)',
+            boxShadow: credits.paid <= 3 ? '0 0 10px rgba(232,53,108,0.2)' : 'none',
+            transition: 'all 0.3s ease',
+          }}
         >
-          <span className={credits.paid <= 3 ? 'paid' : 'free'}>💎{credits.paid}</span>
+          <span style={{ fontSize: 13 }}>💎</span>
+          <span style={{
+            fontSize: 12,
+            fontWeight: 700,
+            color: credits.paid <= 3 ? '#fca5a5' : 'rgba(220,180,255,0.9)',
+            letterSpacing: '-0.3px',
+          }}>{credits.paid}</span>
         </button>
       </div>
 
@@ -460,6 +516,71 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
         }} />
       </div>
 
+      {/* ── Scene state bar ───────────────────────────────────────────────── */}
+      {sceneState && sceneState.a && sceneState.a !== '什么都没做' && sceneState.a !== 'nothing yet' && sceneState.a !== 'eye contact' && sceneState.a.trim() !== '' && (
+        <div
+          onClick={() => setStatusOpen(true)}
+          style={{
+            display:'flex', alignItems:'center', gap:8,
+            padding:'5px 14px',
+            background:'linear-gradient(90deg,rgba(20,5,35,0.85),rgba(35,8,55,0.8))',
+            borderBottom:'1px solid rgba(168,85,247,0.1)',
+            flexShrink:0, cursor:'pointer', overflowX:'auto',
+            scrollbarWidth:'none',
+          }}
+        >
+          {/* Action */}
+          <div style={{ display:'flex', alignItems:'center', gap:4, flexShrink:0 }}>
+            <span style={{ fontSize:10, color:'rgba(180,100,220,0.5)', letterSpacing:0.5 }}>⚡</span>
+            <span style={{ fontSize:11, fontWeight:600, color:'rgba(220,170,255,0.9)', whiteSpace:'nowrap' }}>
+              {sceneState.a}
+            </span>
+          </div>
+          <div style={{ width:1, height:12, background:'rgba(255,255,255,0.07)', flexShrink:0 }} />
+          {/* Wetness dots */}
+          <div style={{ display:'flex', alignItems:'center', gap:3, flexShrink:0 }}>
+            {[0,1,2,3,4,5].map(i => (
+              <div key={i} style={{
+                width:5, height:5, borderRadius:'50%', flexShrink:0,
+                background: i < sceneState.w ? '#e8356c' : 'rgba(255,255,255,0.08)',
+                boxShadow: i < sceneState.w && sceneState.w > 3 ? '0 0 4px rgba(232,53,108,0.5)' : 'none',
+                transition: 'all 0.4s ease',
+              }} />
+            ))}
+          </div>
+          <div style={{ width:1, height:12, background:'rgba(255,255,255,0.07)', flexShrink:0 }} />
+          {/* Breath */}
+          <span style={{
+            fontSize:10, whiteSpace:'nowrap', flexShrink:0,
+            color: sceneState.br === '喘不过气' || sceneState.br === 'gasping' ? '#fca5a5'
+              : sceneState.br === '喘息' || sceneState.br === 'panting' ? '#fcd34d'
+              : 'rgba(160,120,200,0.55)',
+          }}>
+            {sceneState.br === '平稳' || sceneState.br === 'calm' ? '🫧' : sceneState.br === '急促' || sceneState.br === 'quick' ? '🌬️' : sceneState.br === '喘息' || sceneState.br === 'panting' ? '💨' : '🔥'}{' '}
+            {sceneState.br}
+          </span>
+          {/* Voice */}
+          {sceneState.v && sceneState.v !== '沉默' && sceneState.v !== 'silent' && (
+            <>
+              <div style={{ width:1, height:12, background:'rgba(255,255,255,0.07)', flexShrink:0 }} />
+              <span style={{
+                fontSize:10, whiteSpace:'nowrap', flexShrink:0,
+                color: sceneState.v === '失控' || sceneState.v === 'uncontrolled' ? '#fca5a5' : 'rgba(200,140,230,0.55)',
+              }}>🎵 {sceneState.v}</span>
+            </>
+          )}
+          {/* Blush */}
+          {sceneState.bl && sceneState.bl !== '无' && sceneState.bl !== 'none' && (
+            <>
+              <div style={{ width:1, height:12, background:'rgba(255,255,255,0.07)', flexShrink:0 }} />
+              <span style={{ fontSize:10, whiteSpace:'nowrap', flexShrink:0, color:'rgba(252,165,165,0.65)' }}>
+                🌸 {sceneState.bl}
+              </span>
+            </>
+          )}
+        </div>
+      )}
+
       {/* ── 椎名老师题目进度 ──────────────────────────────────────────────── */}
       {character.name === '椎名老师' && questionCount > 0 && (
         <div style={{ padding:'6px 16px 4px', background:'rgba(168,85,247,0.06)',
@@ -482,7 +603,7 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
       )}
 
       {/* ── Messages ─────────────────────────────────────────────────────── */}
-      <div className="chat-messages" ref={messagesContainerRef} onScroll={handleMessagesScroll}>
+      <div className="chat-messages chat-bg" ref={messagesContainerRef} onScroll={handleMessagesScroll}>
 
         {/* Opening scene card */}
         {messages.length <= 2 && (() => {
@@ -713,6 +834,53 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
               sublabel={attachLabel(attach, lang)}
               desc={attach < 30 ? t.status.attachDesc[0] : attach < 60 ? t.status.attachDesc[1] : attach < 80 ? t.status.attachDesc[2] : t.status.attachDesc[3]} />
 
+            {/* ── Scene State Detail ── */}
+            {sceneState && (
+              <div style={{
+                marginTop:4, marginBottom:16,
+                background:'linear-gradient(135deg,rgba(40,8,60,0.6),rgba(25,5,40,0.5))',
+                border:'1px solid rgba(168,85,247,0.15)',
+                borderRadius:14, padding:'12px 14px',
+              }}>
+                <div style={{ fontSize:11, color:'rgba(168,85,247,0.7)', fontWeight:700,
+                  letterSpacing:0.8, marginBottom:10, textTransform:'uppercase' }}>
+                  {lang === 'en' ? '⚡ Scene State' : '⚡ 当前状态'}
+                </div>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px 12px' }}>
+                  {sceneState.a && <SceneStateRow icon="⚡" label={lang==='en'?'Action':'动作'} value={sceneState.a} />}
+                  {sceneState.p && <SceneStateRow icon="🧎" label={lang==='en'?'Posture':'姿势'} value={sceneState.p} />}
+                  <SceneStateRow icon="💧" label={lang==='en'?'Wetness':'湿润'} value={
+                    <div style={{ display:'flex', gap:3, alignItems:'center' }}>
+                      {[0,1,2,3,4,5].map(i => (
+                        <div key={i} style={{
+                          width:7, height:7, borderRadius:'50%',
+                          background: i < sceneState.w ? '#e8356c' : 'rgba(255,255,255,0.1)',
+                          boxShadow: i < sceneState.w ? '0 0 4px rgba(232,53,108,0.4)' : 'none',
+                        }} />
+                      ))}
+                    </div>
+                  } />
+                  {sceneState.br && <SceneStateRow icon="💨" label={lang==='en'?'Breath':'呼吸'} value={sceneState.br} />}
+                  {sceneState.bl && sceneState.bl !== '无' && sceneState.bl !== 'none' && (
+                    <SceneStateRow icon="🌸" label={lang==='en'?'Blush':'脸红'} value={sceneState.bl} />
+                  )}
+                  {sceneState.v && sceneState.v !== '沉默' && sceneState.v !== 'silent' && (
+                    <SceneStateRow icon="🎵" label={lang==='en'?'Voice':'声音'} value={sceneState.v} />
+                  )}
+                </div>
+                {/* Character-specific fields */}
+                {sceneState.cs && Object.keys(sceneState.cs).length > 0 && (
+                  <div style={{ marginTop:10, paddingTop:10, borderTop:'1px solid rgba(255,255,255,0.06)' }}>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'6px 12px' }}>
+                      {Object.entries(sceneState.cs).map(([k, v]) => (
+                        <SceneStateRow key={k} icon="✦" label={k} value={String(v)} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {intimacy < 100 && (
               <div style={{ fontSize:11, color:'var(--text-hint)', textAlign:'center', margin:'4px 0 16px' }}>
                 {t.chat.upgradeHintPrefix}{100 - intimacy} {t.chat.upgradeHint}
@@ -845,6 +1013,15 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
 }
 
 // ── 子组件 ────────────────────────────────────────────────────────────────────
+function SceneStateRow({ icon, label, value }: { icon: string; label: string; value: React.ReactNode }) {
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
+      <div style={{ fontSize:10, color:'rgba(160,100,200,0.5)', letterSpacing:0.4 }}>{icon} {label}</div>
+      <div style={{ fontSize:12, fontWeight:600, color:'rgba(220,180,255,0.88)' }}>{value}</div>
+    </div>
+  );
+}
+
 function MiniDot({ value, color }: { value: number; color: string }) {
   return (
     <div style={{

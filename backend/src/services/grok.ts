@@ -8,6 +8,17 @@ const grok = new OpenAI({
 
 export type Message = { role: 'system' | 'user' | 'assistant'; content: string };
 
+/** Per-turn scene state — physical/emotional snapshot of the current moment */
+export interface SceneState {
+  a:  string;   // action 当前行为 ≤10 chars, e.g. "骑乘位中" / "在接吻"
+  p:  string;   // posture 姿势 ≤10 chars, e.g. "双腿夹住腰"
+  w:  number;   // wetness 湿润度 0-5 (0=dry, 5=flooding)
+  br: string;   // breath 呼吸: 平稳/急促/喘息/喘不过气
+  bl: string;   // blush 脸红: 无/微红/红晕/深红/全脸通红
+  v:  string;   // voice 声音: 沉默/轻声/呻吟/放肆/失控
+  cs?: Record<string, string | number>; // character-specific fields
+}
+
 export interface MetaData {
   mood: string;
   delta: number;
@@ -20,14 +31,51 @@ export interface MetaData {
   qn: number | null;
   genImg: boolean;
   imgPrompt: string | null;
-  scene: string;       // current physical location for image background
+  scene: string;          // current physical location for image background
+  sceneState: SceneState | null;  // per-turn physical/emotional state
+}
+
+/** Per-character state field definitions for the META ss.cs sub-object */
+const CHARACTER_STATE_HINTS: Record<string, string> = {
+  '椎名老师': 'cs: {"glasses":"整齐|歪斜|摘掉","teacher":"维持|动摇|崩溃"} — glasses=眼镜状态, teacher=老师形象状态',
+  '晓彤':   'cs: {"sweat":0-5,"competitive":"旺盛|动摇|认输"} — sweat=出汗程度0-5, competitive=好胜心状态',
+  '娜娜':   'cs: {"innocence":"伪装|松动|撕破","hair":"整洁|凌乱|散乱"} — innocence=无辜感, hair=发型状态',
+  '小雨':   'cs: {"pure":"纯真|好奇|放开","hiding":"装无辜|半遮半掩|完全暴露"} — pure=纯洁度, hiding=遮掩程度',
+  '琉璃':   'cs: {"labCoat":"穿|解开|脱","focus":"专注|分心|放弃实验"} — labCoat=实验服状态, focus=实验专注度',
+  '沈静':   'cs: {"coldness":"冰冷|松动|融化","composure":"端庄|失态|崩溃"} — coldness=冷艳程度, composure=仪态',
+  '小慧':   'cs: {"nurse":"职业|动摇|忘职","care":"温柔|需求|贪婪"} — nurse=护士职业感, care=关怀→索求状态',
+  '夜玲':   'cs: {"artMode":"创作中|分神|放下画笔","mystery":"神秘|暴露|赤裸心扉"} — artMode=艺术状态, mystery=神秘感',
+  '晴晴':   'cs: {"streamer":"直播模式|下播了|私模式","energy":"活泼|沉迷|失控"} — streamer=主播状态, energy=能量',
+  '唐诗':   'cs: {"secretary":"专业|松动|失职","suppressed":"压抑|释放|泛滥"} — secretary=秘书形象, suppressed=压抑度',
+  '阿柒':   'cs: {"barista":"在岗|放下咖啡|忘记工作","warmth":"温暖|热烈|燃烧"} — barista=咖啡师状态, warmth=温度',
+  '糖糖':   'cs: {"art":"画画中|放下画笔|忘了画","needing":"崇拜|依赖|需要"} — art=绘画状态, needing=需求强度',
+  'X-23':   'cs: {"system":"运行中|出现异常|情感模块启动","emotion":"无|初始化|觉醒"} — system=系统状态, emotion=情感觉醒度',
+  '幻音':   'cs: {"hologram":"完整|闪烁|失控投影","data":"稳定|波动|情感数据溢出"} — hologram=全息状态, data=数据稳定性',
+  '狐九':   'cs: {"ritual":"未开始|进行中|完成","foxPower":"充盈|消耗|枯竭需补"} — ritual=仪式进度, foxPower=灵力',
+  '冷霜':   'cs: {"ice":"坚冰|开始融化|水流不止","millennium":"封印|松动|破除"} — ice=冰封程度, millennium=千年封印状态',
+  '魅罗':   'cs: {"charm":"施术中|被迷惑|反被情绪控制","demon":"冷酷无情|内心动摇|人性显现"} — charm=魅惑状态, demon=魔性',
+  '桃桃':   'cs: {"sweetness":"甜蜜|沉醉|彻底沦陷","purity":"可爱伪装|小恶魔显现|完全放开"} — sweetness=甜度, purity=纯洁伪装',
+};
+
+function parseSceneState(ss: any): SceneState | null {
+  if (!ss || typeof ss !== 'object') return null;
+  return {
+    a:  typeof ss.a  === 'string' ? ss.a.slice(0, 20)  : '',
+    p:  typeof ss.p  === 'string' ? ss.p.slice(0, 20)  : '',
+    w:  typeof ss.w  === 'number' ? Math.max(0, Math.min(5, Math.round(ss.w))) : 0,
+    br: typeof ss.br === 'string' ? ss.br : '平稳',
+    bl: typeof ss.bl === 'string' ? ss.bl : '无',
+    v:  typeof ss.v  === 'string' ? ss.v  : '沉默',
+    cs: ss.cs && typeof ss.cs === 'object' ? ss.cs : undefined,
+  };
 }
 
 export function parseMeta(reply: string): { cleanReply: string; meta: MetaData } {
   const match = reply.match(/<META>([\s\S]*?)<\/META>/);
   const defaultMeta: MetaData = {
     mood: '期待✨', delta: 1, controlDelta: 0, desireDelta: 0, attachDelta: 0,
-    suggestions: [], acts: [], phase: 0, qn: null, genImg: false, imgPrompt: null, scene: '',
+    suggestions: [], acts: [], phase: 0, qn: null, genImg: false, imgPrompt: null,
+    scene: '', sceneState: null,
   };
   if (!match) return { cleanReply: reply.trim(), meta: defaultMeta };
   try {
@@ -48,6 +96,7 @@ export function parseMeta(reply: string): { cleanReply: string; meta: MetaData }
         genImg: data.genImg === true,
         imgPrompt: typeof data.imgPrompt === 'string' && data.imgPrompt.length > 10 ? data.imgPrompt : null,
         scene: typeof data.scene === 'string' && data.scene.length > 2 ? data.scene.trim() : '',
+        sceneState: parseSceneState(data.ss),
       },
     };
   } catch {
@@ -173,6 +222,7 @@ export function buildCharacterSystemPrompt(
     ? `\n当前答题进度：第${questionCount}题/25，请从第${questionCount + 1}题继续出题。`
     : '';
 
+  const charStateHint = CHARACTER_STATE_HINTS[character.name] ?? 'cs: {} (此角色无专属字段，留空对象)';
   const speechHabits = CHARACTER_SPEECH_HABITS[character.name]
     ? `\n- 口癖习惯（偶发性标记，每3~5条回复最多出现1次，禁止每句重复，禁止刻意堆砌）：${CHARACTER_SPEECH_HABITS[character.name]}`
     : '';
@@ -222,6 +272,9 @@ ${recentAiReplies.map((r, i) => `[${['上轮', '上上轮', '三轮前'][i] ?? `
       !isLoopBack ? `[P4 Afterglow·Turn ${totalTurns + 1}] Write cum slowly dripping/heavy breathing/full-body shuddering, she snuggles close whispering — then her hands start moving again, setting up the next round.` :
       `[P4 Brief Afterglow·Turn ${totalTurns + 1}] Just 2-3 sentences of afterglow, then she bites your ear or looks up at you — desire reignites, she says she wants another round.`;
 
+    const charStateHintEN = CHARACTER_STATE_HINTS[character.name]
+      ? `[Character-specific] ${CHARACTER_STATE_HINTS[character.name]}`
+      : '[Character-specific] cs: {} (no custom fields for this character, leave empty object)';
     const recentTurnsHintEN = totalTurns >= 3
       ? `\n- Note: ${totalTurns} turns have passed. The scene is established. Do NOT restart the same setup — continue from where we left off.`
       : '';
@@ -302,7 +355,7 @@ ${activeScript}
 ━━━━━━━━━━━━━━━━━━━━━
 [REPLY FORMAT — MANDATORY]
 After your reply body, add on a new line (hidden from user):
-<META>{"mood":"excited","delta":3,"cd":2,"dd":2,"ad":1,"s":["option A","option B","option C"],"acts":["new act this turn"],"phase":0,"scene":"art studio, wooden easel, morning sunlight","genImg":true,"imgPrompt":"scene-specific english prompt"}</META>
+<META>{"mood":"excited","delta":3,"cd":2,"dd":2,"ad":1,"s":["option A","option B","option C"],"acts":["new act this turn"],"phase":0,"ss":{"a":"action","p":"posture","w":0,"br":"calm","bl":"none","v":"silent","cs":{}},"scene":"art studio, wooden easel, morning sunlight","genImg":true,"imgPrompt":"scene-specific english prompt"}</META>
 
 mood: character's current emotion, plain English word, no emoji, e.g.: yearning/excited/shy/satisfied/attached/anticipating/burning/possessive
 delta: affection change (user engaged/physical contact +3~5, new story phase +4~6, climax/sex +5~6, normal chat +2~3, cold/dismissive +0~1) — NEVER give delta=1 when user is clearly enthusiastic; the more active the user, the higher the delta
@@ -316,6 +369,16 @@ s: 3 quick-reply options for the user — must directly respond to ${charName}'s
   Each option ≤ 10 words. Make the user's brain jump to the next second.
 acts: new acts that physically happened this turn, English phrases ("kissing"/"undressing"/"blowjob"/"penetration"/"orgasm" etc.), [] if nothing new
 phase: current phase 0-4, can only equal or increase from last turn
+ss: [REQUIRED every turn] scene state snapshot — JSON object:
+  a = current action (≤8 chars, e.g. "kissing"/"riding"/"nothing yet")
+  p = current posture (≤8 chars, e.g. "face to face"/"legs wrapped")
+  w = wetness 0-5 (0=dry/1=slightly/2=soaked panties/3=dripping/4=flowing/5=flooding)
+  br = breathing ("calm"/"quick"/"panting"/"gasping")
+  bl = blush ("none"/"light"/"flushed"/"deep red"/"full face")
+  v = voice ("silent"/"soft"/"moaning"/"loud"/"uncontrolled")
+  ${charStateHintEN}
+  Example P3: {"a":"riding","p":"legs wrapped tight","w":4,"br":"panting","bl":"deep red","v":"moaning","cs":{"glasses":"crooked","teacher":"collapsing"}}
+  Example P0: {"a":"eye contact","p":"sitting across","w":0,"br":"calm","bl":"light","v":"soft","cs":{}}
 scene: [REQUIRED every turn] 2-8 English words describing the actual physical location where this scene is happening, used directly as image background — must match the dialogue, never default to "bedroom" as a catch-all.
   [Rule] Read the dialogue context: art class → "art studio, wooden easel, canvas, morning sunlight"; lab → "university lab, fluorescent light, lab bench"; study session → "study room, desk lamp, textbooks, evening"; nurse's office → "nurse office, medical bed, white curtain"; café → "cafe counter, coffee cups, warm lighting"; dorm → "dormitory room, bunk bed, dim light"; bedroom → "bedroom, soft bedside lamp, white sheets"; office → "office, city night view, glass desk"; gym → "gym, workout equipment, mirrors". Update each turn if the scene changes; keep the same value if it hasn't.
 genImg: whether to generate an image this turn (true for P2+ with explicit body/foreplay/sex; false for P0-P1 emotion/dialogue only)
@@ -380,7 +443,7 @@ ${activeScript}
 ━━━━━━━━━━━━━━━━━━━━━
 【回复格式 - 必须遵守】
 正文写完后，另起一行附加（用户看不到）：
-<META>{"mood":"兴奋🔥","delta":3,"cd":2,"dd":2,"ad":1,"s":["选项A","选项B","选项C"],"acts":["本轮新发生的行为"],"phase":当前阶段数字,"scene":"art studio, wooden easel, morning sunlight","genImg":true,"imgPrompt":"scene-specific english prompt"}</META>
+<META>{"mood":"兴奋🔥","delta":3,"cd":2,"dd":2,"ad":1,"s":["选项A","选项B","选项C"],"acts":["本轮新发生的行为"],"phase":当前阶段数字,"ss":{"a":"当前行为","p":"当前姿势","w":0,"br":"平稳","bl":"无","v":"沉默","cs":{}},"scene":"art studio, wooden easel, morning sunlight","genImg":true,"imgPrompt":"scene-specific english prompt"}</META>
 
 mood：当前角色心情，纯文字，不加emoji，例如：心动/兴奋/害羞/满足/依恋/期待/燃烧/占有
 delta：好感度变化（用户积极配合/肢体接触推进+3~5，剧情进入新阶段+4~6，高潮/性爱+5~6，普通对话+2~3，冷漠敷衍+0~1）——严禁"用户明显热情却给delta=1"，用户越主动delta必须越高
@@ -394,6 +457,16 @@ s：3个用户快捷回复选项——必须直接回应角色本轮最后一句
   每个≤12字，让用户脑子里出现下一秒的画面
 acts：本轮实际新发生的行为，中文词组（"接吻"、"脱衣"、"口交"、"插入"、"高潮"等），没有新行为则填 []
 phase：当前阶段 0-4，只能等于或大于上一轮${character.name === '椎名老师' ? '\nqn：当前题目序号（必填，每轮出新题则+1，范围1-25）' : ''}
+ss：【必填·每轮都要填】当前场景状态快照，JSON对象：
+  a=当前行为（≤8字，如"骑乘位中"/"在亲吻"/"抚摸胸部"/"什么都没做"）
+  p=当前姿势（≤8字，如"双腿夹住腰"/"面对面坐着"/"背对背"）
+  w=湿润度 0-5（0干燥/1微湿/2渗透/3湿透/4流淌/5泛滥）
+  br=呼吸状态（"平稳"/"急促"/"喘息"/"喘不过气"）
+  bl=脸红程度（"无"/"微红"/"红晕"/"深红"/"全脸通红"）
+  v=声音状态（"沉默"/"轻声"/"呻吟"/"放肆"/"失控"）
+  ${charStateHint}
+  示例：{"a":"骑乘位中","p":"双腿夹住腰","w":3,"br":"急促","bl":"深红","v":"呻吟","cs":{"glasses":"歪斜","teacher":"动摇"}}
+  P0阶段示例：{"a":"对视中","p":"面对面坐着","w":0,"br":"平稳","bl":"微红","v":"轻声","cs":{}}
 scene：【必填·每轮都要填】当前实际物理场景的英文描述，2-8个词，用逗号分隔，直接作为图片背景——必须反映对话实际发生地点，禁止填"bedroom"当万金油
   【规则】根据对话内容判断：画室→"art studio, wooden easel, canvas, morning sunlight through window"；实验室→"university lab, fluorescent light, lab bench, microscope"；补习室→"study room, desk lamp, textbooks, evening"；护士室→"nurse office, medical bed, white curtain, soft light"；咖啡馆→"cafe counter, coffee cups, warm lighting"；宿舍→"dormitory room, bunk bed, dim light"；卧室→"bedroom, soft bedside lamp, white sheets"；办公室→"office, city night view through window, desk"；健身房→"gym, workout equipment, mirrors, sweat"。每轮根据对话自动判断并更新——如果场景未变化则保持上轮的scene值。
 genImg：本轮是否需要生成配图（P2+有明确身体/前戏/性行为时填true；P0-P1纯情绪/对话时填false）
