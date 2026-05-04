@@ -97,6 +97,7 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
       if (data.questionCount)     setQuestionCount(data.questionCount);
       if (data.phase != null)     setCurrentPhase(data.phase);
       if (data.albumImages?.length) setAlbumImages(data.albumImages);
+      if (data.sceneState)          setSceneState(data.sceneState);
       if (data.conversation?.messages?.length) {
         setMessages(data.conversation.messages.map((m: any) => ({
           role: m.role as 'user' | 'assistant',
@@ -517,7 +518,7 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
       </div>
 
       {/* ── Scene state bar ───────────────────────────────────────────────── */}
-      {sceneState && sceneState.a && sceneState.a !== '什么都没做' && sceneState.a !== 'nothing yet' && sceneState.a !== 'eye contact' && sceneState.a.trim() !== '' && (
+      {sceneState && sceneState.a && sceneState.a.trim() !== '' && (
         <div
           onClick={() => setStatusOpen(true)}
           style={{

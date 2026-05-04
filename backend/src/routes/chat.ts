@@ -66,6 +66,7 @@ chatRouter.get('/:characterId', async (req: AuthRequest, res: Response): Promise
     phase: (userMemory as any)._phaseIndex ?? 0,
     questionCount: (userMemory as any)._questionCount ?? 0,
     albumImages: (userMemory as any)._albumImages ?? [],
+    sceneState: (userMemory as any)._sceneState ?? null,
   });
 });
 
