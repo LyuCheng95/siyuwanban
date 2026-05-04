@@ -97,11 +97,6 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
 
   if (!message?.trim()) { res.status(400).json({ error: 'message required' }); return; }
 
-  // Anonymous users cannot chat — must log in via Telegram
-  if (req.isAnon) {
-    res.status(403).json({ error: 'login_required', message: '请先登录Telegram账号才能聊天' }); return;
-  }
-
   const user = await prisma.user.findUnique({ where: { id: req.userId! } });
   if (!user) { res.status(401).json({ error: 'User not found' }); return; }
 

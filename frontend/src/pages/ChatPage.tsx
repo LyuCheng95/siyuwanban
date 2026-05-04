@@ -212,15 +212,13 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
     try {
       const res = await api.chat.send(characterId, msgText);
 
-      // Handle pre-stream error responses (402 = no diamonds, 403 = not logged in)
+      // Handle pre-stream error responses (402 = no diamonds)
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         setStreaming(false);
         setMessages(prev => prev.filter(m => !m.streaming));
         if (res.status === 402) {
           setShowPaywall(true);
-        } else if (res.status === 403 && errData.error === 'login_required') {
-          setMessages(prev => [...prev, { role: 'assistant', content: t.chat.loginMsg }]);
         } else {
           setMessages(prev => [...prev, { role: 'assistant', content: t.chat.errorMsg }]);
         }
