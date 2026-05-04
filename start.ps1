@@ -79,8 +79,10 @@ Write-Host ""
 linfo "worker" "starting  ->  http://localhost:$WorkerPort"
 Write-Host ""
 
-$outFile  = "$env:TEMP\sywb-worker.log"
+$outFile = "$env:TEMP\sywb-worker-out.log"
+$errFile = "$env:TEMP\sywb-worker-err.log"
 "" | Set-Content -Path $outFile -Encoding UTF8
+"" | Set-Content -Path $errFile -Encoding UTF8
 
 $tsxPath = "$WorkerDir\node_modules\.bin\tsx"
 
@@ -89,21 +91,22 @@ function Start-Worker {
         -ArgumentList "server.ts" `
         -WorkingDirectory $WorkerDir `
         -RedirectStandardOutput $outFile `
-        -RedirectStandardError  $outFile `
+        -RedirectStandardError  $errFile `
         -PassThru -WindowStyle Hidden
     return $p
 }
 
 $workerProc = Start-Worker
-$reader     = New-Object System.IO.StreamReader($outFile, [System.Text.Encoding]::UTF8)
+$outReader  = New-Object System.IO.StreamReader($outFile, [System.Text.Encoding]::UTF8)
+$errReader  = New-Object System.IO.StreamReader($errFile, [System.Text.Encoding]::UTF8)
 $lastCheck  = [DateTime]::MinValue
 
 # ── main loop ─────────────────────────────────────────────────────────────────
 try {
     while ($true) {
 
-        # forward worker output with coloring
-        $line = $reader.ReadLine()
+        # forward worker stdout
+        $line = $outReader.ReadLine()
         while ($null -ne $line) {
             $l = [string]$line
             if ($l.Trim() -ne "") {
@@ -114,7 +117,14 @@ try {
                 elseif ($l -match "notify|callback|upload")          { lok   "upload" $l }
                 else                                                  { ldim  "worker" $l }
             }
-            $line = $reader.ReadLine()
+            $line = $outReader.ReadLine()
+        }
+        # forward worker stderr
+        $eline = $errReader.ReadLine()
+        while ($null -ne $eline) {
+            $l = [string]$eline
+            if ($l.Trim() -ne "") { lerr "worker" $l }
+            $eline = $errReader.ReadLine()
         }
 
         # restart if crashed
@@ -122,8 +132,10 @@ try {
             lerr "worker" "exited (code=$($workerProc.ExitCode)) — restarting in 5s..."
             Start-Sleep -Seconds 5
             "" | Set-Content -Path $outFile -Encoding UTF8
-            $reader.Close()
-            $reader = New-Object System.IO.StreamReader($outFile, [System.Text.Encoding]::UTF8)
+            "" | Set-Content -Path $errFile -Encoding UTF8
+            $outReader.Close(); $errReader.Close()
+            $outReader = New-Object System.IO.StreamReader($outFile, [System.Text.Encoding]::UTF8)
+            $errReader = New-Object System.IO.StreamReader($errFile, [System.Text.Encoding]::UTF8)
             $workerProc = Start-Worker
             linfo "worker" "restarted  PID=$($workerProc.Id)"
         }
@@ -163,7 +175,7 @@ try {
     Write-Host ""
     div
     lwarn "stop" "cleaning up..."
-    $reader.Close()
+    $outReader.Close(); $errReader.Close()
     if ($workerProc -and -not $workerProc.HasExited) {
         Stop-Process -Id $workerProc.Id -Force -ErrorAction SilentlyContinue
         lok "worker" "stopped"
