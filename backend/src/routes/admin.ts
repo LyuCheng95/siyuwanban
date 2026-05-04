@@ -255,6 +255,50 @@ adminRouter.get('/users', async (req: Request, res: Response): Promise<void> => 
   res.json(users.map(u => ({ ...u, telegramId: u.telegramId.toString() })));
 });
 
+// DELETE /api/admin/users/:id?key=... — 删除用户账号（级联清理所有关联数据）
+adminRouter.delete('/users/:id', async (req: Request, res: Response): Promise<void> => {
+  if (!checkKey(req, res)) return;
+  const userId = req.params.id as string;
+  try {
+    await prisma.$transaction(async (tx) => {
+      // 1. 删除此用户所有对话的消息
+      const userConvIds = (await tx.conversation.findMany({ where: { userId }, select: { id: true } }))
+        .map(c => c.id);
+      if (userConvIds.length) {
+        await tx.message.deleteMany({ where: { conversationId: { in: userConvIds } } });
+        await tx.conversation.deleteMany({ where: { id: { in: userConvIds } } });
+      }
+
+      // 2. 删除此用户创建的所有角色（及其关联数据）
+      const chars = await tx.character.findMany({ where: { creatorId: userId }, select: { id: true } });
+      for (const char of chars) {
+        const charConvIds = (await tx.conversation.findMany({ where: { characterId: char.id }, select: { id: true } }))
+          .map(c => c.id);
+        if (charConvIds.length) {
+          await tx.message.deleteMany({ where: { conversationId: { in: charConvIds } } });
+          await tx.conversation.deleteMany({ where: { id: { in: charConvIds } } });
+        }
+        await tx.review.deleteMany({ where: { characterId: char.id } });
+        await tx.sceneImage.deleteMany({ where: { characterId: char.id } });
+        await tx.character.delete({ where: { id: char.id } });
+      }
+
+      // 3. 删除评价、支付记录
+      await tx.review.deleteMany({ where: { userId } });
+      await tx.payment.deleteMany({ where: { userId } });
+
+      // 4. 解除兑换码关联（码本身保留，清空 usedById）
+      await tx.redeemCode.updateMany({ where: { usedById: userId }, data: { usedById: null, isUsed: false } });
+
+      // 5. 删除用户
+      await tx.user.delete({ where: { id: userId } });
+    });
+    res.json({ ok: true });
+  } catch (e: any) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 // DELETE /api/admin/character/:id?key=... — 删除角色（级联清理关联数据）
 adminRouter.delete('/character/:id', async (req: Request, res: Response): Promise<void> => {
   if (!checkKey(req, res)) return;

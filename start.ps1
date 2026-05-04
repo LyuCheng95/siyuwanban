@@ -104,11 +104,11 @@ $ComfyDir  = "D:\SD\ComfyUI"
 div
 Write-Host ""
 $comfyRunning = $false
-try {
-    $null = Invoke-WebRequest -Uri "http://localhost:$ComfyPort" -TimeoutSec 3 -UseBasicParsing -ErrorAction Stop
+$tcpCheck = Test-NetConnection -ComputerName localhost -Port $ComfyPort -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+if ($tcpCheck.TcpTestSucceeded) {
     lok "comfyui" "already running  ->  http://localhost:$ComfyPort"
     $comfyRunning = $true
-} catch { }
+}
 
 if (-not $comfyRunning) {
     linfo "comfyui" "starting (conda: comfyui) - output shown until ready..."
@@ -143,11 +143,8 @@ if (-not $comfyRunning) {
             if ($s -and $s -notmatch "^Traceback|^\s+File ") { ldim "comfyui" $s }
             $cel = $comfyErrR.ReadLine()
         }
-        try {
-            $null = Invoke-WebRequest -Uri "http://localhost:$ComfyPort" -TimeoutSec 2 -UseBasicParsing -ErrorAction Stop
-            $ready = $true
-            break
-        } catch { }
+        $tc = Test-NetConnection -ComputerName localhost -Port $ComfyPort -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+        if ($tc.TcpTestSucceeded) { $ready = $true; break }
     }
     $comfyOutR.Close(); $comfyErrR.Close()
     if ($ready) { lok "comfyui" "ready  ->  http://localhost:$ComfyPort" }
@@ -234,10 +231,8 @@ try {
             $lastCheck = $now
             $parts = @()
 
-            try {
-                $null = Invoke-WebRequest -Uri "http://localhost:$ComfyPort" -TimeoutSec 2 -UseBasicParsing -ErrorAction Stop
-                $parts += "ComfyUI[OK]"
-            } catch { $parts += "ComfyUI[--]" }
+            $tc2 = Test-NetConnection -ComputerName localhost -Port $ComfyPort -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+            if ($tc2.TcpTestSucceeded) { $parts += "ComfyUI[OK]" } else { $parts += "ComfyUI[--]" }
 
             try {
                 $null = Invoke-WebRequest -Uri "http://localhost:$WorkerPort/ping" -TimeoutSec 2 -UseBasicParsing -ErrorAction Stop

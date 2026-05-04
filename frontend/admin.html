@@ -1084,21 +1084,50 @@ async function deleteChar(id, name) {
 // ── Users page ────────────────────────────────────────────────────────────────
 async function loadUsers() {
   document.getElementById('usersTable').innerHTML = '<div class="loading"><span class="spinning">⟳</span> 加载中...</div>';
-  const d = await api('/stats');
-  const rows = d.recentUsers.map(u => `<tr>
-    <td><div style="font-weight:600">${esc(u.firstName||'—')}</div><div class="user-tg">@${esc(u.username||'—')}</div></td>
+  const users = await api('/users');
+  if (!Array.isArray(users)) {
+    document.getElementById('usersTable').innerHTML = '<div class="loading" style="color:var(--red)">加载失败</div>';
+    return;
+  }
+  const rows = users.map(u => `<tr>
+    <td>
+      <div style="font-weight:600">${esc(u.firstName||'—')}</div>
+      <div class="user-tg">@${esc(u.username||'—')}${u.isAnonymous ? ' <span style="color:var(--hint);font-size:10px">[游客]</span>' : ''}</div>
+    </td>
     <td style="font-family:monospace;font-size:12px;color:var(--hint)">${esc(u.telegramId)}</td>
     <td><div class="credits-cell">
       <span class="credit-pill credit-free">🪙 ${u.freeCredits}</span>
       ${u.paidCredits > 0 ? `<span class="credit-pill credit-paid">💎 ${u.paidCredits}</span>` : ''}
     </div></td>
+    <td style="color:var(--hint);font-size:12px">${u._count?.conversations ?? 0} 轮</td>
     <td style="color:var(--hint);font-size:12px">${timeAgo(u.createdAt)}</td>
-    <td><button class="btn btn-ghost" style="font-size:11px;padding:5px 10px" onclick="viewUserLogs('${esc(u.telegramId)}')">查看对话</button></td>
+    <td style="display:flex;gap:6px;align-items:center">
+      <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px" onclick="viewUserLogs('${esc(u.telegramId)}')">对话</button>
+      <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px;color:var(--red);border-color:rgba(255,80,80,0.2)" onclick="deleteUser('${esc(u.id)}','${esc(u.firstName||u.username||'此用户')}')">删除</button>
+    </td>
   </tr>`).join('');
   document.getElementById('usersTable').innerHTML = `<table>
-    <thead><tr><th>用户</th><th>Telegram ID</th><th>余额</th><th>注册</th><th></th></tr></thead>
+    <thead><tr><th>用户</th><th>Telegram ID</th><th>余额</th><th>对话数</th><th>注册</th><th></th></tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
+}
+
+async function deleteUser(userId, displayName) {
+  if (!confirm(`⚠️ 确定要永久删除账号「${displayName}」吗？\n\n这将删除该用户的所有对话记录、创建的角色、支付记录，操作不可撤销！`)) return;
+  const second = confirm(`再次确认：永久删除「${displayName}」的所有数据？`);
+  if (!second) return;
+  try {
+    const res = await fetch(`${API_BASE}/users/${userId}?key=${encodeURIComponent(adminKey)}`, { method: 'DELETE' });
+    const d = await res.json();
+    if (d.ok) {
+      alert(`✅ 账号「${displayName}」已删除`);
+      loadUsers();
+    } else {
+      alert(`❌ 删除失败：${d.error || '未知错误'}`);
+    }
+  } catch(e) {
+    alert(`❌ 请求失败：${e.message}`);
+  }
 }
 
 function viewUserLogs(tgId) {

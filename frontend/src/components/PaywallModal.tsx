@@ -9,7 +9,7 @@ interface Props {
   onSuccess: (newDiamonds: number) => void;
 }
 
-type Tab = 'usdt' | 'card' | 'stars';
+type Tab = 'usdt' | 'card';
 
 export function PaywallModal({ currentDiamonds, onClose, onSuccess }: Props) {
   const { t } = useLang();
@@ -417,7 +417,7 @@ export function PaywallModal({ currentDiamonds, onClose, onSuccess }: Props) {
           display: 'flex', background: 'rgba(255,255,255,0.06)',
           borderRadius: 12, padding: 4, marginBottom: 20,
         }}>
-          {([['usdt', t.paywall.tabUsdt], ['card', t.paywall.tabCard], ['stars', t.paywall.tabStars]] as [Tab, string][]).map(([tabKey, label]) => (
+          {([['usdt', t.paywall.tabUsdt], ['card', t.paywall.tabCard]] as [Tab, string][]).map(([tabKey, label]) => (
             <button key={tabKey} onClick={() => { setTab(tabKey); resetUsdt(); }} style={{
               flex: 1, padding: '9px 0', border: 'none', borderRadius: 9, cursor: 'pointer',
               fontSize: 13, fontWeight: 600, transition: 'all 0.2s',
@@ -540,45 +540,6 @@ export function PaywallModal({ currentDiamonds, onClose, onSuccess }: Props) {
               {t.paywall.changeTier}
             </button>
           </div>
-        )}
-
-        {/* ── Stars tab ── */}
-        {tab === 'stars' && (
-          <>
-            {/* Monthly card (featured) */}
-            {monthlyTier && (
-              <div style={{ marginBottom: 10 }}>
-                {renderStarsTierButton(monthlyTier)}
-              </div>
-            )}
-
-            {monthlyTier && regularTiers.length > 0 && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.08)' }} />
-                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)' }}>{t.paywall.tierPacks}</div>
-                <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.08)' }} />
-              </div>
-            )}
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {regularTiers.map(tier => renderStarsTierButton(tier))}
-            </div>
-
-            {usdtStatus && (
-              <div style={{ marginTop: 12, textAlign: 'center', fontSize: 13, color: 'rgba(180,130,210,0.7)' }}>
-                {usdtStatus}
-              </div>
-            )}
-            {loading && !usdtStatus && (
-              <div style={{ textAlign: 'center', marginTop: 14, fontSize: 13, color: 'rgba(180,130,210,0.55)' }}>
-                {t.paywall.starsWaiting}
-              </div>
-            )}
-
-            <div style={{ textAlign: 'center', marginTop: 14, fontSize: 12, color: 'rgba(255,255,255,0.2)' }}>
-              {t.paywall.starsHint}
-            </div>
-          </>
         )}
 
         {/* ── Card tab ── */}
