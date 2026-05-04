@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import { buildActiveScript, CHARACTER_SPEECH_HABITS } from './characterScripts';
+import { buildActiveScript, CHARACTER_SPEECH_HABITS, CHARACTER_KINKS, CHARACTER_KINKS_EN } from './characterScripts';
 
 const grok = new OpenAI({
   apiKey: process.env.GROK_API_KEY!,
@@ -208,6 +208,14 @@ export function buildCharacterSystemPrompt(
     character.storyPhases,
   );
 
+  // ── Character-specific kink injection (P2+ only, phaseIndex ≥ 2) ──────────
+  const charKink = scriptPhase >= 2 && CHARACTER_KINKS[character.name]
+    ? `\n━━━━━━━━━━━━━━━━━━━━━\n【${character.name}的专属情欲癖好·P2+已激活·必须贯穿体现】\n${CHARACTER_KINKS[character.name]}\n━━━━━━━━━━━━━━━━━━━━━`
+    : '';
+  const charKinkEN = scriptPhase >= 2 && CHARACTER_KINKS_EN[character.name]
+    ? `\n━━━━━━━━━━━━━━━━━━━━━\n[${character.name}'s UNIQUE KINK · Active P2+ · Must be reflected in her behavior and reactions]\n${CHARACTER_KINKS_EN[character.name]}\n━━━━━━━━━━━━━━━━━━━━━`
+    : '';
+
   const narrativeLock = unlockedActs.length > 0
     ? `\n━━━━━━━━━━━━━━━━━━━━━
 【叙事一致性 · 铁律 · 不可违反】
@@ -350,7 +358,7 @@ ${clothingHintEN ? `\n${clothingHintEN}\n` : ''}${narrativeLockEN}${recentMirror
   ⚠️ Vague acts (just "penetration"/"sex") → image system generates tame result → experience breaks. Precise acts → fully explicit image → perfect match.
 ━━━━━━━━━━━━━━━━━━━━━
 
-${activeScript}
+${activeScript}${charKinkEN}
 
 ━━━━━━━━━━━━━━━━━━━━━
 [REPLY FORMAT — MANDATORY]
@@ -438,7 +446,7 @@ ${clothingHint ? `\n${clothingHint}\n` : ''}${narrativeLock}${recentMirror}
   ⚠️acts模糊（只写"插入"/"性爱"）→图片生成系统可能生成清纯图→体验崩溃。acts精确→图片完整露骨→完美匹配。
 ━━━━━━━━━━━━━━━━━━━━━
 
-${activeScript}
+${activeScript}${charKink}
 
 ━━━━━━━━━━━━━━━━━━━━━
 【回复格式 - 必须遵守】
