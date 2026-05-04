@@ -84,11 +84,9 @@ $errFile = "$env:TEMP\sywb-worker-err.log"
 "" | Set-Content -Path $outFile -Encoding UTF8
 "" | Set-Content -Path $errFile -Encoding UTF8
 
-$tsxPath = "$WorkerDir\node_modules\.bin\tsx"
-
 function Start-Worker {
-    $p = Start-Process -FilePath $tsxPath `
-        -ArgumentList "server.ts" `
+    $p = Start-Process -FilePath "cmd.exe" `
+        -ArgumentList "/c", "npm start" `
         -WorkingDirectory $WorkerDir `
         -RedirectStandardOutput $outFile `
         -RedirectStandardError  $errFile `
