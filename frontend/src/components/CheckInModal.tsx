@@ -40,9 +40,14 @@ export function CheckInModal({ onClose }: Props) {
   }
 
   function handleClose() {
-    const gold = result?.gold ?? status?.gold ?? 0;
-    const diamonds = result?.diamonds ?? status?.diamonds ?? 0;
-    onClose(gold, diamonds);
+    // Only pass balances back if we actually performed check-in this session
+    // (to avoid overwriting credits changed by concurrent chat sessions)
+    if (result) {
+      onClose(result.gold, result.diamonds);
+    } else {
+      // Closed without checking in — don't overwrite existing credits
+      onClose(-1, -1);
+    }
   }
 
   const streak = result?.streak ?? status?.streak ?? 0;

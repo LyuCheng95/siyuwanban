@@ -90,7 +90,10 @@ export default function App() {
 
   function handleCheckInClose(gold: number, diamonds: number) {
     setShowCheckIn(false);
-    updateCredits(gold, diamonds);
+    // -1 sentinel means modal was dismissed without checking in — don't overwrite credits
+    if (gold >= 0 && diamonds >= 0) {
+      updateCredits(gold, diamonds);
+    }
   }
 
   if (loading) {

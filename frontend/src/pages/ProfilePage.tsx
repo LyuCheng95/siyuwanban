@@ -166,6 +166,9 @@ export function ProfilePage({ user, setUser }: Props) {
             className="btn btn-secondary btn-full"
             style={{ marginTop: 8 }}
             onClick={async () => {
+              if (!window.confirm(lang === 'en'
+                ? 'Exchange 10 coins → 1 diamond?'
+                : '确认用 10 金币兑换 1 钻石？')) return;
               try {
                 const res = await api.payments.exchangeCoins(10);
                 setUser({ ...user, freeCredits: res.newCoins, paidCredits: res.newDiamonds });
