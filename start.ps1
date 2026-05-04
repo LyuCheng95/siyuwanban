@@ -1,111 +1,88 @@
-# 私欲玩伴 — Local Services Launcher
-# 用法: .\start.ps1            启动全部服务
-#       .\start.ps1 -NoTunnel  跳过 SSH 隧道
-
 param([switch]$NoTunnel)
 
-# ── 配置 ──────────────────────────────────────────────────────────────────────
 $Server        = "root@168.144.108.9"
 $WorkerPort    = 7080
 $ComfyPort     = 8188
 $WorkerDir     = "$PSScriptRoot\image-worker"
-$CheckInterval = 20   # 秒
+$CheckInterval = 20
 
-# ── 日志工具 ─────────────────────────────────────────────────────────────────
+# ── log helpers ───────────────────────────────────────────────────────────────
 function wlog([string]$Tag, [string]$Msg, [string]$Color = "White") {
     $t = Get-Date -Format "HH:mm:ss"
-    Write-Host "  " -NoNewline
-    Write-Host $t -ForegroundColor DarkGray -NoNewline
-    Write-Host "  " -NoNewline
-    $padded = $Tag.PadRight(8)
-    Write-Host $padded -ForegroundColor $Color -NoNewline
+    Write-Host "  $t  " -NoNewline -ForegroundColor DarkGray
+    Write-Host $Tag.PadRight(9) -NoNewline -ForegroundColor $Color
     Write-Host " $Msg"
 }
-function ok   ([string]$Tag, [string]$Msg) { wlog $Tag $Msg "Green"   }
-function err  ([string]$Tag, [string]$Msg) { wlog $Tag $Msg "Red"     }
-function warn ([string]$Tag, [string]$Msg) { wlog $Tag $Msg "Yellow"  }
-function info ([string]$Tag, [string]$Msg) { wlog $Tag $Msg "Cyan"    }
-function dim  ([string]$Tag, [string]$Msg) { wlog $Tag $Msg "DarkGray"}
-function div  { Write-Host ("  " + [string]::new([char]0x2500, 58)) -ForegroundColor DarkGray }
+function lok  ([string]$t,[string]$m) { wlog $t $m "Green"   }
+function lerr ([string]$t,[string]$m) { wlog $t $m "Red"     }
+function lwarn([string]$t,[string]$m) { wlog $t $m "Yellow"  }
+function linfo([string]$t,[string]$m) { wlog $t $m "Cyan"    }
+function ldim ([string]$t,[string]$m) { wlog $t $m "DarkGray"}
+function div  { Write-Host ("  " + "-" * 58) -ForegroundColor DarkGray }
 
-# ── Banner ────────────────────────────────────────────────────────────────────
+# ── banner ────────────────────────────────────────────────────────────────────
 Clear-Host
 Write-Host ""
-Write-Host "  +==================================================+" -ForegroundColor Magenta
-Write-Host "  |        私  欲  玩  伴     Worker  Hub           |" -ForegroundColor Magenta
-Write-Host "  +==================================================+" -ForegroundColor Magenta
+Write-Host "  +====================================================+" -ForegroundColor Magenta
+Write-Host "  |       Si Yu Wan Ban  --  Worker Hub               |" -ForegroundColor Magenta
+Write-Host "  +====================================================+" -ForegroundColor Magenta
 Write-Host ""
-info "启动" "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+linfo "start" (Get-Date -Format "yyyy-MM-dd HH:mm:ss")
 div
 
-# ── 依赖检查 ──────────────────────────────────────────────────────────────────
+# ── deps ──────────────────────────────────────────────────────────────────────
 Write-Host ""
 if (-not (Test-Path "$WorkerDir\node_modules")) {
-    warn "安装" "首次运行，安装 node_modules..."
+    lwarn "npm" "first run — installing..."
     Push-Location $WorkerDir
     npm install --silent
     Pop-Location
-    ok "安装" "依赖安装完成"
+    lok "npm" "done"
 } else {
-    ok "依赖" "node_modules 已就绪"
+    lok "deps" "node_modules OK"
 }
 
-if (-not (Test-Path "$WorkerDir\.env")) {
-    if (Test-Path "$WorkerDir\.env.example") {
-        Copy-Item "$WorkerDir\.env.example" "$WorkerDir\.env"
-        warn "配置" "已创建 .env，请确认 WORKER_KEY 和 ADMIN_KEY"
-    }
+if ((-not (Test-Path "$WorkerDir\.env")) -and (Test-Path "$WorkerDir\.env.example")) {
+    Copy-Item "$WorkerDir\.env.example" "$WorkerDir\.env"
+    lwarn "env" "created .env from example — check WORKER_KEY"
 }
 
-# ── ComfyUI 检测 ──────────────────────────────────────────────────────────────
+# ── comfyui check ─────────────────────────────────────────────────────────────
 div
 Write-Host ""
-$comfyUrl = "http://localhost:$ComfyPort"
 try {
-    $null = Invoke-WebRequest -Uri $comfyUrl -TimeoutSec 3 -UseBasicParsing -ErrorAction Stop
-    ok "ComfyUI" "运行中  ->  $comfyUrl"
+    $null = Invoke-WebRequest -Uri "http://localhost:$ComfyPort" -TimeoutSec 3 -UseBasicParsing -ErrorAction Stop
+    lok "comfyui" "running  ->  http://localhost:$ComfyPort"
 } catch {
-    warn "ComfyUI" "未检测到 (请先启动 ComfyUI，图片生成暂不可用)"
+    lwarn "comfyui" "not detected (start ComfyUI first for image gen)"
 }
 
-# ── SSH 隧道 ──────────────────────────────────────────────────────────────────
+# ── ssh tunnel ────────────────────────────────────────────────────────────────
 $tunnelProc = $null
+$sshArgs    = @("-N","-o","ServerAliveInterval=30","-o","ServerAliveCountMax=3",
+                "-R","${WorkerPort}:localhost:${WorkerPort}",$Server)
 div
 Write-Host ""
 if ($NoTunnel) {
-    warn "隧道" "跳过 (-NoTunnel 模式)"
+    lwarn "tunnel" "skipped (-NoTunnel)"
 } else {
-    info "隧道" "建立反向隧道  server:$WorkerPort -> 本机:$WorkerPort"
-    $sshArgs = @("-N", "-o", "ServerAliveInterval=30", "-o", "ServerAliveCountMax=3",
-                 "-R", "${WorkerPort}:localhost:${WorkerPort}", $Server)
-    $tunnelProc = Start-Process -FilePath "ssh" -ArgumentList $sshArgs -PassThru -WindowStyle Hidden
+    linfo "tunnel" "opening reverse tunnel  server:$WorkerPort -> local:$WorkerPort"
+    $tunnelProc = Start-Process ssh -ArgumentList $sshArgs -PassThru -WindowStyle Hidden
     Start-Sleep -Seconds 2
-    if ($tunnelProc.HasExited) {
-        err "隧道" "启动失败 (检查 SSH 配置)"
-    } else {
-        ok "隧道" "已建立  PID=$($tunnelProc.Id)"
-    }
+    if ($tunnelProc.HasExited) { lerr "tunnel" "failed (check SSH)" }
+    else                       { lok  "tunnel" "up  PID=$($tunnelProc.Id)" }
 }
 
-# ── Worker 进程 ───────────────────────────────────────────────────────────────
+# ── worker ────────────────────────────────────────────────────────────────────
 div
 Write-Host ""
-info "Worker" "启动图片生成服务  ->  http://localhost:$WorkerPort"
+linfo "worker" "starting  ->  http://localhost:$WorkerPort"
 Write-Host ""
 
-# 输出写到临时文件，主循环来 tail
-$outFile = "$env:TEMP\sywb-worker.log"
+$outFile  = "$env:TEMP\sywb-worker.log"
 "" | Set-Content -Path $outFile -Encoding UTF8
 
 $tsxPath = "$WorkerDir\node_modules\.bin\tsx"
-$workerProc = Start-Process -FilePath $tsxPath `
-    -ArgumentList "server.ts" `
-    -WorkingDirectory $WorkerDir `
-    -RedirectStandardOutput $outFile `
-    -RedirectStandardError  $outFile `
-    -PassThru -WindowStyle Hidden
-
-Start-Sleep -Milliseconds 800
 
 function Start-Worker {
     $p = Start-Process -FilePath $tsxPath `
@@ -117,80 +94,67 @@ function Start-Worker {
     return $p
 }
 
-# ── 主循环 ─────────────────────────────────────────────────────────────────────
-$reader    = New-Object System.IO.StreamReader($outFile, [System.Text.Encoding]::UTF8)
-$lastCheck = [DateTime]::MinValue
+$workerProc = Start-Worker
+$reader     = New-Object System.IO.StreamReader($outFile, [System.Text.Encoding]::UTF8)
+$lastCheck  = [DateTime]::MinValue
 
+# ── main loop ─────────────────────────────────────────────────────────────────
 try {
     while ($true) {
-        # 读 worker 输出
+
+        # forward worker output with coloring
         $line = $reader.ReadLine()
         while ($null -ne $line) {
             $l = [string]$line
             if ($l.Trim() -ne "") {
-                if ($l -match "error|Error|ERROR|failed|FAILED") {
-                    err "Worker" $l
-                } elseif ($l -match "warn|WARN|warning") {
-                    warn "Worker" $l
-                } elseif ($l -match "port|listen|started|ready|running") {
-                    ok "Worker" $l
-                } elseif ($l -match "queue|job|generat|comfy|image") {
-                    info "生图" $l
-                } elseif ($l -match "notify|callback|upload|server") {
-                    ok "回传" $l
-                } else {
-                    dim "Worker" $l
-                }
+                if     ($l -match "error|Error|ERROR|failed|FAILED") { lerr  "worker" $l }
+                elseif ($l -match "warn|WARN")                       { lwarn "worker" $l }
+                elseif ($l -match "listen|started|ready|running")    { lok   "worker" $l }
+                elseif ($l -match "queue|job|generat|comfy|image")   { linfo "image"  $l }
+                elseif ($l -match "notify|callback|upload")          { lok   "upload" $l }
+                else                                                  { ldim  "worker" $l }
             }
             $line = $reader.ReadLine()
         }
 
-        # Worker 挂掉自动重启
+        # restart if crashed
         if ($workerProc.HasExited) {
-            err "Worker" "进程退出 (code=$($workerProc.ExitCode))，5 秒后重启..."
+            lerr "worker" "exited (code=$($workerProc.ExitCode)) — restarting in 5s..."
             Start-Sleep -Seconds 5
             "" | Set-Content -Path $outFile -Encoding UTF8
             $reader.Close()
             $reader = New-Object System.IO.StreamReader($outFile, [System.Text.Encoding]::UTF8)
             $workerProc = Start-Worker
-            info "Worker" "已重启  PID=$($workerProc.Id)"
+            linfo "worker" "restarted  PID=$($workerProc.Id)"
         }
 
-        # 定期健康检查
+        # health check
         $now = [DateTime]::Now
         if (($now - $lastCheck).TotalSeconds -ge $CheckInterval) {
             $lastCheck = $now
             $parts = @()
 
-            # ComfyUI
             try {
                 $null = Invoke-WebRequest -Uri "http://localhost:$ComfyPort" -TimeoutSec 2 -UseBasicParsing -ErrorAction Stop
-                $parts += "ComfyUI [OK]"
-            } catch {
-                $parts += "ComfyUI [--]"
-            }
+                $parts += "ComfyUI[OK]"
+            } catch { $parts += "ComfyUI[--]" }
 
-            # Worker
             try {
-                $pingUrl = "http://localhost:$WorkerPort/ping"
-                $null = Invoke-WebRequest -Uri $pingUrl -TimeoutSec 2 -UseBasicParsing -ErrorAction Stop
-                $parts += "Worker [OK]"
-            } catch {
-                $parts += "Worker [--]"
-            }
+                $null = Invoke-WebRequest -Uri "http://localhost:$WorkerPort/ping" -TimeoutSec 2 -UseBasicParsing -ErrorAction Stop
+                $parts += "Worker[OK]"
+            } catch { $parts += "Worker[--]" }
 
-            # 隧道
             if (-not $NoTunnel) {
                 if ($tunnelProc -and -not $tunnelProc.HasExited) {
-                    $parts += "隧道 [OK]"
+                    $parts += "Tunnel[OK]"
                 } else {
-                    warn "隧道" "连接断开，重建中..."
-                    $tunnelProc = Start-Process -FilePath "ssh" -ArgumentList $sshArgs -PassThru -WindowStyle Hidden
-                    $parts += "隧道 [重建]"
+                    lwarn "tunnel" "dropped — rebuilding..."
+                    $tunnelProc = Start-Process ssh -ArgumentList $sshArgs -PassThru -WindowStyle Hidden
+                    $parts += "Tunnel[rebuild]"
                 }
             }
 
-            info "状态" ($parts -join "  |  ")
+            linfo "health" ($parts -join "  |  ")
         }
 
         Start-Sleep -Milliseconds 300
@@ -198,17 +162,17 @@ try {
 } finally {
     Write-Host ""
     div
-    warn "退出" "正在清理..."
+    lwarn "stop" "cleaning up..."
     $reader.Close()
     if ($workerProc -and -not $workerProc.HasExited) {
         Stop-Process -Id $workerProc.Id -Force -ErrorAction SilentlyContinue
-        ok "Worker" "已停止"
+        lok "worker" "stopped"
     }
     if ($tunnelProc -and -not $tunnelProc.HasExited) {
         Stop-Process -Id $tunnelProc.Id -Force -ErrorAction SilentlyContinue
-        ok "隧道" "已关闭"
+        lok "tunnel" "closed"
     }
     Write-Host ""
-    ok "完成" "再见！"
+    lok "bye" "goodbye!"
     Write-Host ""
 }
