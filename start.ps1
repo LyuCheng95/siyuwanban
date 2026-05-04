@@ -1,207 +1,214 @@
-# ╔══════════════════════════════════════════════════════════════╗
-# ║            私欲玩伴 — Local Services Launcher               ║
-# ║  一键启动：SSH 反向隧道 + 图片生成 Worker + 状态监控        ║
-# ╚══════════════════════════════════════════════════════════════╝
-#
-# 用法：
-#   .\start.ps1                  正常启动全部服务
-#   .\start.ps1 -NoTunnel        跳过 SSH 隧道（隧道已在其他地方运行时）
+# 私欲玩伴 — Local Services Launcher
+# 用法: .\start.ps1            启动全部服务
+#       .\start.ps1 -NoTunnel  跳过 SSH 隧道
 
 param([switch]$NoTunnel)
 
-# ── 配置 ─────────────────────────────────────────────────────────────────────
-$Server       = "root@168.144.108.9"
-$WorkerPort   = 7080
-$ComfyPort    = 8188
-$WorkerDir    = "$PSScriptRoot\image-worker"
-$CheckInterval = 20   # 秒：健康检查间隔
+# ── 配置 ──────────────────────────────────────────────────────────────────────
+$Server        = "root@168.144.108.9"
+$WorkerPort    = 7080
+$ComfyPort     = 8188
+$WorkerDir     = "$PSScriptRoot\image-worker"
+$CheckInterval = 20   # 秒
 
-# ── 颜色/日志工具 ────────────────────────────────────────────────────────────
-function ts { Get-Date -Format "HH:mm:ss" }
-
-function log {
-    param($Tag, $Msg, $Color = "White")
-    $time = Get-Date -Format "HH:mm:ss"
+# ── 日志工具 ─────────────────────────────────────────────────────────────────
+function wlog([string]$Tag, [string]$Msg, [string]$Color = "White") {
+    $t = Get-Date -Format "HH:mm:ss"
     Write-Host "  " -NoNewline
-    Write-Host $time -ForegroundColor DarkGray -NoNewline
+    Write-Host $t -ForegroundColor DarkGray -NoNewline
     Write-Host "  " -NoNewline
-    Write-Host $Tag -ForegroundColor $Color -NoNewline
-    Write-Host "  $Msg" -ForegroundColor White
+    $padded = $Tag.PadRight(8)
+    Write-Host $padded -ForegroundColor $Color -NoNewline
+    Write-Host " $Msg"
 }
+function ok   ([string]$Tag, [string]$Msg) { wlog $Tag $Msg "Green"   }
+function err  ([string]$Tag, [string]$Msg) { wlog $Tag $Msg "Red"     }
+function warn ([string]$Tag, [string]$Msg) { wlog $Tag $Msg "Yellow"  }
+function info ([string]$Tag, [string]$Msg) { wlog $Tag $Msg "Cyan"    }
+function dim  ([string]$Tag, [string]$Msg) { wlog $Tag $Msg "DarkGray"}
+function div  { Write-Host ("  " + [string]::new([char]0x2500, 58)) -ForegroundColor DarkGray }
 
-function log-ok  { param($Tag,$Msg) log $Tag $Msg "Green"   }
-function log-err { param($Tag,$Msg) log $Tag $Msg "Red"     }
-function log-warn{ param($Tag,$Msg) log $Tag $Msg "Yellow"  }
-function log-info{ param($Tag,$Msg) log $Tag $Msg "Cyan"    }
-
-function divider { Write-Host ("  " + ("─" * 60)) -ForegroundColor DarkGray }
-
-# ── Banner ───────────────────────────────────────────────────────────────────
+# ── Banner ────────────────────────────────────────────────────────────────────
 Clear-Host
 Write-Host ""
-Write-Host "  ╔══════════════════════════════════════════════════════╗" -ForegroundColor Magenta
-Write-Host "  ║          私  欲  玩  伴   —   Worker                ║" -ForegroundColor Magenta
-Write-Host "  ╚══════════════════════════════════════════════════════╝" -ForegroundColor Magenta
+Write-Host "  +==================================================+" -ForegroundColor Magenta
+Write-Host "  |        私  欲  玩  伴     Worker  Hub           |" -ForegroundColor Magenta
+Write-Host "  +==================================================+" -ForegroundColor Magenta
 Write-Host ""
-log-info "系统" "启动时间 $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
-divider
-Write-Host ""
+info "启动" "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+div
 
-# ── 检查依赖 ─────────────────────────────────────────────────────────────────
-log-info "检查" "node_modules..."
+# ── 依赖检查 ──────────────────────────────────────────────────────────────────
+Write-Host ""
 if (-not (Test-Path "$WorkerDir\node_modules")) {
-    log-warn "安装" "首次运行，安装依赖..."
+    warn "安装" "首次运行，安装 node_modules..."
     Push-Location $WorkerDir
     npm install --silent
     Pop-Location
-    log-ok "安装" "依赖安装完成"
+    ok "安装" "依赖安装完成"
 } else {
-    log-ok "检查" "依赖已就绪"
+    ok "依赖" "node_modules 已就绪"
 }
 
-# 复制 .env
 if (-not (Test-Path "$WorkerDir\.env")) {
     if (Test-Path "$WorkerDir\.env.example") {
         Copy-Item "$WorkerDir\.env.example" "$WorkerDir\.env"
-        log-warn "配置" "已创建 .env，请确认 WORKER_KEY 和 ADMIN_KEY"
+        warn "配置" "已创建 .env，请确认 WORKER_KEY 和 ADMIN_KEY"
     }
 }
 
-# ── ComfyUI 检查 ──────────────────────────────────────────────────────────────
+# ── ComfyUI 检测 ──────────────────────────────────────────────────────────────
+div
 Write-Host ""
-divider
-log-info "ComfyUI" "检查本地 ComfyUI（端口 $ComfyPort）..."
+$comfyUrl = "http://localhost:$ComfyPort"
 try {
-    $r = Invoke-WebRequest "http://localhost:$ComfyPort" -TimeoutSec 3 -UseBasicParsing -ErrorAction Stop
-    log-ok  "ComfyUI" "✓ 运行中  →  http://localhost:$ComfyPort"
+    $null = Invoke-WebRequest -Uri $comfyUrl -TimeoutSec 3 -UseBasicParsing -ErrorAction Stop
+    ok "ComfyUI" "运行中  ->  $comfyUrl"
 } catch {
-    log-warn "ComfyUI" "✗ 未检测到（图片生成将失败，请先启动 ComfyUI）"
+    warn "ComfyUI" "未检测到 (请先启动 ComfyUI，图片生成暂不可用)"
 }
 
 # ── SSH 隧道 ──────────────────────────────────────────────────────────────────
 $tunnelProc = $null
-if (-not $NoTunnel) {
-    Write-Host ""
-    divider
-    log-info "隧道" "建立 SSH 反向隧道  server:$WorkerPort → 本机:$WorkerPort"
-    $tunnelProc = Start-Process -FilePath "ssh" `
-        -ArgumentList "-N", "-o", "ServerAliveInterval=30", "-o", "ServerAliveCountMax=3", `
-                      "-R", "${WorkerPort}:localhost:${WorkerPort}", $Server `
-        -PassThru -WindowStyle Hidden
+div
+Write-Host ""
+if ($NoTunnel) {
+    warn "隧道" "跳过 (-NoTunnel 模式)"
+} else {
+    info "隧道" "建立反向隧道  server:$WorkerPort -> 本机:$WorkerPort"
+    $sshArgs = @("-N", "-o", "ServerAliveInterval=30", "-o", "ServerAliveCountMax=3",
+                 "-R", "${WorkerPort}:localhost:${WorkerPort}", $Server)
+    $tunnelProc = Start-Process -FilePath "ssh" -ArgumentList $sshArgs -PassThru -WindowStyle Hidden
     Start-Sleep -Seconds 2
     if ($tunnelProc.HasExited) {
-        log-err "隧道" "✗ 启动失败（检查 SSH 配置 / 服务器连接）"
+        err "隧道" "启动失败 (检查 SSH 配置)"
     } else {
-        log-ok  "隧道" "✓ 隧道已建立  PID=$($tunnelProc.Id)"
+        ok "隧道" "已建立  PID=$($tunnelProc.Id)"
     }
-} else {
-    log-warn "隧道" "跳过（-NoTunnel 模式）"
 }
 
-# ── 启动 Worker ───────────────────────────────────────────────────────────────
+# ── Worker 进程 ───────────────────────────────────────────────────────────────
+div
 Write-Host ""
-divider
-log-info "Worker" "启动图片生成服务  →  http://localhost:$WorkerPort"
+info "Worker" "启动图片生成服务  ->  http://localhost:$WorkerPort"
 Write-Host ""
 
-# 用 Job 启动 worker 并转发输出
-$workerJob = Start-Job -ScriptBlock {
-    param($dir)
-    Set-Location $dir
-    & npm start 2>&1
-} -ArgumentList $WorkerDir
+# 输出写到临时文件，主循环来 tail
+$outFile = "$env:TEMP\sywb-worker.log"
+"" | Set-Content -Path $outFile -Encoding UTF8
 
-# ── 主循环：输出转发 + 健康监控 ──────────────────────────────────────────────
+$tsxPath = "$WorkerDir\node_modules\.bin\tsx"
+$workerProc = Start-Process -FilePath $tsxPath `
+    -ArgumentList "server.ts" `
+    -WorkingDirectory $WorkerDir `
+    -RedirectStandardOutput $outFile `
+    -RedirectStandardError  $outFile `
+    -PassThru -WindowStyle Hidden
+
+Start-Sleep -Milliseconds 800
+
+function Start-Worker {
+    $p = Start-Process -FilePath $tsxPath `
+        -ArgumentList "server.ts" `
+        -WorkingDirectory $WorkerDir `
+        -RedirectStandardOutput $outFile `
+        -RedirectStandardError  $outFile `
+        -PassThru -WindowStyle Hidden
+    return $p
+}
+
+# ── 主循环 ─────────────────────────────────────────────────────────────────────
+$reader    = New-Object System.IO.StreamReader($outFile, [System.Text.Encoding]::UTF8)
 $lastCheck = [DateTime]::MinValue
-$workerReady = $false
 
 try {
     while ($true) {
-        # 转发 worker 输出
-        $lines = Receive-Job -Job $workerJob
-        foreach ($line in $lines) {
-            if (-not $line) { continue }
-            $l = "$line"
-
-            # 按关键词着色
-            if ($l -match "error|Error|ERROR|failed|FAILED") {
-                log-err  "Worker" $l
-            } elseif ($l -match "warn|WARN|warning") {
-                log-warn "Worker" $l
-            } elseif ($l -match "port|listening|started|ready|online|\d{4}") {
-                if (-not $workerReady) { $workerReady = $true }
-                log-ok   "Worker" $l
-            } elseif ($l -match "queue|job|generating|comfy|image") {
-                log-info "生图" $l
-            } elseif ($l -match "notify|callback|upload") {
-                log-ok   "回传" $l
-            } else {
-                log      "Worker" $l "DarkGray"
+        # 读 worker 输出
+        $line = $reader.ReadLine()
+        while ($null -ne $line) {
+            $l = [string]$line
+            if ($l.Trim() -ne "") {
+                if ($l -match "error|Error|ERROR|failed|FAILED") {
+                    err "Worker" $l
+                } elseif ($l -match "warn|WARN|warning") {
+                    warn "Worker" $l
+                } elseif ($l -match "port|listen|started|ready|running") {
+                    ok "Worker" $l
+                } elseif ($l -match "queue|job|generat|comfy|image") {
+                    info "生图" $l
+                } elseif ($l -match "notify|callback|upload|server") {
+                    ok "回传" $l
+                } else {
+                    dim "Worker" $l
+                }
             }
+            $line = $reader.ReadLine()
         }
 
-        # Worker 挂掉则自动重启
-        if ($workerJob.State -eq "Failed" -or $workerJob.State -eq "Completed") {
-            log-err "Worker" "进程意外退出，5 秒后重启..."
-            Remove-Job -Job $workerJob -Force
+        # Worker 挂掉自动重启
+        if ($workerProc.HasExited) {
+            err "Worker" "进程退出 (code=$($workerProc.ExitCode))，5 秒后重启..."
             Start-Sleep -Seconds 5
-            $workerJob = Start-Job -ScriptBlock {
-                param($dir)
-                Set-Location $dir
-                & npm start 2>&1
-            } -ArgumentList $WorkerDir
-            log-info "Worker" "已重启"
+            "" | Set-Content -Path $outFile -Encoding UTF8
+            $reader.Close()
+            $reader = New-Object System.IO.StreamReader($outFile, [System.Text.Encoding]::UTF8)
+            $workerProc = Start-Worker
+            info "Worker" "已重启  PID=$($workerProc.Id)"
         }
 
         # 定期健康检查
         $now = [DateTime]::Now
         if (($now - $lastCheck).TotalSeconds -ge $CheckInterval) {
             $lastCheck = $now
-            $status = @()
+            $parts = @()
 
             # ComfyUI
             try {
-                Invoke-WebRequest "http://localhost:$ComfyPort" -TimeoutSec 2 -UseBasicParsing -ErrorAction Stop | Out-Null
-                $status += "ComfyUI ✓"
+                $null = Invoke-WebRequest -Uri "http://localhost:$ComfyPort" -TimeoutSec 2 -UseBasicParsing -ErrorAction Stop
+                $parts += "ComfyUI [OK]"
             } catch {
-                $status += "ComfyUI ✗"
+                $parts += "ComfyUI [--]"
             }
 
             # Worker
             try {
-                Invoke-WebRequest "http://localhost:$WorkerPort/ping" -TimeoutSec 2 -UseBasicParsing -ErrorAction Stop | Out-Null
-                $status += "Worker ✓"
+                $pingUrl = "http://localhost:$WorkerPort/ping"
+                $null = Invoke-WebRequest -Uri $pingUrl -TimeoutSec 2 -UseBasicParsing -ErrorAction Stop
+                $parts += "Worker [OK]"
             } catch {
-                $status += "Worker ✗"
+                $parts += "Worker [--]"
             }
 
             # 隧道
-            if ($tunnelProc -and -not $tunnelProc.HasExited) {
-                $status += "隧道 ✓"
-            } elseif (-not $NoTunnel) {
-                $status += "隧道 ✗ 重建中..."
-                $tunnelProc = Start-Process -FilePath "ssh" `
-                    -ArgumentList "-N", "-o", "ServerAliveInterval=30", "-o", "ServerAliveCountMax=3", `
-                                  "-R", "${WorkerPort}:localhost:${WorkerPort}", $Server `
-                    -PassThru -WindowStyle Hidden
+            if (-not $NoTunnel) {
+                if ($tunnelProc -and -not $tunnelProc.HasExited) {
+                    $parts += "隧道 [OK]"
+                } else {
+                    warn "隧道" "连接断开，重建中..."
+                    $tunnelProc = Start-Process -FilePath "ssh" -ArgumentList $sshArgs -PassThru -WindowStyle Hidden
+                    $parts += "隧道 [重建]"
+                }
             }
 
-            $statusLine = $status -join "  │  "
-            log-info "状态" "[$statusLine]  $(Get-Date -Format 'HH:mm:ss')"
+            info "状态" ($parts -join "  |  ")
         }
 
         Start-Sleep -Milliseconds 300
     }
 } finally {
-    # Ctrl+C 清理
     Write-Host ""
-    divider
-    log-warn "退出" "正在清理进程..."
-    if ($workerJob) { Remove-Job -Job $workerJob -Force -ErrorAction SilentlyContinue }
+    div
+    warn "退出" "正在清理..."
+    $reader.Close()
+    if ($workerProc -and -not $workerProc.HasExited) {
+        Stop-Process -Id $workerProc.Id -Force -ErrorAction SilentlyContinue
+        ok "Worker" "已停止"
+    }
     if ($tunnelProc -and -not $tunnelProc.HasExited) {
         Stop-Process -Id $tunnelProc.Id -Force -ErrorAction SilentlyContinue
-        log-ok "隧道" "已关闭"
+        ok "隧道" "已关闭"
     }
-    log-ok "退出" "再见！"
+    Write-Host ""
+    ok "完成" "再见！"
     Write-Host ""
 }
