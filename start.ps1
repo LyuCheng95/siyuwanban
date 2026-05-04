@@ -94,9 +94,20 @@ function Start-Worker {
     return $p
 }
 
+function Open-LogReader([string]$path) {
+    $fs = New-Object System.IO.FileStream(
+        $path,
+        [System.IO.FileMode]::Open,
+        [System.IO.FileAccess]::Read,
+        [System.IO.FileShare]::ReadWrite)
+    return New-Object System.IO.StreamReader($fs, [System.Text.Encoding]::UTF8)
+}
+
+Start-Sleep -Seconds 1   # give cmd.exe time to create the files
 $workerProc = Start-Worker
-$outReader  = New-Object System.IO.StreamReader($outFile, [System.Text.Encoding]::UTF8)
-$errReader  = New-Object System.IO.StreamReader($errFile, [System.Text.Encoding]::UTF8)
+Start-Sleep -Milliseconds 500
+$outReader  = Open-LogReader $outFile
+$errReader  = Open-LogReader $errFile
 $lastCheck  = [DateTime]::MinValue
 
 # ── main loop ─────────────────────────────────────────────────────────────────
@@ -132,9 +143,12 @@ try {
             "" | Set-Content -Path $outFile -Encoding UTF8
             "" | Set-Content -Path $errFile -Encoding UTF8
             $outReader.Close(); $errReader.Close()
-            $outReader = New-Object System.IO.StreamReader($outFile, [System.Text.Encoding]::UTF8)
-            $errReader = New-Object System.IO.StreamReader($errFile, [System.Text.Encoding]::UTF8)
+            "" | Set-Content -Path $outFile -Encoding UTF8
+            "" | Set-Content -Path $errFile -Encoding UTF8
             $workerProc = Start-Worker
+            Start-Sleep -Milliseconds 500
+            $outReader = Open-LogReader $outFile
+            $errReader = Open-LogReader $errFile
             linfo "worker" "restarted  PID=$($workerProc.Id)"
         }
 
