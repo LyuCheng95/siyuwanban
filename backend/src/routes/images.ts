@@ -40,8 +40,8 @@ imagesRouter.post('/generate', async (req: AuthRequest, res: Response): Promise<
     let url: string;
     try {
       // Route through local worker (SSH tunnel: server localhost:7080 → local worker)
-      // Worker handles ComfyUI queue, model selection and LoRA logic
-      const workerRes = await fetch(`${WORKER_URL}/generate-scene-by-name`, {
+      // Step 1: enqueue the job (fast, returns jobId immediately)
+      const enqueueRes = await fetch(`${WORKER_URL}/generate-scene-by-name`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -49,12 +49,28 @@ imagesRouter.post('/generate', async (req: AuthRequest, res: Response): Promise<
         },
         body: JSON.stringify({ prompt, negative, characterName }),
       });
-      if (!workerRes.ok) {
-        const errText = await workerRes.text().catch(() => '');
-        throw new Error(`Worker error ${workerRes.status}: ${errText}`);
+      if (!enqueueRes.ok) {
+        const errText = await enqueueRes.text().catch(() => '');
+        throw new Error(`Worker enqueue error ${enqueueRes.status}: ${errText}`);
       }
-      const data = await workerRes.json() as { url: string };
-      url = data.url;
+      const { jobId } = await enqueueRes.json() as { jobId: string };
+
+      // Step 2: poll until done (max 150s, every 3s)
+      const deadline = Date.now() + 150_000;
+      url = await (async () => {
+        while (Date.now() < deadline) {
+          await new Promise(r => setTimeout(r, 3000));
+          const pollRes = await fetch(`${WORKER_URL}/scene-job/${jobId}`, {
+            headers: WORKER_KEY ? { 'x-worker-key': WORKER_KEY } : {},
+          });
+          if (!pollRes.ok) continue;
+          const job = await pollRes.json() as { status: string; url?: string; error?: string };
+          if (job.status === 'done' && job.url) return job.url;
+          if (job.status === 'failed') throw new Error(`Worker job failed: ${job.error}`);
+          // status === 'pending' | 'running' — keep polling
+        }
+        throw new Error('Image generation timed out after 150s');
+      })();
     } catch (genErr: any) {
       // Refund the diamonds — generation failed (worker offline, ComfyUI down, etc.)
       await prisma.user.update({

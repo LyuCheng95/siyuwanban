@@ -248,22 +248,58 @@ app.post('/generate-scene', requireKey, async (req, res) => {
   }
 });
 
-// POST /generate-scene-by-name — synchronous scene image for chat; takes { prompt, characterName, negative? }
-// Builds the workflow internally using the same model/LoRA logic as album generation
-app.post('/generate-scene-by-name', requireKey, async (req, res) => {
-  try {
-    const { prompt, characterName, negative: _neg } = req.body as {
-      prompt: string; characterName?: string; negative?: string;
-    };
-    if (!prompt?.trim()) { res.status(400).json({ error: 'prompt required' }); return; }
-    const modelName = CHARACTER_MODEL[characterName ?? ''] ?? MODEL_JUGGER;
-    const workflow  = buildAlbumWorkflow(prompt, modelName);
-    const url = await generateOne(workflow, `scene_${(characterName || 'char').replace(/\s/g, '_')}`);
-    res.json({ url });
-  } catch (err: any) {
-    console.error('[worker] generate-scene-by-name error:', err.message);
-    res.status(500).json({ error: err.message });
+// Scene job map — lightweight, separate from album jobs
+interface SceneJob {
+  id: string;
+  status: 'pending' | 'running' | 'done' | 'failed';
+  url?: string;
+  error?: string;
+  createdAt: number;
+}
+const sceneJobs = new Map<string, SceneJob>();
+// Clean up scene jobs older than 10 minutes
+setInterval(() => {
+  const cutoff = Date.now() - 10 * 60 * 1000;
+  for (const [id, job] of sceneJobs) {
+    if (job.createdAt < cutoff) sceneJobs.delete(id);
   }
+}, 60_000);
+
+// POST /generate-scene-by-name — async scene image for chat
+// Returns { jobId } immediately; poll GET /scene-job/:id for status
+app.post('/generate-scene-by-name', requireKey, (req, res) => {
+  const { prompt, characterName } = req.body as {
+    prompt: string; characterName?: string;
+  };
+  if (!prompt?.trim()) { res.status(400).json({ error: 'prompt required' }); return; }
+
+  const jobId = randomUUID();
+  const job: SceneJob = { id: jobId, status: 'pending', createdAt: Date.now() };
+  sceneJobs.set(jobId, job);
+  res.json({ jobId });
+
+  // Run generation in background (non-blocking)
+  (async () => {
+    job.status = 'running';
+    try {
+      const modelName = CHARACTER_MODEL[characterName ?? ''] ?? MODEL_JUGGER;
+      const workflow  = buildAlbumWorkflow(prompt, modelName);
+      const prefix    = `scene_${(characterName || 'char').replace(/\s/g, '_')}`;
+      job.url    = await generateOne(workflow, prefix);
+      job.status = 'done';
+    } catch (err: any) {
+      job.status = 'failed';
+      job.error  = err.message;
+      console.error('[worker] generate-scene-by-name error:', err.message);
+    }
+  })();
+});
+
+// GET /scene-job/:id — poll for scene image completion
+app.get('/scene-job/:id', requireKey, (req, res) => {
+  const job = sceneJobs.get(req.params.id);
+  if (!job) { res.status(404).json({ error: 'not found' }); return; }
+  res.json({ status: job.status, url: job.url, error: job.error });
 });
 
 // POST /generate-album — enqueue job, return immediately

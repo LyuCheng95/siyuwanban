@@ -16,7 +16,11 @@ if (-not $NoTunnel) {
     Write-Host "[tunnel] Opening SSH reverse tunnel: remote:$WorkerPort -> local:$WorkerPort" -ForegroundColor Yellow
     # Single tunnel for the worker (handles both album and scene generation)
     $tunnel = Start-Process -FilePath "ssh" `
-        -ArgumentList "-N", "-R", "${WorkerPort}:localhost:${WorkerPort}", $Server `
+        -ArgumentList "-N", "-R", "${WorkerPort}:localhost:${WorkerPort}",
+            "-o", "ServerAliveInterval=20",
+            "-o", "ServerAliveCountMax=10",
+            "-o", "ExitOnForwardFailure=yes",
+            $Server `
         -PassThru -WindowStyle Hidden
     Write-Host "[tunnel] PID $($tunnel.Id) — tunnel open. Server now routes localhost:$WorkerPort to this machine." -ForegroundColor Green
     Start-Sleep -Seconds 2
