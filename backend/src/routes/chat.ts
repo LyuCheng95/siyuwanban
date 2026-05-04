@@ -2,7 +2,7 @@ import { Router, Response } from 'express';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
 import { prisma } from '../utils/prisma';
 import { buildCharacterSystemPrompt, chatStream, extractUserMemory, parseMeta, Message } from '../services/grok';
-import { generateSceneImage, shouldGenerateImage } from '../services/comfyui';
+import { shouldGenerateImage } from '../services/comfyui';
 
 export const chatRouter = Router();
 chatRouter.use(authMiddleware);
