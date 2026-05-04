@@ -758,7 +758,7 @@ adminRouter.post('/simulate-chat', async (req: Request, res: Response): Promise<
           { role: 'user' as const, content: userMsg },
           { role: 'assistant' as const, content: cleanReply },
         ];
-        const imgDecision = await shouldGenerateImage(character.name, recentForImage, character, intimacy, meta.acts) as { generate: boolean; prompt?: string; twoShot?: boolean };
+        const imgDecision = await shouldGenerateImage(character.name, recentForImage, character, intimacy, meta.acts, character.occupation || '') as { generate: boolean; prompt?: string; twoShot?: boolean };
         if (imgDecision.generate && imgDecision.prompt) {
           send({ type: 'image_pending', turn: i + 1, prompt: imgDecision.prompt });
           const imgUrl = await generateSceneImage(imgDecision.prompt, '', character.name);

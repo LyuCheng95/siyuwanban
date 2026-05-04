@@ -88,7 +88,8 @@ export async function shouldGenerateImage(
     faceAnchor?: string | null; faceFeatures?: string | null; defaultOutfit?: string | null;
   },
   intimacyLevel = 0,
-  recentActs: string[] = []
+  recentActs: string[] = [],
+  sceneContext = ''
 ): Promise<{ generate: boolean; prompt?: string; twoShot?: boolean }> {
   // DB fields take priority, fall back to hardcoded maps for legacy chars
   const bodyAnchor = character?.faceFeatures || CHARACTER_BODY[characterName] || `1girl, ${characterName}`;
@@ -164,6 +165,40 @@ export async function shouldGenerateImage(
     ? `\n【全对话累积已发生行为】${recentActs.join('、')}`
     : '';
 
+  // ── 5. 构图规则 ──────────────────────────────────────────────────────────────
+  let shotRule: string;
+  if (hasClimaxAct) {
+    shotRule = 'extreme close-up: ahegao face (eyes rolled back, mouth wide open, drooling) OR creampie close-up (cum dripping from pussy). 选最能体现高潮的镜头。';
+  } else if (hasSexAct) {
+    const posShot: Record<string, string> = {
+      'cowgirl': 'front-facing medium shot showing breasts bouncing, riding motion, penetration visible at bottom frame',
+      'doggy style': 'rear close-up: penetration from behind, ass and pussy clearly visible, back arch',
+      'missionary': 'overhead or side close-up: penis deep inside pussy, legs spread, penetration detail',
+      'spooning': 'side-angle close-up: entry from behind, bodies pressed together',
+    };
+    const pos = detectedPosition || '';
+    const matched = Object.entries(posShot).find(([k]) => pos.includes(k));
+    shotRule = matched
+      ? matched[1]
+      : 'close-up of vaginal penetration, penis inserted into pussy, explicit detail';
+  } else if (hasOralAct) {
+    shotRule = 'POV close-up: face looking up at camera with penis in mouth, saliva, flushed cheeks';
+  } else if (isBottomless && recentActs.some(a => a.includes('手指') || a.includes('阴蒂') || a.includes('指'))) {
+    shotRule = 'close-up of fingers between thighs / fingering, wet pussy visible, thighs trembling';
+  } else if (isTopless) {
+    shotRule = 'chest close-up: bare breasts with erect nipples, hands or mouth on breasts, upper body focus';
+  } else if (intimacyLevel < 20) {
+    shotRule = 'medium shot (waist up), clothed, face and upper body, scene background clearly visible';
+  } else if (intimacyLevel < 40) {
+    shotRule = 'medium shot slightly closer, disheveled clothes, face flushed, background still scene-appropriate';
+  } else {
+    shotRule = 'half-body close-up, bare chest visible, face expression matches arousal level';
+  }
+
+  const sceneHint = sceneContext
+    ? `【当前场景 — 必须体现在背景中】\n${sceneContext}\n→ 背景必须反映此场景（如实验室、健身房、教室等），不得用通用卧室替代。\n`
+    : '';
+
   const systemContent = `你是一个专业的图片生成 prompt 构建器。
 
 【角色固定体貌 — 必须原样保留】
@@ -172,12 +207,15 @@ ${actsHint}
 【着装状态 — 已由代码根据对话历史精确计算，必须原样使用，禁止推断或改变】
 → ${clothingState}
 
+${sceneHint}【构图/镜头 — 必须按此规则选择，不得自由发挥】
+→ ${shotRule}
+
 【任务：构建精确的图片 prompt，提取以下维度】
 
 1. 着装状态：直接使用上方已给出的状态，不得根据对话内容重新推断
 2. 动作/体位：从对话和已发生行为中提取（优先用 acts 里的体位词）
    - 性交场景必须使用具体体位词：cowgirl / doggy style / missionary / spooning 等
-   - 非性交场景：lying on bed / sitting / standing / against wall 等
+   - 非性交场景：sitting on lab bench / standing in gym / against classroom wall 等，匹配当前场景
 3. 神态/表情（必须匹配剧情强度）：
    - P0-P1：flushed cheeks, shy smile
    - P2：mouth open, heavy breathing, biting lip, half-closed eyes
@@ -191,8 +229,8 @@ ${actsHint}
 【输出格式】只返回 JSON，不含任何其他文字：
 {"generate": true/false, "twoShot": true/false, "prompt": "完整英文 prompt"}
 
-prompt 结构：[体貌锚] + [着装状态（必须匹配已计算结果）] + [动作体位] + [表情神态] + [场景环境] + [强度词]
-⚠️ 禁止在性交场景中生成有衣服遮挡的图片；着装状态已经由代码算好，直接用。`;
+prompt 结构：[体貌锚] + [着装状态] + [构图/镜头类型] + [动作体位] + [表情神态] + [场景背景] + [强度词]
+⚠️ 场景背景必须匹配当前对话场景，不得凭空替换为卧室或中性背景。`;
 
   const res = await fetch('https://api.x.ai/v1/chat/completions', {
     method: 'POST',
