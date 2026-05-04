@@ -662,14 +662,19 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
                 </div>
               )}
 
-              {/* ── Scene trigger button — below text ── */}
-              {msg.role === 'assistant' && !streaming && !msg.imageGenerating && !msg.imageUrl && (
+              {/* ── Scene trigger button — only when AI requested an image ── */}
+              {msg.role === 'assistant' && !streaming && !msg.imageGenerating && !msg.imageUrl && (msg.imagePrompt || msg.imageError) && (
                 <button
                   className="scene-btn"
-                  onClick={() => generateInlineImage(
-                    buildScenePrompt(character, msg.imagePrompt, desire, currentPhase, mood, msg.imageTwoShot),
-                    i,
-                  )}
+                  disabled={credits.paid < 2 && !msg.imageError}
+                  onClick={() => {
+                    if (credits.paid < 2) { setShowPaywall(true); return; }
+                    generateInlineImage(
+                      buildScenePrompt(character, msg.imagePrompt, desire, currentPhase, mood, msg.imageTwoShot),
+                      i,
+                    );
+                  }}
+                  style={{ opacity: credits.paid < 2 ? 0.5 : 1 }}
                 >
                   <div className="scene-btn-shimmer" />
                   <div className="scene-btn-left">
@@ -682,7 +687,7 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
                     <span>{t.chat.sceneLabel}</span>
                   </div>
                   <div className="scene-btn-cost">
-                    <span>{msg.imageError ? (lang === 'en' ? '⚠️ Retry' : '⚠️ 重试') : t.chat.sceneCost}</span>
+                    <span>{msg.imageError ? (lang === 'en' ? '⚠️ Retry' : '⚠️ 重试') : credits.paid < 2 ? (lang === 'en' ? '💎 Need 2' : '💎 不足') : t.chat.sceneCost}</span>
                   </div>
                 </button>
               )}
