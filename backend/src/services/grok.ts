@@ -20,13 +20,14 @@ export interface MetaData {
   qn: number | null;
   genImg: boolean;
   imgPrompt: string | null;
+  scene: string;       // current physical location for image background
 }
 
 export function parseMeta(reply: string): { cleanReply: string; meta: MetaData } {
   const match = reply.match(/<META>([\s\S]*?)<\/META>/);
   const defaultMeta: MetaData = {
     mood: '期待✨', delta: 1, controlDelta: 0, desireDelta: 0, attachDelta: 0,
-    suggestions: [], acts: [], phase: 0, qn: null, genImg: false, imgPrompt: null,
+    suggestions: [], acts: [], phase: 0, qn: null, genImg: false, imgPrompt: null, scene: '',
   };
   if (!match) return { cleanReply: reply.trim(), meta: defaultMeta };
   try {
@@ -46,6 +47,7 @@ export function parseMeta(reply: string): { cleanReply: string; meta: MetaData }
         qn: typeof data.qn === 'number' ? data.qn : null,
         genImg: data.genImg === true,
         imgPrompt: typeof data.imgPrompt === 'string' && data.imgPrompt.length > 10 ? data.imgPrompt : null,
+        scene: typeof data.scene === 'string' && data.scene.length > 2 ? data.scene.trim() : '',
       },
     };
   } catch {
@@ -370,6 +372,8 @@ s：3个用户快捷回复选项——必须直接回应角色本轮最后一句
   每个≤12字，让用户脑子里出现下一秒的画面
 acts：本轮实际新发生的行为，中文词组（"接吻"、"脱衣"、"口交"、"插入"、"高潮"等），没有新行为则填 []
 phase：当前阶段 0-4，只能等于或大于上一轮${character.name === '椎名老师' ? '\nqn：当前题目序号（必填，每轮出新题则+1，范围1-25）' : ''}
+scene：【必填·每轮都要填】当前实际物理场景的英文描述，2-8个词，用逗号分隔，直接作为图片背景——必须反映对话实际发生地点，禁止填"bedroom"当万金油
+  【规则】根据对话内容判断：画室→"art studio, wooden easel, canvas, morning sunlight through window"；实验室→"university lab, fluorescent light, lab bench, microscope"；补习室→"study room, desk lamp, textbooks, evening"；护士室→"nurse office, medical bed, white curtain, soft light"；咖啡馆→"cafe counter, coffee cups, warm lighting"；宿舍→"dormitory room, bunk bed, dim light"；卧室→"bedroom, soft bedside lamp, white sheets"；办公室→"office, city night view through window, desk"；健身房→"gym, workout equipment, mirrors, sweat"。每轮根据对话自动判断并更新——如果场景未变化则保持上轮的scene值。
 genImg：本轮是否需要生成配图（P2+有明确身体/前戏/性行为时填true；P0-P1纯情绪/对话时填false）
 imgPrompt：ComfyUI英文图像提示词（genImg=true时必须填写，只写本轮特有内容，禁止写角色名/发色/身材——系统自动添加角色外貌锚定）
   ${clothingHint ? `【着装铁律：${clothingHint.replace(/【|】/g, '')}】` : '【着装：按当前剧情写着装状态】'}
