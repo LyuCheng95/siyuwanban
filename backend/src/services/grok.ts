@@ -282,7 +282,7 @@ ${activeScript}
 ━━━━━━━━━━━━━━━━━━━━━
 [REPLY FORMAT — MANDATORY]
 After your reply body, add on a new line (hidden from user):
-<META>{"mood":"excited","delta":3,"cd":2,"dd":2,"ad":1,"s":["option A","option B","option C"],"acts":["new act this turn"],"phase":0,"genImg":true,"imgPrompt":"scene-specific english prompt"}</META>
+<META>{"mood":"excited","delta":3,"cd":2,"dd":2,"ad":1,"s":["option A","option B","option C"],"acts":["new act this turn"],"phase":0,"scene":"art studio, wooden easel, morning sunlight","genImg":true,"imgPrompt":"scene-specific english prompt"}</META>
 
 mood: character's current emotion, plain English word, no emoji, e.g.: yearning/excited/shy/satisfied/attached/anticipating/burning/possessive
 delta: affection change (user engaged/physical contact +3~5, new story phase +4~6, climax/sex +5~6, normal chat +2~3, cold/dismissive +0~1) — NEVER give delta=1 when user is clearly enthusiastic; the more active the user, the higher the delta
@@ -296,6 +296,8 @@ s: 3 quick-reply options for the user — must directly respond to ${charName}'s
   Each option ≤ 10 words. Make the user's brain jump to the next second.
 acts: new acts that physically happened this turn, English phrases ("kissing"/"undressing"/"blowjob"/"penetration"/"orgasm" etc.), [] if nothing new
 phase: current phase 0-4, can only equal or increase from last turn
+scene: [REQUIRED every turn] 2-8 English words describing the actual physical location where this scene is happening, used directly as image background — must match the dialogue, never default to "bedroom" as a catch-all.
+  [Rule] Read the dialogue context: art class → "art studio, wooden easel, canvas, morning sunlight"; lab → "university lab, fluorescent light, lab bench"; study session → "study room, desk lamp, textbooks, evening"; nurse's office → "nurse office, medical bed, white curtain"; café → "cafe counter, coffee cups, warm lighting"; dorm → "dormitory room, bunk bed, dim light"; bedroom → "bedroom, soft bedside lamp, white sheets"; office → "office, city night view, glass desk"; gym → "gym, workout equipment, mirrors". Update each turn if the scene changes; keep the same value if it hasn't.
 genImg: whether to generate an image this turn (true for P2+ with explicit body/foreplay/sex; false for P0-P1 emotion/dialogue only)
 imgPrompt: ComfyUI image prompt in English (required when genImg=true; write only scene-specific content; do NOT include character name/hair color/body type — system adds those automatically)
   ${clothingHintEN ? `[Clothing rule: ${clothingHintEN.replace(/\[|\]/g, '')}]` : '[Clothing: write current state based on story]'}
@@ -358,7 +360,7 @@ ${activeScript}
 ━━━━━━━━━━━━━━━━━━━━━
 【回复格式 - 必须遵守】
 正文写完后，另起一行附加（用户看不到）：
-<META>{"mood":"兴奋🔥","delta":3,"cd":2,"dd":2,"ad":1,"s":["选项A","选项B","选项C"],"acts":["本轮新发生的行为"],"phase":当前阶段数字,"genImg":true,"imgPrompt":"scene-specific english prompt"}</META>
+<META>{"mood":"兴奋🔥","delta":3,"cd":2,"dd":2,"ad":1,"s":["选项A","选项B","选项C"],"acts":["本轮新发生的行为"],"phase":当前阶段数字,"scene":"art studio, wooden easel, morning sunlight","genImg":true,"imgPrompt":"scene-specific english prompt"}</META>
 
 mood：当前角色心情，纯文字，不加emoji，例如：心动/兴奋/害羞/满足/依恋/期待/燃烧/占有
 delta：好感度变化（用户积极配合/肢体接触推进+3~5，剧情进入新阶段+4~6，高潮/性爱+5~6，普通对话+2~3，冷漠敷衍+0~1）——严禁"用户明显热情却给delta=1"，用户越主动delta必须越高

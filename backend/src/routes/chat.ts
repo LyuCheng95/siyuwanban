@@ -205,8 +205,14 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
 
   const [imageDecision, [updatedConversation, updatedUser]] = await Promise.all([
     (meta.genImg && meta.imgPrompt)
-      ? Promise.resolve({ generate: true, prompt: meta.imgPrompt, twoShot: newPhaseIndex >= 2 })
-      : shouldGenerateImage(character.name, recentForImage, character, newIntimacy, newUnlockedActs, character.occupation || '') as Promise<{ generate: boolean; prompt?: string; twoShot?: boolean }>,
+      ? Promise.resolve({
+          generate: true,
+          prompt: meta.scene && !meta.imgPrompt!.toLowerCase().includes(meta.scene.split(',')[0].trim().split(' ')[0])
+            ? `${meta.imgPrompt}, ${meta.scene}`
+            : meta.imgPrompt,
+          twoShot: newPhaseIndex >= 2,
+        })
+      : shouldGenerateImage(character.name, recentForImage, character, newIntimacy, newUnlockedActs, meta.scene || character.occupation || '') as Promise<{ generate: boolean; prompt?: string; twoShot?: boolean }>,
     Promise.all([
       conversation
         ? prisma.conversation.update({

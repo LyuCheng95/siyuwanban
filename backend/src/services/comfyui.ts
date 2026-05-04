@@ -254,7 +254,18 @@ prompt 结构：[体貌锚] + [着装状态] + [构图/镜头类型] + [动作�
     const content = data.choices?.[0]?.message?.content ?? '{}';
     // Strip markdown code fences if present
     const cleaned = content.trim().replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
-    const parsed = JSON.parse(cleaned);
+    const parsed = JSON.parse(cleaned) as { generate: boolean; prompt?: string; twoShot?: boolean };
+
+    // Guarantee scene is in the prompt — inject directly so ComfyUI always
+    // sees the correct background even when Grok skips the scene hint.
+    if (sceneContext && parsed.generate && parsed.prompt) {
+      const sceneWords = sceneContext.split(',').map(w => w.trim().split(' ')[0]).filter(Boolean);
+      const alreadyPresent = sceneWords.some(w => parsed.prompt!.toLowerCase().includes(w.toLowerCase()));
+      if (!alreadyPresent) {
+        parsed.prompt = `${parsed.prompt}, ${sceneContext}`;
+      }
+    }
+
     return parsed;
   } catch {
     return { generate: false };
