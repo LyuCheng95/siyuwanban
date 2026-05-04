@@ -16,7 +16,8 @@ function splitIntoSegments(text: string): Segment[] {
     if (!t) continue;
     const parts = t.split(/(\*[^*\n]+\*)/g);
     for (const part of parts) {
-      const p = part.trim();
+      // trim whitespace AND leading Chinese/full-width punctuation left over after a *narration* block
+      const p = part.replace(/^[\s，、。,]+/, '').trimEnd();
       if (!p) continue;
       if (p.startsWith('*') && p.endsWith('*')) {
         out.push({ content: p.slice(1, -1), type: 'narration' });
