@@ -4,6 +4,24 @@ import crypto from 'crypto';
 import { prisma } from '../utils/prisma';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
 
+function hashPassword(password: string): string {
+  return crypto.createHash('sha256').update(password + process.env.JWT_SECRET).digest('hex');
+}
+
+function makeUserResponse(user: any, isAnon = false) {
+  return {
+    id: user.id,
+    username: user.username,
+    firstName: user.firstName,
+    nickname: user.nickname ?? null,
+    email: user.email ?? null,
+    freeCredits: user.freeCredits,
+    paidCredits: user.paidCredits,
+    isAnonymous: isAnon || user.isAnonymous,
+    language: user.language ?? 'zh',
+  };
+}
+
 export const authRouter = Router();
 
 const JWT_SECRET = process.env.JWT_SECRET!;
@@ -97,6 +115,74 @@ authRouter.post('/telegram', async (req: Request, res: Response): Promise<void> 
       language,
     },
   });
+});
+
+// POST /api/auth/register — email + password 注册
+authRouter.post('/register', async (req: Request, res: Response): Promise<void> => {
+  const { email, password } = req.body as { email?: string; password?: string };
+
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    res.status(400).json({ error: 'invalid_email', message: '请输入有效的邮箱地址' }); return;
+  }
+  if (!password || password.length < 6) {
+    res.status(400).json({ error: 'weak_password', message: '密码至少6位' }); return;
+  }
+
+  const existing = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+  if (existing) {
+    res.status(409).json({ error: 'email_taken', message: '该邮箱已被注册' }); return;
+  }
+
+  // telegramId for email users: hash email to a positive BigInt range
+  const hash = crypto.createHash('sha256').update('email:' + email.toLowerCase()).digest('hex');
+  const emailId = BigInt('0x' + hash.slice(0, 14));
+
+  const user = await prisma.user.create({
+    data: {
+      telegramId: emailId,
+      email: email.toLowerCase(),
+      passwordHash: hashPassword(password),
+      username: email.split('@')[0],
+      firstName: email.split('@')[0],
+      isAnonymous: false,
+      paidCredits: 0,
+      freeCredits: 3, // 注册赠送3金币免费体验
+    },
+  });
+
+  const token = jwt.sign(
+    { userId: user.id, telegramId: user.telegramId.toString(), isAnon: false },
+    JWT_SECRET,
+    { expiresIn: '90d' }
+  );
+
+  res.json({ token, user: makeUserResponse(user) });
+});
+
+// POST /api/auth/login — email + password 登录
+authRouter.post('/login', async (req: Request, res: Response): Promise<void> => {
+  const { email, password } = req.body as { email?: string; password?: string };
+
+  if (!email || !password) {
+    res.status(400).json({ error: 'missing_fields', message: '请输入邮箱和密码' }); return;
+  }
+
+  const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+  if (!user || !user.passwordHash) {
+    res.status(401).json({ error: 'invalid_credentials', message: '邮箱或密码错误' }); return;
+  }
+
+  if (user.passwordHash !== hashPassword(password)) {
+    res.status(401).json({ error: 'invalid_credentials', message: '邮箱或密码错误' }); return;
+  }
+
+  const token = jwt.sign(
+    { userId: user.id, telegramId: user.telegramId.toString(), isAnon: false },
+    JWT_SECRET,
+    { expiresIn: '90d' }
+  );
+
+  res.json({ token, user: makeUserResponse(user) });
 });
 
 // PATCH /api/auth/language — save user language preference

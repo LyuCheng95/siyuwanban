@@ -41,6 +41,16 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ initData }),
       }),
+    register: (email: string, password: string) =>
+      request<{ token: string; user: import('../types').User }>('/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      }),
+    login: (email: string, password: string) =>
+      request<{ token: string; user: import('../types').User }>('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      }),
     setNickname: (nickname: string) =>
       request<{ ok: boolean; nickname: string }>('/auth/nickname', {
         method: 'PATCH',

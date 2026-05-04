@@ -10,6 +10,7 @@ import { ProfilePage } from './pages/ProfilePage';
 import { LeaderboardPage } from './pages/LeaderboardPage';
 import { CheckInModal } from './components/CheckInModal';
 import { NicknameModal } from './components/NicknameModal';
+import { AuthPage } from './pages/AuthPage';
 
 const NAV_PATHS = [
   {
@@ -67,7 +68,7 @@ const HIDE_NAV = ['/chat/', '/character/'];
 const CHECKIN_KEY = 'sywb_last_checkin_shown';
 
 export default function App() {
-  const { user, loading, error, updateCredits, setUser } = useAuth();
+  const { user, loading, error, needsAuth, handleAuthSuccess, continueAsGuest, updateCredits, setUser } = useAuth();
   const { t } = useLang();
   const navigate = useNavigate();
   const location = useLocation();
@@ -114,6 +115,10 @@ export default function App() {
         }}>私欲玩伴</div>
       </div>
     );
+  }
+
+  if (needsAuth) {
+    return <AuthPage onSuccess={handleAuthSuccess} onGuest={continueAsGuest} />;
   }
 
   if (error) {

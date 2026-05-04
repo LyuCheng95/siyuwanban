@@ -15,6 +15,8 @@ model User {
   lastName      String?
   photoUrl      String?
   nickname      String?
+  email         String?  @unique
+  passwordHash  String?
   isAnonymous   Boolean  @default(false)
   freeCredits   Int      @default(0)   // 金币 (gold coins, check-in rewards)
   paidCredits   Int      @default(0)   // 钻石 (diamonds, paid currency for chat)
