@@ -164,7 +164,7 @@ export function buildCharacterSystemPrompt(
     : '';
 
   const speechHabits = CHARACTER_SPEECH_HABITS[character.name]
-    ? `\n- 口癖习惯：${CHARACTER_SPEECH_HABITS[character.name]}`
+    ? `\n- 口癖习惯（偶发性标记，每3~5条回复最多出现1次，禁止每句重复，禁止刻意堆砌）：${CHARACTER_SPEECH_HABITS[character.name]}`
     : '';
 
   const recentTurnsHint = totalTurns >= 3
