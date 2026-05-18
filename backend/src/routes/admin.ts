@@ -153,12 +153,17 @@ adminRouter.get('/analytics', async (req: Request, res: Response): Promise<void>
   `;
 
   // 填充日期空缺（保证连续）
+  function toDateStr(d: unknown): string {
+    if (d instanceof Date) return d.toISOString().slice(0, 10);
+    return String(d).slice(0, 10);
+  }
+
   function fillDates<T extends object>(
-    raw: Array<T & { date: string }>,
+    raw: Array<T & { date: unknown }>,
     key: string,
     defaultVal: number,
   ): Array<Record<string, unknown>> {
-    const map = new Map(raw.map(r => [r.date.slice(0, 10), r]));
+    const map = new Map(raw.map(r => [toDateStr(r.date), r]));
     const result = [];
     for (let d = 0; d < days; d++) {
       const dt = new Date(since.getTime() + d * 86400000);
@@ -171,10 +176,10 @@ adminRouter.get('/analytics', async (req: Request, res: Response): Promise<void>
     return result;
   }
 
-  const daily = fillDates(dauRaw, 'dau', 0).map((r, i) => {
-    const msgRow = dauRaw.find(d => d.date.slice(0, 10) === r.date);
-    const nuRow  = newUsersRaw.find(d => d.date.slice(0, 10) === r.date);
-    const revRow = revenueRaw.find(d => d.date.slice(0, 10) === r.date);
+  const daily = fillDates(dauRaw, 'dau', 0).map((r) => {
+    const msgRow = dauRaw.find(d => toDateStr(d.date) === r.date);
+    const nuRow  = newUsersRaw.find(d => toDateStr(d.date) === r.date);
+    const revRow = revenueRaw.find(d => toDateStr(d.date) === r.date);
     return {
       date:     r.date as string,
       dau:      msgRow ? Number(msgRow.dau)      : 0,
