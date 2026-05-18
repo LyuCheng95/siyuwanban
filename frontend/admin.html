@@ -2492,7 +2492,7 @@ const CHART_DEFAULTS = {
 async function loadAnalytics() {
   try {
     destroyCharts();
-    const data = await api(`/api/admin/analytics?key=${ADMIN_KEY}&days=${analyticsDays}`);
+    const data = await api(`/analytics?days=${analyticsDays}`);
 
     // KPI 卡片
     const totalDau    = Math.max(...data.daily.map(d => d.dau), 0);
