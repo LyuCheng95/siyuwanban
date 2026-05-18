@@ -339,12 +339,9 @@
       <button class="nav-item" onclick="showPage('users')" id="nav-users"><span class="icon">👥</span><span>用户列表</span></button>
       <button class="nav-item" onclick="showPage('logs')" id="nav-logs"><span class="icon">💬</span><span>对话记录</span></button>
       <button class="nav-item" onclick="showPage('gallery')" id="nav-gallery"><span class="icon">🖼️</span><span>图片库</span></button>
-      <button class="nav-item" onclick="showPage('simulator')" id="nav-simulator"><span class="icon">🧪</span><span>对话测试</span></button>
-      <button class="nav-item" onclick="showPage('create-char')" id="nav-create-char"><span class="icon">➕</span><span>添加角色</span></button>
+      <button class="nav-item" onclick="showPage('simulator')" id="nav-simulator"><span class="icon">🧪</span><span>测试工具</span></button>
       <button class="nav-item" onclick="showPage('redeem')" id="nav-redeem"><span class="icon">🎁</span><span>兑换码</span></button>
       <button class="nav-item" onclick="showPage('payments')" id="nav-payments"><span class="icon">💳</span><span>流水明细</span></button>
-      <button class="nav-item" onclick="showPage('worker')" id="nav-worker"><span class="icon">🖥️</span><span>本地Worker</span></button>
-      <button class="nav-item" onclick="showPage('baseline')" id="nav-baseline"><span class="icon">📋</span><span>评审基准</span></button>
     </div>
     <div class="sidebar-footer">
       <div class="api-key" id="keyDisplay"></div>
@@ -504,9 +501,14 @@
     <!-- Simulator -->
     <div class="page" id="page-simulator">
       <div class="page-header">
-        <h1>🧪 对话测试</h1>
-        <p>自动模拟多轮对话，测试角色剧情推进是否正常</p>
+        <h1>🧪 测试工具</h1>
+        <p>对话测试 · 评审基准配置</p>
       </div>
+      <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:20px">
+        <button id="simTabChat" onclick="switchSimTab('chat')" style="padding:10px 22px;background:none;border:none;border-bottom:2px solid var(--accent);color:var(--text);font-size:13px;font-weight:600;cursor:pointer">🧪 对话测试</button>
+        <button id="simTabBaseline" onclick="switchSimTab('baseline')" style="padding:10px 22px;background:none;border:none;border-bottom:2px solid transparent;color:var(--text2);font-size:13px;cursor:pointer">📋 评审基准</button>
+      </div>
+      <div id="simPane-chat">
       <div class="sim-config">
         <div class="sim-field">
           <div class="sim-label">角色</div>
@@ -589,14 +591,54 @@
           </div>
         </div>
       </div>
-    </div>
+      </div><!-- /simPane-chat -->
 
-    <!-- Create Character -->
-    <div class="page" id="page-create-char">
-      <div class="page-header">
-        <h1>➕ 添加官方角色</h1>
-        <p>填写基础信息，创建后可立即运行自检</p>
+      <div id="simPane-baseline" style="display:none">
+      <div class="card" style="padding:24px;margin-bottom:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+          <div style="font-size:15px;font-weight:700">评分维度</div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-ghost" onclick="resetBaseline()">恢复默认</button>
+            <button class="btn btn-primary" onclick="saveBaselineForm()">保存</button>
+          </div>
+        </div>
+        <div id="baselineCriteria">
+          <div class="loading"><span class="spinning">⟳</span> 加载中...</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:20px">
+          <div class="form-group">
+            <label class="form-label">及格分数线（0-100）</label>
+            <input class="form-input" id="bl-minScore" type="number" min="0" max="100" value="70"/>
+            <div class="form-hint">低于此分数标记为 failed，需要修改角色设定</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">测试轮数</label>
+            <input class="form-input" id="bl-testTurns" type="number" min="4" max="20" value="10"/>
+            <div class="form-hint">自检时模拟的对话轮数（越多越慢，4-20轮）</div>
+          </div>
+        </div>
+        <div class="form-group" style="margin-top:14px">
+          <label class="form-label">额外评审要求（可选）</label>
+          <textarea class="form-textarea" id="bl-customNote" placeholder="例：角色必须主动挑逗，不能等待用户推进；对话中必须出现专属口头禅至少两次…" rows="3"></textarea>
+        </div>
+        <div class="form-result" id="baselineResult"></div>
       </div>
+      <div class="card" style="padding:24px">
+        <div style="font-size:15px;font-weight:700;margin-bottom:16px">权重说明</div>
+        <div style="font-size:13px;color:var(--text2);line-height:1.8">
+          各维度权重之和应为 100%。建议：<br>
+          • <strong>角色一致性</strong>（性格/口头禅）权重最高 — 这是核心差异化<br>
+          • <strong>剧情推进</strong> — 直接影响用户留存<br>
+          • <strong>吸引力/沉浸感</strong> — 次要但重要<br>
+          修改后点击「保存」，下次自检即生效。
+        </div>
+      </div>
+      </div><!-- /simPane-baseline -->
+    </div><!-- /page-simulator -->
+
+    <!-- (create-char and worker pages removed) -->
+    <div class="page" id="page-create-char" style="display:none!important"></div>
+    <div class="page" id="page-worker" style="display:none!important"></div>
       <div class="card" style="padding:24px">
         <div class="form-grid">
           <div class="form-group">
@@ -756,99 +798,6 @@
       <div id="pay-pagination" style="display:flex;gap:8px;justify-content:center;margin-top:16px;flex-wrap:wrap"></div>
     </div>
 
-    <!-- Worker -->
-    <div class="page" id="page-worker">
-      <div class="page-header">
-        <h1>🖥️ 本地 Worker</h1>
-        <p>管理本地图片生成 Worker（需 SSH 反向隧道 + ComfyUI 运行）</p>
-      </div>
-
-      <!-- Status -->
-      <div class="card" style="margin-bottom:20px">
-        <div class="card-header">
-          <div class="card-title">Worker 状态</div>
-          <button class="btn btn-ghost" onclick="pingWorker()">🔄 刷新</button>
-        </div>
-        <div style="padding:20px">
-          <div id="workerStatus" style="display:flex;align-items:center;gap:12px;font-size:14px;">
-            <span id="workerDot" style="width:10px;height:10px;border-radius:50%;background:#505068;flex-shrink:0"></span>
-            <span id="workerStatusText" style="color:var(--text2)">点击刷新检查状态</span>
-          </div>
-          <div style="margin-top:16px;background:var(--bg3);border-radius:8px;padding:14px;font-size:12px;color:var(--text2);line-height:1.8">
-            <strong style="color:var(--text)">启动方式：</strong><br>
-            1. 确保 ComfyUI 在本地 <code>localhost:8188</code> 运行<br>
-            2. 在本地 PowerShell 运行：<code style="color:var(--accent)">.\start-worker.ps1</code><br>
-            3. SSH 隧道命令（手动）：<code style="color:var(--accent)">ssh -N -R 7080:localhost:7080 root@168.144.108.9</code>
-          </div>
-        </div>
-      </div>
-
-      <!-- Generate Album -->
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">生成写真集</div>
-        </div>
-        <div style="padding:20px;display:flex;flex-direction:column;gap:14px">
-          <div style="display:flex;gap:10px;align-items:center">
-            <select id="albumCharSelect" class="search-input" style="max-width:220px">
-              <option value="">选择角色...</option>
-            </select>
-            <input type="number" id="albumCount" class="search-input" value="3" min="1" max="10" style="max-width:80px" placeholder="张数">
-            <button class="btn btn-primary" onclick="triggerAlbumGen()">🎨 开始生成</button>
-          </div>
-          <div id="albumGenResult" style="display:none;background:var(--bg3);border-radius:8px;padding:14px;font-size:13px"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Baseline Settings -->
-    <div class="page" id="page-baseline">
-      <div class="page-header">
-        <h1>📋 评审基准</h1>
-        <p>设定 AI 自检时的评分维度、权重和及格线，影响所有后续自检结果</p>
-      </div>
-      <div class="card" style="padding:24px;margin-bottom:16px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-          <div style="font-size:15px;font-weight:700">评分维度</div>
-          <div style="display:flex;gap:8px">
-            <button class="btn btn-ghost" onclick="resetBaseline()">恢复默认</button>
-            <button class="btn btn-primary" onclick="saveBaselineForm()">保存</button>
-          </div>
-        </div>
-        <div id="baselineCriteria">
-          <div class="loading"><span class="spinning">⟳</span> 加载中...</div>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:20px">
-          <div class="form-group">
-            <label class="form-label">及格分数线（0-100）</label>
-            <input class="form-input" id="bl-minScore" type="number" min="0" max="100" value="70"/>
-            <div class="form-hint">低于此分数标记为 failed，需要修改角色设定</div>
-          </div>
-          <div class="form-group">
-            <label class="form-label">测试轮数</label>
-            <input class="form-input" id="bl-testTurns" type="number" min="4" max="20" value="10"/>
-            <div class="form-hint">自检时模拟的对话轮数（越多越慢，4-20轮）</div>
-          </div>
-        </div>
-        <div class="form-group" style="margin-top:14px">
-          <label class="form-label">额外评审要求（可选）</label>
-          <textarea class="form-textarea" id="bl-customNote" placeholder="例：角色必须主动挑逗，不能等待用户推进；对话中必须出现专属口头禅至少两次…" rows="3"></textarea>
-        </div>
-        <div class="form-result" id="baselineResult"></div>
-      </div>
-
-      <div class="card" style="padding:24px">
-        <div style="font-size:15px;font-weight:700;margin-bottom:16px">权重说明</div>
-        <div style="font-size:13px;color:var(--text2);line-height:1.8">
-          各维度权重之和应为 100%。建议：<br>
-          • <strong>角色一致性</strong>（性格/口头禅）权重最高 — 这是核心差异化<br>
-          • <strong>剧情推进</strong> — 直接影响用户留存<br>
-          • <strong>吸引力/沉浸感</strong> — 次要但重要<br>
-          修改后点击「保存」，下次自检即生效。
-        </div>
-      </div>
-    </div>
-
     <!-- Logs -->
     <div class="page" id="page-logs">
       <div class="page-header">
@@ -899,11 +848,24 @@ function showPage(name) {
   if (name === 'analytics') loadAnalytics();
   if (name === 'logs' && !document.getElementById('logsContent').innerHTML.trim()) loadLogs();
   if (name === 'gallery') loadGallery();
-  if (name === 'simulator') loadSimulatorChars();
-  if (name === 'baseline') loadBaselineForm();
+  if (name === 'simulator') { loadSimulatorChars(); switchSimTab('chat'); }
   if (name === 'redeem') loadRedeemCodes();
   if (name === 'payments') loadPayments(1);
-  if (name === 'worker') { pingWorker(); loadWorkerChars(); }
+}
+
+function switchSimTab(tab) {
+  const isChat = tab === 'chat';
+  document.getElementById('simPane-chat').style.display     = isChat ? '' : 'none';
+  document.getElementById('simPane-baseline').style.display = isChat ? 'none' : '';
+  const chatBtn     = document.getElementById('simTabChat');
+  const baselineBtn = document.getElementById('simTabBaseline');
+  chatBtn.style.borderBottomColor     = isChat ? 'var(--accent)' : 'transparent';
+  chatBtn.style.color                 = isChat ? 'var(--text)' : 'var(--text2)';
+  chatBtn.style.fontWeight            = isChat ? '600' : 'normal';
+  baselineBtn.style.borderBottomColor = isChat ? 'transparent' : 'var(--accent)';
+  baselineBtn.style.color             = isChat ? 'var(--text2)' : 'var(--text)';
+  baselineBtn.style.fontWeight        = isChat ? 'normal' : '600';
+  if (!isChat) loadBaselineForm();
 }
 
 function switchGalleryTab(tab) {
@@ -2576,7 +2538,8 @@ async function loadAnalytics() {
     }).join('');
 
   } catch(e) {
-    document.getElementById('analyticsKpi').innerHTML = `<div style="grid-column:1/-1;color:var(--red);padding:20px">加载失败: ${e.message}</div>`;
+    console.error('analytics error:', e);
+    document.getElementById('analyticsKpi').innerHTML = `<div style="grid-column:1/-1;color:var(--red);padding:20px">加载失败: ${e.message}<br><small style="opacity:.6">${e.stack?.split('\n')[1]||''}</small></div>`;
   }
 }
 
@@ -2587,7 +2550,7 @@ async function loadAnalyticsConv(userId, name) {
 
   try {
     // 先找该用户的 conversations
-    const convs = await api(`/api/admin/logs?key=${ADMIN_KEY}&userId=${userId}`);
+    const convs = await api(`/logs?userId=${userId}`);
     if (!convs.conversations?.length) { panel.innerHTML = '<div style="color:var(--hint);padding:20px;font-size:13px">暂无对话</div>'; return; }
 
     // 渲染对话列表，点击展开消息
@@ -2613,7 +2576,7 @@ async function toggleAnalyticsThread(threadId) {
   el.style.display = '';
   el.innerHTML = '<div class="loading" style="padding:10px"><span class="spinning">⟳</span></div>';
   try {
-    const msgs = await api(`/api/admin/logs?key=${ADMIN_KEY}&convId=${convId}`);
+    const msgs = await api(`/logs?convId=${convId}`);
     el.innerHTML = `<div class="conv-thread">${msgs.map(m => `
       <div class="conv-msg ${m.role==='user'?'conv-msg-user':'conv-msg-ai'}">
         <div class="conv-bubble ${m.role==='user'?'conv-bubble-user':'conv-bubble-ai'}">${m.content.replace(/</g,'&lt;').replace(/\n/g,'<br>')}</div>
