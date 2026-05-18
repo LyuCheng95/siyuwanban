@@ -281,8 +281,36 @@
     .sidebar-logo-text, .sidebar-footer { display: none; }
     .form-grid { grid-template-columns: 1fr; }
   }
+  /* ── Analytics ── */
+  .analytics-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 20px; }
+  .chart-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 20px; }
+  .chart-card-title { font-size: 13px; font-weight: 700; color: var(--text2); margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; }
+  .chart-card-title span { color: var(--text); }
+  .chart-wrap { position: relative; height: 200px; }
+  .analytics-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px; }
+  .analytics-three-col { display: grid; grid-template-columns: 2fr 1fr; gap: 14px; margin-bottom: 20px; }
+  .user-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid rgba(255,255,255,0.04); cursor: pointer; border-radius: 8px; transition: background 0.12s; }
+  .user-row:hover { background: rgba(255,255,255,0.03); }
+  .user-row:last-child { border-bottom: none; }
+  .user-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--grad); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: white; flex-shrink: 0; }
+  .user-info { flex: 1; min-width: 0; }
+  .user-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .user-meta { font-size: 11px; color: var(--hint); margin-top: 1px; }
+  .user-badge { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 20px; white-space: nowrap; }
+  .conv-thread { background: #0a0a0f; border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; max-height: 500px; overflow-y: auto; }
+  .conv-msg { display: flex; flex-direction: column; margin-bottom: 10px; }
+  .conv-msg-user { align-items: flex-end; }
+  .conv-msg-ai { align-items: flex-start; }
+  .conv-bubble { max-width: 82%; padding: 9px 13px; border-radius: 12px; font-size: 13px; line-height: 1.55; }
+  .conv-bubble-user { background: linear-gradient(135deg,rgba(255,61,127,0.22),rgba(192,38,211,0.22)); border: 1px solid rgba(255,61,127,0.2); }
+  .conv-bubble-ai { background: var(--bg3); border: 1px solid var(--border); }
+  .conv-time { font-size: 10px; color: var(--hint); margin-top: 3px; }
+  .range-btns { display: flex; gap: 6px; }
+  .range-btn { padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; border: 1.5px solid var(--border); background: var(--bg3); color: var(--text2); cursor: pointer; }
+  .range-btn.active { border-color: rgba(255,61,127,0.5); color: var(--accent); background: rgba(255,61,127,0.08); }
 </style>
 </head>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <body>
 
 <!-- Login -->
@@ -306,6 +334,7 @@
     </div>
     <div class="nav">
       <button class="nav-item active" onclick="showPage('stats')" id="nav-stats"><span class="icon">📊</span><span>总览</span></button>
+      <button class="nav-item" onclick="showPage('analytics')" id="nav-analytics"><span class="icon">📈</span><span>活跃分析</span></button>
       <button class="nav-item" onclick="showPage('characters')" id="nav-characters"><span class="icon">👤</span><span>角色管理</span></button>
       <button class="nav-item" onclick="showPage('users')" id="nav-users"><span class="icon">👥</span><span>用户列表</span></button>
       <button class="nav-item" onclick="showPage('logs')" id="nav-logs"><span class="icon">💬</span><span>对话记录</span></button>
@@ -323,6 +352,68 @@
   </div>
 
   <div class="main">
+    <!-- Analytics -->
+    <div class="page" id="page-analytics">
+      <div class="page-header">
+        <h1>📈 活跃分析</h1>
+        <p>用户行为趋势、角色热度、对话深度分析</p>
+      </div>
+      <!-- 时间范围 -->
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+        <span style="font-size:13px;color:var(--text2)">时间范围</span>
+        <div class="range-btns">
+          <button class="range-btn" onclick="setAnalyticsDays(7)">7天</button>
+          <button class="range-btn active" onclick="setAnalyticsDays(30)">30天</button>
+          <button class="range-btn" onclick="setAnalyticsDays(90)">90天</button>
+        </div>
+        <button class="btn btn-ghost" style="margin-left:auto" onclick="loadAnalytics()">⟳ 刷新</button>
+      </div>
+      <!-- KPI 卡片 -->
+      <div class="analytics-grid" id="analyticsKpi">
+        <div class="loading" style="grid-column:1/-1"><span class="spinning">⟳</span> 加载中...</div>
+      </div>
+      <!-- DAU + 消息量 -->
+      <div class="chart-card">
+        <div class="chart-card-title"><span>每日活跃用户 · 消息量</span></div>
+        <div class="chart-wrap"><canvas id="chartDau"></canvas></div>
+      </div>
+      <!-- 新增用户 + 收入 -->
+      <div class="analytics-two-col">
+        <div class="chart-card" style="margin-bottom:0">
+          <div class="chart-card-title"><span>每日新增用户</span></div>
+          <div class="chart-wrap"><canvas id="chartNewUsers"></canvas></div>
+        </div>
+        <div class="chart-card" style="margin-bottom:0">
+          <div class="chart-card-title"><span>每日收入 (USD)</span></div>
+          <div class="chart-wrap"><canvas id="chartRevenue"></canvas></div>
+        </div>
+      </div>
+      <div style="margin-bottom:20px"></div>
+      <!-- 角色热度 + 亲密度分布 -->
+      <div class="analytics-three-col">
+        <div class="chart-card" style="margin-bottom:0">
+          <div class="chart-card-title"><span>角色热度（近7天消息量）</span></div>
+          <div class="chart-wrap" style="height:240px"><canvas id="chartChars"></canvas></div>
+        </div>
+        <div class="chart-card" style="margin-bottom:0">
+          <div class="chart-card-title"><span>亲密度分布</span></div>
+          <div class="chart-wrap" style="height:240px"><canvas id="chartIntimacy"></canvas></div>
+        </div>
+      </div>
+      <div style="margin-bottom:20px"></div>
+      <!-- 最近活跃用户 + 对话查看 -->
+      <div class="analytics-three-col">
+        <div class="chart-card" style="margin-bottom:0">
+          <div class="chart-card-title"><span>最近活跃用户</span><span style="font-size:11px;color:var(--hint)">点击查看对话</span></div>
+          <div id="analyticsUserList" style="max-height:400px;overflow-y:auto"></div>
+        </div>
+        <div class="chart-card" style="margin-bottom:0">
+          <div class="chart-card-title"><span id="analyticsConvTitle">对话记录</span></div>
+          <div id="analyticsConvPanel" style="color:var(--hint);font-size:13px;padding:20px 0">← 选择左侧用户</div>
+        </div>
+      </div>
+    </div>
+
     <!-- Stats -->
     <div class="page active" id="page-stats">
       <div class="page-header">
@@ -805,6 +896,7 @@ function showPage(name) {
   document.getElementById('page-' + name).classList.add('active');
   document.getElementById('nav-' + name).classList.add('active');
   if (name !== 'gallery') { clearTimeout(regenQueuePollTimer); regenQueuePollTimer = null; }
+  if (name === 'analytics') loadAnalytics();
   if (name === 'logs' && !document.getElementById('logsContent').innerHTML.trim()) loadLogs();
   if (name === 'gallery') loadGallery();
   if (name === 'simulator') loadSimulatorChars();
@@ -2368,6 +2460,167 @@ async function loadSceneImages(page) {
     }
   } catch(e) {
     grid.innerHTML = '<div class="loading" style="grid-column:1/-1;color:var(--red)">加载失败: ' + e.message + '</div>';
+  }
+}
+
+// ── Analytics ─────────────────────────────────────────────────────────────────
+let analyticsDays = 30;
+let analyticsCharts = {};
+
+function setAnalyticsDays(d) {
+  analyticsDays = d;
+  document.querySelectorAll('.range-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent === d + '天');
+  });
+  loadAnalytics();
+}
+
+function destroyCharts() {
+  Object.values(analyticsCharts).forEach(c => c.destroy());
+  analyticsCharts = {};
+}
+
+const CHART_DEFAULTS = {
+  responsive: true, maintainAspectRatio: false,
+  plugins: { legend: { labels: { color: '#9090b0', font: { size: 11 } } } },
+  scales: {
+    x: { ticks: { color: '#505068', font: { size: 10 }, maxTicksLimit: 10 }, grid: { color: 'rgba(255,255,255,0.04)' } },
+    y: { ticks: { color: '#505068', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+  },
+};
+
+async function loadAnalytics() {
+  try {
+    destroyCharts();
+    const data = await api(`/api/admin/analytics?key=${ADMIN_KEY}&days=${analyticsDays}`);
+
+    // KPI 卡片
+    const totalDau    = Math.max(...data.daily.map(d => d.dau), 0);
+    const totalMsgs   = data.daily.reduce((s, d) => s + d.messages, 0);
+    const totalUsers  = data.daily.reduce((s, d) => s + d.newUsers, 0);
+    const totalRev    = data.daily.reduce((s, d) => s + d.revenue, 0);
+    document.getElementById('analyticsKpi').innerHTML = `
+      <div class="stat-card"><div class="stat-label">峰值 DAU</div><div class="stat-value">${totalDau}</div><div class="stat-icon">👥</div></div>
+      <div class="stat-card"><div class="stat-label">总消息量</div><div class="stat-value">${totalMsgs.toLocaleString()}</div><div class="stat-icon">💬</div></div>
+      <div class="stat-card"><div class="stat-label">新增用户</div><div class="stat-value">${totalUsers}</div><div class="stat-icon">🆕</div></div>
+      <div class="stat-card"><div class="stat-label">总收入</div><div class="stat-value">$${totalRev.toFixed(0)}</div><div class="stat-icon">💵</div></div>
+    `;
+
+    const labels = data.daily.map(d => d.date.slice(5)); // MM-DD
+
+    // DAU + 消息量（双轴）
+    analyticsCharts.dau = new Chart(document.getElementById('chartDau'), {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'DAU', data: data.daily.map(d => d.dau), backgroundColor: 'rgba(255,61,127,0.7)', yAxisID: 'y' },
+          { label: '消息量', data: data.daily.map(d => d.messages), type: 'line', borderColor: '#c084fc', backgroundColor: 'rgba(192,132,252,0.1)', tension: 0.3, pointRadius: 2, yAxisID: 'y2' },
+        ],
+      },
+      options: { ...CHART_DEFAULTS, scales: {
+        x: CHART_DEFAULTS.scales.x,
+        y:  { ...CHART_DEFAULTS.scales.y, position: 'left' },
+        y2: { ...CHART_DEFAULTS.scales.y, position: 'right', grid: { drawOnChartArea: false } },
+      }},
+    });
+
+    // 新增用户
+    analyticsCharts.newUsers = new Chart(document.getElementById('chartNewUsers'), {
+      type: 'bar',
+      data: { labels, datasets: [{ label: '新增用户', data: data.daily.map(d => d.newUsers), backgroundColor: 'rgba(74,222,128,0.7)' }] },
+      options: CHART_DEFAULTS,
+    });
+
+    // 收入
+    analyticsCharts.revenue = new Chart(document.getElementById('chartRevenue'), {
+      type: 'bar',
+      data: { labels, datasets: [{ label: 'USD', data: data.daily.map(d => +d.revenue.toFixed(2)), backgroundColor: 'rgba(251,191,36,0.7)' }] },
+      options: CHART_DEFAULTS,
+    });
+
+    // 角色热度（横向条形）
+    const charNames = data.charStats.map(c => c.name);
+    const charMsgs  = data.charStats.map(c => c.messages);
+    analyticsCharts.chars = new Chart(document.getElementById('chartChars'), {
+      type: 'bar',
+      data: { labels: charNames, datasets: [{ label: '消息数', data: charMsgs, backgroundColor: 'rgba(255,61,127,0.75)' }] },
+      options: { ...CHART_DEFAULTS, indexAxis: 'y', scales: {
+        x: CHART_DEFAULTS.scales.x,
+        y: { ticks: { color: '#f0f0f8', font: { size: 12 } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+      }},
+    });
+
+    // 亲密度分布
+    const bucketLabels = data.intimacyBuckets.map(b => `${b.bucket}-${b.bucket+9}`);
+    const bucketCounts = data.intimacyBuckets.map(b => b.count);
+    analyticsCharts.intimacy = new Chart(document.getElementById('chartIntimacy'), {
+      type: 'bar',
+      data: { labels: bucketLabels, datasets: [{ label: '对话数', data: bucketCounts, backgroundColor: 'rgba(192,132,252,0.75)' }] },
+      options: { ...CHART_DEFAULTS, plugins: { ...CHART_DEFAULTS.plugins, legend: { display: false } } },
+    });
+
+    // 最近活跃用户列表
+    const listEl = document.getElementById('analyticsUserList');
+    listEl.innerHTML = data.activeUsers.map(u => {
+      const name = u.firstName || u.username || `用户${u.telegramId.slice(-4)}`;
+      const lastTime = timeAgo(u.lastMsg);
+      return `<div class="user-row" onclick="loadAnalyticsConv('${u.userId}','${name}')">
+        <div class="user-avatar">${name[0]}</div>
+        <div class="user-info">
+          <div class="user-name">${name}</div>
+          <div class="user-meta">${u.convCount} 个对话 · ${lastTime}</div>
+        </div>
+        <span class="user-badge" style="background:rgba(251,191,36,0.12);color:var(--yellow)">💎${u.paidCredits}</span>
+      </div>`;
+    }).join('');
+
+  } catch(e) {
+    document.getElementById('analyticsKpi').innerHTML = `<div style="grid-column:1/-1;color:var(--red);padding:20px">加载失败: ${e.message}</div>`;
+  }
+}
+
+async function loadAnalyticsConv(userId, name) {
+  document.getElementById('analyticsConvTitle').textContent = name + ' 的对话';
+  const panel = document.getElementById('analyticsConvPanel');
+  panel.innerHTML = '<div class="loading"><span class="spinning">⟳</span> 加载中...</div>';
+
+  try {
+    // 先找该用户的 conversations
+    const convs = await api(`/api/admin/logs?key=${ADMIN_KEY}&userId=${userId}`);
+    if (!convs.conversations?.length) { panel.innerHTML = '<div style="color:var(--hint);padding:20px;font-size:13px">暂无对话</div>'; return; }
+
+    // 渲染对话列表，点击展开消息
+    panel.innerHTML = convs.conversations.map(c => `
+      <div style="margin-bottom:10px">
+        <div onclick="toggleAnalyticsThread('thread-${c.id}')" style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--bg3);border-radius:8px;cursor:pointer;font-size:13px">
+          <span style="font-weight:700">${c.character?.name ?? '未知'}</span>
+          <span style="color:var(--hint);font-size:11px">${c.totalTurns} 轮 · 亲密度 ${Math.round((c.userMemory?._intimacyLevel||0))} · ${timeAgo(c.updatedAt)}</span>
+        </div>
+        <div id="thread-${c.id}" style="display:none;margin-top:6px"></div>
+      </div>`).join('');
+  } catch(e) {
+    panel.innerHTML = `<div style="color:var(--red);padding:16px;font-size:13px">加载失败: ${e.message}</div>`;
+  }
+}
+
+async function toggleAnalyticsThread(threadId) {
+  const el = document.getElementById(threadId);
+  if (!el) return;
+  if (el.style.display !== 'none') { el.style.display = 'none'; return; }
+  const convId = threadId.replace('thread-', '');
+  if (el.innerHTML.trim()) { el.style.display = ''; return; }
+  el.style.display = '';
+  el.innerHTML = '<div class="loading" style="padding:10px"><span class="spinning">⟳</span></div>';
+  try {
+    const msgs = await api(`/api/admin/logs?key=${ADMIN_KEY}&convId=${convId}`);
+    el.innerHTML = `<div class="conv-thread">${msgs.map(m => `
+      <div class="conv-msg ${m.role==='user'?'conv-msg-user':'conv-msg-ai'}">
+        <div class="conv-bubble ${m.role==='user'?'conv-bubble-user':'conv-bubble-ai'}">${m.content.replace(/</g,'&lt;').replace(/\n/g,'<br>')}</div>
+        <div class="conv-time">${timeAgo(m.createdAt)}</div>
+      </div>`).join('')}</div>`;
+  } catch(e) {
+    el.innerHTML = `<div style="color:var(--red);font-size:12px;padding:8px">加载失败</div>`;
   }
 }
 

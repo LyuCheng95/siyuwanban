@@ -65,6 +65,142 @@ adminRouter.get('/stats', async (req: Request, res: Response): Promise<void> => 
   });
 });
 
+// GET /api/admin/analytics?key=...&days=30 — 活跃趋势分析
+adminRouter.get('/analytics', async (req: Request, res: Response): Promise<void> => {
+  if (!checkKey(req, res)) return;
+  const days = Math.min(90, Math.max(7, parseInt(req.query.days as string) || 30));
+  const since = new Date(Date.now() - days * 24 * 3600 * 1000);
+
+  // DAU + 消息量（每天）
+  const dauRaw = await prisma.$queryRaw<Array<{ date: string; dau: bigint; messages: bigint }>>`
+    SELECT DATE(m."createdAt") AS date,
+           COUNT(DISTINCT c."userId") AS dau,
+           COUNT(m.id) AS messages
+    FROM "Message" m
+    JOIN "Conversation" c ON c.id = m."conversationId"
+    WHERE m."createdAt" >= ${since}
+    GROUP BY DATE(m."createdAt")
+    ORDER BY date ASC
+  `;
+
+  // 新增用户（每天）
+  const newUsersRaw = await prisma.$queryRaw<Array<{ date: string; count: bigint }>>`
+    SELECT DATE("createdAt") AS date, COUNT(*) AS count
+    FROM "User"
+    WHERE "createdAt" >= ${since}
+    GROUP BY DATE("createdAt")
+    ORDER BY date ASC
+  `;
+
+  // 收入（每天，已完成支付）
+  const revenueRaw = await prisma.$queryRaw<Array<{ date: string; revenue: number }>>`
+    SELECT DATE("createdAt") AS date, SUM("amountUsd") AS revenue
+    FROM "Payment"
+    WHERE status = 'completed' AND "createdAt" >= ${since}
+    GROUP BY DATE("createdAt")
+    ORDER BY date ASC
+  `;
+
+  // 角色热度（最近7天消息量 top10）
+  const charStatsRaw = await prisma.$queryRaw<Array<{ name: string; messages: bigint; users: bigint }>>`
+    SELECT ch.name,
+           COUNT(m.id)              AS messages,
+           COUNT(DISTINCT c."userId") AS users
+    FROM "Message" m
+    JOIN "Conversation" c ON c.id = m."conversationId"
+    JOIN "Character" ch   ON ch.id = c."characterId"
+    WHERE m."createdAt" >= NOW() - INTERVAL '7 days'
+      AND m.role = 'user'
+    GROUP BY ch.name
+    ORDER BY messages DESC
+    LIMIT 10
+  `;
+
+  // 平均亲密度（所有对话 userMemory._intimacyLevel）
+  const avgIntimacyRaw = await prisma.$queryRaw<Array<{ avg: number }>>`
+    SELECT AVG(CAST("userMemory"->>'_intimacyLevel' AS FLOAT)) AS avg
+    FROM "Conversation"
+    WHERE "userMemory"->>'_intimacyLevel' IS NOT NULL
+      AND CAST("userMemory"->>'_intimacyLevel' AS FLOAT) > 0
+  `;
+
+  // 亲密度分布（每10分一档）
+  const intimacyBucketsRaw = await prisma.$queryRaw<Array<{ bucket: number; count: bigint }>>`
+    SELECT FLOOR(CAST("userMemory"->>'_intimacyLevel' AS FLOAT) / 10) * 10 AS bucket,
+           COUNT(*) AS count
+    FROM "Conversation"
+    WHERE "userMemory"->>'_intimacyLevel' IS NOT NULL
+    GROUP BY bucket
+    ORDER BY bucket ASC
+  `;
+
+  // 最近活跃用户（最后一条消息时间）
+  const activeUsersRaw = await prisma.$queryRaw<Array<{
+    userId: string; telegramId: bigint; firstName: string | null;
+    username: string | null; lastMsg: Date; convCount: bigint; paidCredits: number;
+  }>>`
+    SELECT u.id AS "userId", u."telegramId", u."firstName", u.username,
+           MAX(m."createdAt") AS "lastMsg",
+           COUNT(DISTINCT c.id)  AS "convCount",
+           u."paidCredits"
+    FROM "Message" m
+    JOIN "Conversation" c ON c.id = m."conversationId"
+    JOIN "User" u         ON u.id = c."userId"
+    WHERE m."createdAt" >= ${since}
+    GROUP BY u.id, u."telegramId", u."firstName", u.username, u."paidCredits"
+    ORDER BY "lastMsg" DESC
+    LIMIT 50
+  `;
+
+  // 填充日期空缺（保证连续）
+  function fillDates<T extends object>(
+    raw: Array<T & { date: string }>,
+    key: string,
+    defaultVal: number,
+  ): Array<Record<string, unknown>> {
+    const map = new Map(raw.map(r => [r.date.slice(0, 10), r]));
+    const result = [];
+    for (let d = 0; d < days; d++) {
+      const dt = new Date(since.getTime() + d * 86400000);
+      const dateStr = dt.toISOString().slice(0, 10);
+      const row = map.get(dateStr);
+      result.push(row
+        ? { ...row, date: dateStr, [key]: Number((row as any)[key] ?? defaultVal) }
+        : { date: dateStr, [key]: defaultVal });
+    }
+    return result;
+  }
+
+  const daily = fillDates(dauRaw, 'dau', 0).map((r, i) => {
+    const msgRow = dauRaw.find(d => d.date.slice(0, 10) === r.date);
+    const nuRow  = newUsersRaw.find(d => d.date.slice(0, 10) === r.date);
+    const revRow = revenueRaw.find(d => d.date.slice(0, 10) === r.date);
+    return {
+      date:     r.date as string,
+      dau:      msgRow ? Number(msgRow.dau)      : 0,
+      messages: msgRow ? Number(msgRow.messages) : 0,
+      newUsers: nuRow  ? Number(nuRow.count)     : 0,
+      revenue:  revRow ? Number(revRow.revenue)  : 0,
+    };
+  });
+
+  res.json({
+    daily,
+    charStats:        charStatsRaw.map(r => ({ name: r.name, messages: Number(r.messages), users: Number(r.users) })),
+    avgIntimacy:      avgIntimacyRaw[0]?.avg ? Math.round(avgIntimacyRaw[0].avg) : 0,
+    intimacyBuckets:  intimacyBucketsRaw.map(r => ({ bucket: Number(r.bucket), count: Number(r.count) })),
+    activeUsers:      activeUsersRaw.map(r => ({
+      userId:      r.userId,
+      telegramId:  r.telegramId.toString(),
+      firstName:   r.firstName,
+      username:    r.username,
+      lastMsg:     r.lastMsg,
+      convCount:   Number(r.convCount),
+      paidCredits: r.paidCredits,
+    })),
+  });
+});
+
 // GET /api/admin/characters?key=...&name=林晓雅 — 查某个角色详情
 adminRouter.get('/characters', async (req: Request, res: Response): Promise<void> => {
   if (!checkKey(req, res)) return;
@@ -118,18 +254,22 @@ adminRouter.get('/logs', async (req: Request, res: Response): Promise<void> => {
     return;
   }
 
-  const user = telegramId
-    ? await prisma.user.findUnique({ where: { telegramId: BigInt(telegramId) } })
-    : await prisma.user.findFirst({ orderBy: { createdAt: 'desc' } });
+  const userId = req.query.userId as string;
+
+  const user = userId
+    ? await prisma.user.findUnique({ where: { id: userId } })
+    : telegramId
+      ? await prisma.user.findUnique({ where: { telegramId: BigInt(telegramId) } })
+      : await prisma.user.findFirst({ orderBy: { createdAt: 'desc' } });
 
   if (!user) { res.json({ error: 'User not found' }); return; }
 
   const convs = await prisma.conversation.findMany({
     where: { userId: user.id },
     orderBy: { updatedAt: 'desc' },
-    take: 10,
+    take: 20,
     include: {
-      character: { select: { name: true } },
+      character: { select: { name: true, portraitUrl: true } },
       messages: { orderBy: { createdAt: 'desc' }, take: 3 },
     },
   });
@@ -139,9 +279,10 @@ adminRouter.get('/logs', async (req: Request, res: Response): Promise<void> => {
             freeCredits: user.freeCredits, paidCredits: user.paidCredits },
     conversations: convs.map(c => ({
       id: c.id,
-      character: c.character.name,
+      character: c.character,
       totalTurns: c.totalTurns,
       updatedAt: c.updatedAt,
+      userMemory: c.userMemory,
       lastMessages: c.messages.map(m => ({ role: m.role, content: m.content.slice(0, 100) })),
     })),
   });
