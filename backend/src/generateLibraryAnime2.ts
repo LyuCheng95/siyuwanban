@@ -259,34 +259,41 @@ const SHOT_VARIANTS: Partial<Record<ShotKey, Variant[]>> = {
 };
 
 // ── 男性在场描述 ────────────────────────────────────────────────────────────────
+// 出现阴茎时加肤色修正词
+const HUMAN_COCK = '(normal human skin tone erect penis:1.2), realistic human cock, flesh-colored shaft';
+// 出现精液时加颜色修正词
+const WHITE_CUM  = '(white semen:1.3), (milky white cum:1.2), creamy white ejaculation';
+// 出现男性身体时加人类外观描述
+const HUMAN_MALE = '(handsome human male:1.2), normal human man, realistic male body, human skin tone, 1boy';
+
 const MALE_PRESENCE: Partial<Record<ShotKey, string>> = {
   kiss:                   'male lips pressing against hers',
   breast:                 'strong male hands on her breasts',
-  handjob:                'erect male penis in her hand',
-  fingering:              'male fingers inside her',
-  blowjob:                'male thighs framing her face, hand gripping her hair',
-  cunnilingus:            'male head between her legs',
-  penetration_missionary: 'male body pressing down, male hips thrusting',
-  penetration_doggy:      'male hands gripping her hips from behind',
-  penetration_cowgirl:    'male body lying underneath her',
-  penetration_spooning:   'male arm around her from behind',
-  penetration_generic:    'male hands on her hips',
-  standing_sex:           'male hands pinning her against wall',
-  creampie:               'cum dripping from her stretched pussy',
-  cum_face:               'male cock visible above her face',
+  handjob:                `${HUMAN_COCK}, erect penis in her hand, male hand resting near`,
+  fingering:              'male fingers inside her, human male hand',
+  blowjob:                `${HUMAN_COCK}, male thighs framing her face, hand gripping her hair`,
+  cunnilingus:            'male head between her legs, human male',
+  penetration_missionary: `${HUMAN_MALE}, male body pressing down, male hips thrusting`,
+  penetration_doggy:      'male hands gripping her hips from behind, human male',
+  penetration_cowgirl:    `${HUMAN_MALE}, male body lying underneath her`,
+  penetration_spooning:   'male arm around her from behind, human male skin',
+  penetration_generic:    `${HUMAN_COCK}, male hands on her hips`,
+  standing_sex:           'male hands pinning her against wall, human male',
+  creampie:               `${WHITE_CUM}, cum dripping from her pussy`,
+  cum_face:               `${HUMAN_COCK}, ${WHITE_CUM}, cock visible above her face`,
   bondage:                'rope or restraint binding her',
-  spanking:               'strong male hand mid-spank',
+  spanking:               'strong male hand mid-spank, human male hand',
   toy_use:                'partner controlling the toy',
-  squirt:                 'male hand just withdrawn from her',
-  massage:                'male hands pressing into her skin',
-  edging:                 'male hand withdrawn at the last moment',
+  squirt:                 'male hand just withdrawn from her, human male hand',
+  massage:                'male hands pressing into her skin, human male hands',
+  edging:                 'male hand withdrawn at the last moment, human male hand',
   exhibition:             'male presence keeping her exposed',
-  prone_bone:             'male body pressing down from behind, male hips thrusting',
-  lotus:                  'male body seated beneath her, arms wrapped around her',
-  piledriver:             'male body above her, holding her legs back',
-  overstimulation:        'male hand continuing despite her sensitivity',
-  penetration_closeup:    'male erect cock fully visible in the penetration junction',
-  spread_pussy:           'her own hands or his hands spreading her open',
+  prone_bone:             `${HUMAN_MALE}, male body pressing down from behind, male hips thrusting`,
+  lotus:                  `${HUMAN_MALE}, male body seated beneath her, arms wrapped around her`,
+  piledriver:             `${HUMAN_MALE}, male body above her, holding her legs pushed back`,
+  overstimulation:        'male hand continuing despite her sensitivity, human male hand',
+  penetration_closeup:    `${HUMAN_COCK}, erect penis fully inserted in the penetration junction`,
+  spread_pussy:           'her own hands spreading her open, fingers pulling labia apart',
 };
 
 // ── Fallback 场景配置（scene_config 中缺少的 shotKey） ──────────────────────
@@ -308,7 +315,7 @@ const DEFAULT_SHOT_CONFIG: Partial<Record<ShotKey, { scene: string; outfit: stri
   squirt:          { scene: 'soaked bedroom, wet sheets, humid close air',         outfit: 'completely nude, body glistening',                             mood: 'overwhelmed utterly out of control',      extra: 'female ejaculation, squirting orgasm, gushing' },
   overstimulation:      { scene: 'bedroom, post-orgasm, sheets damp',              outfit: 'completely nude, skin flushed and sensitive',                  mood: 'crying shaking oversensitive begging',    extra: 'overstimulation, post-orgasm continued stimulation, too sensitive' },
   afterglow:            { scene: 'bedroom, soft warm light, rumpled sheets',       outfit: 'nude or light sheet, skin still flushed',                     mood: 'blissful satisfied peaceful dreamy',      extra: 'afterglow, post-sex, satisfied, warm intimacy' },
-  penetration_closeup:  { scene: 'bedroom, intimate close angle, between the legs perspective', outfit: 'completely nude, penetration actively occurring', mood: 'explicit intimate detail, glistening',       extra: 'vaginal penetration close-up, junction detail, cock in pussy, love juice, no mosaic, no censorship' },
+  penetration_closeup:  { scene: 'bedroom, intimate close angle, between the legs perspective', outfit: 'completely nude, penetration actively occurring', mood: 'explicit intimate detail, glistening',       extra: 'vaginal penetration close-up, junction detail, normal skin tone cock in pussy, love juice, no mosaic, no censorship' },
   spread_pussy:         { scene: 'private bedroom, close angle, warm intimate lighting',        outfit: 'completely nude, legs spread wide, hands spreading labia open',   mood: 'explicit spread open, anatomy exposed, wet', extra: 'spread pussy close-up, labia pulled apart, vaginal canal visible, clitoris exposed, love juice, no mosaic, no censorship' },
 };
 
@@ -395,19 +402,36 @@ const SHOT_LORAS: Partial<Record<ShotKey, LoraSpec[]>> = {
 };
 
 const QUALITY = 'masterpiece, best quality, amazing quality, absurdres, very aesthetic, newest, ultra detailed, highly detailed, beautiful face, perfect eyes, perfect body, source_anime, nsfw, explicit';
-const NEGATIVE = 'bad quality, worst quality, worst detail, sketch, bad anatomy, bad hands, extra fingers, missing fingers, deformed face, ugly face, blurry, watermark, text, censored, mosaic, signature, bad vagina, deformed genitals, bad penis';
+const NEGATIVE = 'bad quality, worst quality, worst detail, sketch, bad anatomy, bad hands, extra fingers, missing fingers, deformed face, ugly face, blurry, watermark, text, censored, mosaic, signature, bad vagina, deformed genitals, bad penis, colored semen, blue cum, purple semen, green semen, colored ejaculation, non-white cum, mechanical penis, robot cock, android genitals, blue penis, purple penis, colored penis, inhuman genitals';
 // 非 portrait/medium 镜头额外加入：阻止 charBase 里的 expressionless 词主导输出
 const EXPRESSION_NEGATIVE = 'expressionless, blank face, neutral expression, empty expression, deadpan';
 
 const SHOT_NEGATIVE_EXTRA: Partial<Record<ShotKey, string>> = {
-  cunnilingus:     '2girls, yuri, lesbian, two girls, female on female, two females, two women, gl',
-  fingering:       '2girls, yuri, lesbian, two girls, robot hands, mechanical fingers, claw',
-  petplay:         '2girls, yuri, lesbian',
-  massage:         '2girls, yuri, lesbian, two girls',
-  lotus:           '2girls, yuri, lesbian, two girls',
-  afterglow:       '2girls, yuri, lesbian, two girls',
-  back:            'front facing, face visible, nsfw genitals',
-  thighs:          '2girls, yuri, lesbian',
+  // 防同性 / 女性视角
+  cunnilingus:            '2girls, yuri, lesbian, two girls, female on female, two females, two women, gl',
+  fingering:              '2girls, yuri, lesbian, two girls, robot hands, mechanical fingers, claw',
+  petplay:                '2girls, yuri, lesbian',
+  massage:                '2girls, yuri, lesbian, two girls',
+  afterglow:              '2girls, yuri, lesbian, two girls',
+  back:                   'front facing, face visible, nsfw genitals',
+  thighs:                 '2girls, yuri, lesbian',
+  // 防机械/蓝色阴茎（含阳具的镜头全加）
+  handjob:                'mechanical penis, robot cock, blue penis, colored penis, dildo, toy',
+  blowjob:                'mechanical penis, robot cock, blue penis, colored penis, inhuman cock',
+  penetration_missionary: 'mechanical penis, robot cock, blue penis, colored genitals, android body, robot body',
+  penetration_doggy:      'mechanical penis, robot cock, blue penis, colored genitals',
+  penetration_cowgirl:    'mechanical penis, robot cock, blue penis, colored genitals, android body',
+  penetration_spooning:   'mechanical penis, robot cock, blue penis, colored genitals',
+  penetration_generic:    'mechanical penis, robot cock, blue penis, colored genitals',
+  penetration_closeup:    'mechanical penis, robot cock, blue penis, colored genitals, colored semen',
+  prone_bone:             'mechanical penis, robot cock, blue penis, colored genitals, android body, robot body',
+  lotus:                  '2girls, yuri, lesbian, two girls, mechanical penis, robot cock, blue penis, android body',
+  piledriver:             'mechanical penis, robot cock, blue penis, colored genitals, android body, robot body',
+  // 防彩色精液
+  creampie:               'colored semen, blue cum, purple cum, green semen, colored ejaculation',
+  cum_face:               'colored semen, blue cum, purple cum, green semen, colored ejaculation, mechanical penis',
+  ahegao:                 'colored semen, blue cum, purple cum, green semen',
+  squirt:                 'colored liquid, blue squirt, purple squirt',
 };
 
 // ── 角色专属变体打乱（各角色图片顺序不同，增加跨角色多样性） ───────────────────
@@ -594,10 +618,12 @@ async function generateForCharacter(characterName: string, fromArg?: string, for
 
     console.log(`  ── ${shotKey} (${label}) ×${count}`);
 
+    // 竖版 768×1024：以竖向人物姿态为主的镜头
+    // 横版 1024×768：prone_bone（俯卧横躺）、penetration系列（体位展示）
     const isPortrait = ['portrait','medium','blowjob','cum_face','ahegao','kiss','breast','pussy',
                         'fingering','cunnilingus','bondage','toy_use','petplay','undressing','squirt','spanking',
                         'ass','back','thighs','massage','edging','overstimulation','afterglow','exhibition',
-                        'lotus','penetration_closeup','spread_pussy'].includes(shotKey);
+                        'lotus','piledriver','penetration_closeup','spread_pussy'].includes(shotKey);
     const [w, h]     = isPortrait ? [768, 1024] : [1024, 768];
     const loras      = SHOT_LORAS[shotKey] ?? [];
     const phase      = PHASE_MAP[shotKey] ?? 0;
