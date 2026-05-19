@@ -186,24 +186,72 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
     }
   }
 
-  // ── 解锁图库图片（2💎）──────────────────────────────────────────────────
+  // ── 解锁图库图片（2💎）+ 模拟生成动画 ─────────────────────────────────
   async function unlockLibraryImage(imageUrl: string, msgIdx: number) {
     if (!characterId) return;
+
+    // Brief spinner while API call happens
     setMessages(prev => {
       const next = [...prev];
       next[msgIdx] = { ...next[msgIdx], imageGenerating: true, imageError: false };
       return next;
     });
+
     try {
+      // Deduct diamonds & get URL (instant)
       const res = await api.images.unlock(imageUrl, characterId);
-      setMessages(prev => {
-        const next = [...prev];
-        next[msgIdx] = { ...next[msgIdx], imageGenerating: false, imageUrl: res.url, pendingImageUrl: undefined, imageError: false };
-        return next;
-      });
       setCredits(prev => ({ ...prev, paid: res.paid }));
       onCreditsUpdate(credits.free, res.paid);
       setAlbumImages(prev => prev.includes(res.url) ? prev : [...prev, res.url]);
+
+      // ── Fake generation reveal (blur 24px → 12px → 4px → 0px) ──────────
+      // Stage 0: heavy blur, "AI 构图中..."
+      setMessages(prev => {
+        const next = [...prev];
+        next[msgIdx] = {
+          ...next[msgIdx],
+          imageGenerating: false,
+          pendingImageUrl: undefined,
+          revealUrl: res.url,
+          revealStage: 0,
+        };
+        return next;
+      });
+
+      const advance = (stage: number) =>
+        setMessages(prev => {
+          const next = [...prev];
+          if (next[msgIdx]?.revealUrl === res.url) next[msgIdx] = { ...next[msgIdx], revealStage: stage };
+          return next;
+        });
+
+      // Stage 1 at 2.5 s
+      await new Promise(r => setTimeout(r, 2500));
+      advance(1);
+
+      // Stage 2 at 5 s
+      await new Promise(r => setTimeout(r, 2500));
+      advance(2);
+
+      // Stage 3 at 7 s (fully sharp, show "完成")
+      await new Promise(r => setTimeout(r, 2000));
+      advance(3);
+
+      // Transition to normal image card at 8 s
+      await new Promise(r => setTimeout(r, 1000));
+      setMessages(prev => {
+        const next = [...prev];
+        if (next[msgIdx]?.revealUrl === res.url) {
+          next[msgIdx] = {
+            ...next[msgIdx],
+            imageUrl: res.url,
+            revealUrl: undefined,
+            revealStage: undefined,
+          };
+        }
+        return next;
+      });
+
     } catch (err: any) {
       if (err?.status === 402) {
         setMessages(prev => {
@@ -734,6 +782,65 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
                   </div>
                 </button>
               )}
+
+              {/* ── Fake-generation reveal: blurred image un-blurs over ~8s ── */}
+              {msg.revealUrl && (() => {
+                const stage = msg.revealStage ?? 0;
+                const blurPx   = [24, 12, 4, 0][stage];
+                const scalePct = [1.08, 1.04, 1.01, 1][stage];
+                const progress = [10, 44, 78, 100][stage];
+                const statusTxt = stage === 0 ? 'AI 构图中…' : stage === 1 ? '着色渲染…' : stage === 2 ? '细节精化…' : '渲染完成 ✓';
+                const overlayAlpha = stage < 2 ? 0.45 : stage === 2 ? 0.2 : 0;
+                return (
+                  <div style={{ position:'relative', borderRadius:12, overflow:'hidden', lineHeight:0 }}>
+                    {/* Blurred image */}
+                    <img
+                      src={msg.revealUrl}
+                      alt="generating"
+                      style={{
+                        width:'100%', display:'block', borderRadius:12,
+                        filter:`blur(${blurPx}px)`,
+                        transform:`scale(${scalePct})`,
+                        transition:'filter 2.4s ease, transform 2.4s ease',
+                        transformOrigin:'center center',
+                      }}
+                    />
+                    {/* Dark overlay fades out as image clears */}
+                    <div style={{
+                      position:'absolute', inset:0, borderRadius:12,
+                      background:`rgba(8,4,16,${overlayAlpha})`,
+                      transition:'background 2.4s ease',
+                    }} />
+                    {/* Bottom HUD */}
+                    <div style={{
+                      position:'absolute', bottom:0, left:0, right:0,
+                      padding:'20px 12px 10px',
+                      background:'linear-gradient(to top, rgba(6,2,12,0.85) 0%, transparent 100%)',
+                      borderRadius:'0 0 12px 12px',
+                      opacity: stage === 3 ? 0 : 1,
+                      transition:'opacity 0.8s ease',
+                    }}>
+                      {/* Progress bar */}
+                      <div style={{ height:2, background:'rgba(255,255,255,0.1)', borderRadius:2, marginBottom:6 }}>
+                        <div style={{
+                          height:'100%', borderRadius:2,
+                          width:`${progress}%`,
+                          background:'linear-gradient(90deg,#a855f7,#e8356c)',
+                          transition:'width 2.4s ease',
+                          boxShadow:'0 0 6px rgba(168,85,247,0.6)',
+                        }} />
+                      </div>
+                      {/* Status text */}
+                      <div style={{
+                        fontSize:10, color:'rgba(220,180,255,0.8)',
+                        letterSpacing:'0.12em', fontWeight:500,
+                      }}>
+                        ✦ {statusTxt}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* ── Scene image loading state — below text ── */}
               {msg.imageGenerating && (

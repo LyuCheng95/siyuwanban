@@ -58,6 +58,8 @@ export interface Message {
   imagePrompt?: string;       // ComfyUI generation prompt (non-library chars)
   imageTwoShot?: boolean;
   pendingImageUrl?: string;   // library image locked behind 2💎 payment
+  revealUrl?: string;         // URL being slowly un-blurred during fake-generation animation
+  revealStage?: number;       // 0→3: controls blur amount, progress bar, status text
   imageGenerating?: boolean;
   imageError?: boolean;       // generation/unlock failed — show retry button
   streaming?: boolean;        // currently receiving chunks — show dots, hide text
