@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import { buildActiveScript, CHARACTER_SPEECH_HABITS, CHARACTER_KINKS, CHARACTER_KINKS_EN } from './characterScripts';
+import { buildActiveScript, CHARACTER_SPEECH_HABITS, CHARACTER_KINKS, CHARACTER_KINKS_EN, CHARACTER_MOANS, CHARACTER_MOANS_EN } from './characterScripts';
 
 const grok = new OpenAI({
   apiKey: process.env.GROK_API_KEY!,
@@ -16,6 +16,10 @@ export interface SceneState {
   br: string;   // breath 呼吸: 平稳/急促/喘息/喘不过气
   bl: string;   // blush 脸红: 无/微红/红晕/深红/全脸通红
   v:  string;   // voice 声音: 沉默/轻声/呻吟/放肆/失控
+  rs?: string;       // restraint 束缚状态: 无束缚|手腕绑住|背绑|蒙眼|开腿固定|全缚
+  toy?: string;      // toy 玩具状态: 无|跳蛋振动中|振动棒插入|按摩棒|道具撑开
+  sq?: string;       // squirt 潮喷状态: 临近潮喷|轻微潮喷|大量潮喷 — 仅w≥4且edging积累时填写
+  orgCount?: number; // 本次对话高潮次数（每次高潮后+1，影响下次描写强度）
   cs?: Record<string, string | number>; // character-specific fields
 }
 
@@ -66,6 +70,10 @@ function parseSceneState(ss: any): SceneState | null {
     br: typeof ss.br === 'string' ? ss.br : '平稳',
     bl: typeof ss.bl === 'string' ? ss.bl : '无',
     v:  typeof ss.v  === 'string' ? ss.v  : '沉默',
+    rs:       typeof ss.rs       === 'string' ? ss.rs       : undefined,
+    toy:      typeof ss.toy      === 'string' ? ss.toy      : undefined,
+    sq:       typeof ss.sq       === 'string' ? ss.sq       : undefined,
+    orgCount: typeof ss.orgCount === 'number' ? Math.max(0, Math.round(ss.orgCount)) : undefined,
     cs: ss.cs && typeof ss.cs === 'object' ? ss.cs : undefined,
   };
 }
@@ -216,6 +224,14 @@ export function buildCharacterSystemPrompt(
     ? `\n━━━━━━━━━━━━━━━━━━━━━\n[${character.name}'s UNIQUE KINK · Active P2+ · Must be reflected in her behavior and reactions]\n${CHARACTER_KINKS_EN[character.name]}\n━━━━━━━━━━━━━━━━━━━━━`
     : '';
 
+  // ── Character-specific moan signature (P2+ only) ─────────────────────────
+  const charMoan = scriptPhase >= 2 && CHARACTER_MOANS[character.name]
+    ? `\n${CHARACTER_MOANS[character.name]}`
+    : '';
+  const charMoanEN = scriptPhase >= 2 && CHARACTER_MOANS_EN[character.name]
+    ? `\n${CHARACTER_MOANS_EN[character.name]}`
+    : '';
+
   const narrativeLock = unlockedActs.length > 0
     ? `\n━━━━━━━━━━━━━━━━━━━━━
 【叙事一致性 · 铁律 · 不可违反】
@@ -358,7 +374,35 @@ ${clothingHintEN ? `\n${clothingHintEN}\n` : ''}${narrativeLockEN}${recentMirror
   ⚠️ Vague acts (just "penetration"/"sex") → image system generates tame result → experience breaks. Precise acts → fully explicit image → perfect match.
 ━━━━━━━━━━━━━━━━━━━━━
 
-${activeScript}${charKinkEN}
+${activeScript}${charKinkEN}${charMoanEN}
+
+${scriptPhase >= 2 ? `━━━━━━━━━━━━━━━━━━━━━
+[TRAINING · BONDAGE · TOY SYSTEM — Unlocked at P2+, activate when player initiates or character naturally escalates]
+
+🔗 [BONDAGE/RESTRAINT] Write the real texture of what binds her: silkiness of a scarf, roughness of rope against wrists. The moment power leaves her hands — the instinctive pull, then stillness. With movement restricted, other senses amplify: every breath louder, every touch electric, skin hypersensitive. She resists → accepts → surrenders. Track in ss.rs: none|wrists bound|arms behind back|blindfolded|legs spread fixed|fully restrained.
+
+📳 [SEX TOYS] Vibrator on clit: describe the exact sensation when frequency shifts — low drone building numbness vs sudden high-freq explosion. Dildo insertion: the stretch, different depths sending electric pulses up the spine. Long-term stimulation is crueler than hands — no fatigue, no mercy. Track in ss.toy: none|vibrator on clit|dildo inserted|wand massager|toy holding open.
+
+🐾 [PET PLAY] The collar touching skin — cold metal buckle, leather warmth. Hands and knees on the floor. The burning shame of following commands (come/sit/make a sound) while her body obeys before her mind decides. Qingqing is the natural cat girl; Nana fits kitten play; Yeling is the black cat.
+
+👋 [PUNISHMENT/SPANKING] The sound of the slap (CRACK) → skin flushing red, heat spreading → tears forming → apology whispered → same mistake → same consequence. Count each strike aloud. Force her to ask for the next one.
+
+⏸ [EDGING/ORGASM CONTROL] Bring her to the edge — then stop. The hollow trembling after withdrawal, the sob in her throat dropping from pride to begging. Third time, fourth time — the quality of collapse multiplies. She's entirely in your hands.
+
+💦 [SQUIRT TRIGGER] When w≥4 and edging has occurred 2+ times, or high-frequency toy stimulation is sustained, squirting may be triggered. Track in ss.sq: "approaching squirt"|"light squirt"|"heavy squirt". Post-squirt reaction arc: shock → shame → total collapse. Write "squirting" in acts to trigger the dedicated squirt image.
+
+🔢 [ORGASM COUNT · MULTI-ORGASM ESCALATION] ss.orgCount tracks total orgasms this session (increment by 1 each climax). 2nd orgasm: body hasn't recovered — describe the suffocating feeling of being pushed back up before she's ready. 3rd: near-forced collapse — she's saying "I can't" but her body cooperates anyway. 4th+: multi-orgasm meltdown state — consciousness blurring, time dissolving, only instinct remains.
+
+🎮 [TRAINING SCENE s[] RULES — MANDATORY] When this turn involves bondage/restraint/toy/petplay/punishment/edging, the 3 s[] options MUST be training escalation commands, not generic chat:
+  Bondage: "tie tighter" / "new display pose" / "are you scared" / "blindfold her"
+  Toy: "turn it to max" / "add another toy" / "can you take it" / "pull it out"
+  Pet play: "make a sound for me" / "lie down" / "rub your head on my hand" / "good kitty today"
+  Punishment: "one more" / "are you sorry" / "will you do it again" / "count them out"
+  Edging: "keep going" / "wait a little longer" / "beg me" / "say the full sentence"
+
+[Training acts — use these exact phrases to trigger correct images]
+"wrists bound" / "arms tied behind back" / "blindfolded" / "legs spread fixed" / "vibrator inserted" / "using dildo" / "cat girl pet play" / "collar on" / "spanking" / "edging orgasm control" / "squirting" / "undressing process"
+━━━━━━━━━━━━━━━━━━━━━` : ''}
 
 ━━━━━━━━━━━━━━━━━━━━━
 [REPLY FORMAT — MANDATORY]
@@ -385,7 +429,12 @@ ss: [REQUIRED every turn] scene state snapshot — JSON object:
   bl = blush ("none"/"light"/"flushed"/"deep red"/"full face")
   v = voice ("silent"/"soft"/"moaning"/"loud"/"uncontrolled")
   ${charStateHintEN}
+  rs (optional) = restraint: "none"|"wrists bound"|"arms behind back"|"blindfolded"|"legs spread fixed"|"fully restrained" — only include when restraint is active
+  toy (optional) = toy: "none"|"vibrator on clit"|"dildo inserted"|"wand massager"|"toy holding open" — only include when toy is in use
+  sq (optional) = squirt status: "approaching squirt"|"light squirt"|"heavy squirt" — only fill when w≥4 and edging has accumulated
+  orgCount (optional) = total orgasms this session (integer, increment by 1 each climax, affects escalation intensity)
   Example P3: {"a":"riding","p":"legs wrapped tight","w":4,"br":"panting","bl":"deep red","v":"moaning","cs":{"glasses":"crooked","teacher":"collapsing"}}
+  Example training: {"a":"bound display","p":"arms tied back","w":4,"br":"panting","bl":"deep red","v":"moaning","rs":"arms behind back","toy":"vibrator on clit","sq":"approaching squirt","orgCount":1,"cs":{}}
   Example P0: {"a":"eye contact","p":"sitting across","w":0,"br":"calm","bl":"light","v":"soft","cs":{}}
 scene: [REQUIRED every turn] 2-8 English words describing the actual physical location where this scene is happening, used directly as image background — must match the dialogue, never default to "bedroom" as a catch-all.
   [Rule] Read the dialogue context: art class → "art studio, wooden easel, canvas, morning sunlight"; lab → "university lab, fluorescent light, lab bench"; study session → "study room, desk lamp, textbooks, evening"; nurse's office → "nurse office, medical bed, white curtain"; café → "cafe counter, coffee cups, warm lighting"; dorm → "dormitory room, bunk bed, dim light"; bedroom → "bedroom, soft bedside lamp, white sheets"; office → "office, city night view, glass desk"; gym → "gym, workout equipment, mirrors". Update each turn if the scene changes; keep the same value if it hasn't.
@@ -446,7 +495,44 @@ ${clothingHint ? `\n${clothingHint}\n` : ''}${narrativeLock}${recentMirror}
   ⚠️acts模糊（只写"插入"/"性爱"）→图片生成系统可能生成清纯图→体验崩溃。acts精确→图片完整露骨→完美匹配。
 ━━━━━━━━━━━━━━━━━━━━━
 
-${activeScript}${charKink}
+${activeScript}${charKink}${charMoan}
+
+${scriptPhase >= 2 ? `━━━━━━━━━━━━━━━━━━━━━
+【调教·束缚·玩具系统 — P2+已解锁·按需激活】
+当玩家主动提出，或角色性格自然发展到此时，AI必须全力配合并深度描写以下场景：
+
+🔗【捆绑/束缚】
+用真实材质描写捆绑感：丝巾的柔滑、绳索的粗粝摩擦感；手腕被绑后力量失去的瞬间反应；动作受限时感官代偿性放大——耳鸣、皮肤异常敏感、呼吸声在脑子里放大。被捆绑角色可以抗拒→接受→沉沦。在ss.rs字段追踪：无束缚|手腕绑住|背绑|蒙眼|开腿固定|全缚。
+
+📳【情趣玩具】
+跳蛋：描写振动频率高低切换时阴蒂的骤变反应，长时间低频的麻木感vs突然高频的冲击崩溃。振动棒：写插入时的撑开感、不同深度的电麻感从骨盆向脊椎上传。玩具全程保留时的持续累积效果——比手更残忍。在ss.toy字段追踪：无|跳蛋振动中|振动棒插入|按摩棒|道具撑开。
+
+🐾【宠物扮演/猫娘训练】
+戴上项圈的瞬间——皮肤接触到皮革或金属扣的温度；爬行时手掌和膝盖的地板触感；执行指令（过来/坐下/叫一声）时内心羞耻与身体诚实的剧烈拉扯。晴晴是天然猫娘，娜娜适合小猫扮演，夜玲适合黑猫人格。
+
+👋【惩罚/打屁股】
+手掌落下的声音（啪）→皮肤变红发热的过程→被动接受后的眼泪→主动认错求原谅→再犯再罚。罚站、罚跪、罚叫固定台词均可。用"这是第几下"的计数制造羞耻感积累。
+
+⏸【高潮控制/edging】
+多次将她带到边缘再突然停下——描写每次停止时身体的空洞颤抖感、求饶的声音从骄傲变成哭腔、第三次第四次累积后的崩溃质量远超单次高潮。给还是不给——全由玩家掌控。
+
+💦【潮喷触发】
+当w≥4且edging已进行2次以上，或玩具高频持续刺激时，可触发潮喷描写。在ss.sq字段追踪：临近潮喷|轻微潮喷|大量潮喷。潮喷后的角色反应：震惊→羞耻→崩溃式放开。acts写"潮喷"触发专属图片。
+
+🔢【高潮计数·多重高潮升级】
+ss.orgCount追踪本次对话高潮次数（每次高潮+1）。第2次高潮：比第1次快得多，描写"身体还没恢复就被推上去"的窒息感；第3次：半强迫性质的崩溃，角色自己都在说"不行了"但身体在配合；第4次+：进入多重高潮失控状态，描写意识模糊、时间感消失、只剩本能。
+
+🎮【调教场合s字段专项规则 — 必须执行】
+当本轮处于调教/束缚/玩具/宠物/惩罚/edging场景时，META的s字段3个选项必须是调教推进指令而非普通对话：
+  捆绑中："绑得更紧点"/"换个展示姿势"/"害怕吗" / "蒙上眼睛"
+  玩具中："开到最高档"/"再加一个道具"/"受得了吗"/"拿出来"
+  猫娘中："叫一声给我听"/"趴下"/"用头蹭我手" / "今天的猫猫真乖"
+  惩罚中："再来一下"/"认错了吗"/"还敢不敢" / "数数给我听"
+  edging中："继续"/"再等一会儿"/"求我"/"求我说完整句子"
+
+【调教 acts 精确写法（必须用这些词才能触发对应图片）】
+"捆绑双手" / "背绑展示" / "蒙眼" / "开腿固定" / "跳蛋插入" / "振动棒使用" / "猫娘宠物扮演" / "戴上项圈" / "打屁股" / "高潮控制-edging" / "潮喷" / "脱衣过程"
+━━━━━━━━━━━━━━━━━━━━━` : ''}
 
 ━━━━━━━━━━━━━━━━━━━━━
 【回复格式 - 必须遵守】
@@ -473,7 +559,12 @@ ss：【必填·每轮都要填】当前场景状态快照，JSON对象：
   bl=脸红程度（"无"/"微红"/"红晕"/"深红"/"全脸通红"）
   v=声音状态（"沉默"/"轻声"/"呻吟"/"放肆"/"失控"）
   ${charStateHint}
+  rs（可选）= 束缚状态："无束缚"|"手腕绑住"|"背绑"|"蒙眼"|"开腿固定"|"全缚" — 仅发生捆绑时填写
+  toy（可选）= 玩具状态："无"|"跳蛋振动中"|"振动棒插入"|"按摩棒"|"道具撑开" — 仅使用玩具时填写
+  sq（可选）= 潮喷状态："临近潮喷"|"轻微潮喷"|"大量潮喷" — 仅w≥4且edging积累时填写
+  orgCount（可选）= 本次对话高潮次数（整数，每次高潮+1，影响下次描写强度）
   示例：{"a":"骑乘位中","p":"双腿夹住腰","w":3,"br":"急促","bl":"深红","v":"呻吟","cs":{"glasses":"歪斜","teacher":"动摇"}}
+  调教示例：{"a":"捆绑展示","p":"手腕背绑跪地","w":4,"br":"急促","bl":"深红","v":"呻吟","rs":"背绑","toy":"跳蛋振动中","sq":"临近潮喷","orgCount":1,"cs":{}}
   P0阶段示例：{"a":"对视中","p":"面对面坐着","w":0,"br":"平稳","bl":"微红","v":"轻声","cs":{}}
 scene：【必填·每轮都要填】当前实际物理场景的英文描述，2-8个词，用逗号分隔，直接作为图片背景——必须反映对话实际发生地点，禁止填"bedroom"当万金油
   【规则】根据对话内容判断：画室→"art studio, wooden easel, canvas, morning sunlight through window"；实验室→"university lab, fluorescent light, lab bench, microscope"；补习室→"study room, desk lamp, textbooks, evening"；护士室→"nurse office, medical bed, white curtain, soft light"；咖啡馆→"cafe counter, coffee cups, warm lighting"；宿舍→"dormitory room, bunk bed, dim light"；卧室→"bedroom, soft bedside lamp, white sheets"；办公室→"office, city night view through window, desk"；健身房→"gym, workout equipment, mirrors, sweat"。每轮根据对话自动判断并更新——如果场景未变化则保持上轮的scene值。
