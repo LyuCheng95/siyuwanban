@@ -68,6 +68,7 @@ adminRouter.get('/stats', async (req: Request, res: Response): Promise<void> => 
 // GET /api/admin/analytics?key=...&days=30 — 活跃趋势分析
 adminRouter.get('/analytics', async (req: Request, res: Response): Promise<void> => {
   if (!checkKey(req, res)) return;
+  try {
   const days = Math.min(90, Math.max(7, parseInt(req.query.days as string) || 30));
   const since = new Date(Date.now() - days * 24 * 3600 * 1000);
 
@@ -204,6 +205,10 @@ adminRouter.get('/analytics', async (req: Request, res: Response): Promise<void>
       paidCredits: r.paidCredits,
     })),
   });
+  } catch (err: any) {
+    console.error('[analytics] error:', err.message);
+    res.status(500).json({ error: 'analytics failed', detail: err.message });
+  }
 });
 
 // GET /api/admin/characters?key=...&name=林晓雅 — 查某个角色详情
