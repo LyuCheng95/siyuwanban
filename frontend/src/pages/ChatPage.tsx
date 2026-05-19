@@ -288,8 +288,14 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
               if (data.sceneState)     setSceneState(data.sceneState);
               // 浮动提示
               showDeltas(ni, prevIntimacy, nd, prevDesire, na, prevAttach, nm, prevDominance);
-              // scene image
-              if (data.imagePrompt) {
+              // scene image — library chars get imageUrl directly; others get imagePrompt button
+              if (data.imageUrl) {
+                setMessages(prev => {
+                  const next = [...prev];
+                  next[next.length - 1] = { ...next[next.length - 1], imageUrl: data.imageUrl };
+                  return next;
+                });
+              } else if (data.imagePrompt) {
                 setMessages(prev => {
                   const next = [...prev];
                   next[next.length - 1] = {

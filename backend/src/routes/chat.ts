@@ -2,7 +2,8 @@ import { Router, Response } from 'express';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
 import { prisma } from '../utils/prisma';
 import { buildCharacterSystemPrompt, chatStream, extractUserMemory, parseMeta, Message, SceneState } from '../services/grok';
-import { shouldGenerateImage, deriveClothingState, CLOTHING_STATE_RANK, ClothingState } from '../services/comfyui';
+import { shouldGenerateImage, deriveClothingState, CLOTHING_STATE_RANK, ClothingState, selectShotFocus } from '../services/comfyui';
+import { hasLibraryChar, pickLibraryImage } from '../services/libraryImage';
 
 export const chatRouter = Router();
 chatRouter.use(authMiddleware);
@@ -197,7 +198,24 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
   const prevSceneState = (userMemory as any)._sceneState ?? null;
   const newSceneState: SceneState | null = meta.sceneState ?? prevSceneState;
 
-  const updatedUserMemory = {
+  // ── Library image selection (synchronous, no extra API call) ───────────────
+  const charHasLibrary = hasLibraryChar(character.name);
+  let libraryImageUrl: string | null = null;
+  let pickedShotFocus: string | null = null;
+  let pickedShotIdx: number | null = null;
+
+  if (charHasLibrary) {
+    const shotFocus = selectShotFocus(finalClothingState, newUnlockedActs, newIntimacy, lastShotFocus, newSceneState?.a);
+    pickedShotFocus = shotFocus;
+    const lastShotIdx = (userMemory as any)[`_shotIdx_${shotFocus}`] ?? 0;
+    const picked = pickLibraryImage(character.name, shotFocus, lastShotIdx);
+    if (picked) {
+      libraryImageUrl = picked.url;
+      pickedShotIdx = picked.index;
+    }
+  }
+
+  const updatedUserMemory: Record<string, unknown> = {
     ...userMemory,
     _intimacyLevel: newIntimacy,
     _dominanceLevel: newDominance,
@@ -210,27 +228,33 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
     _totalTurns: ((userMemory as any)._totalTurns ?? 0) + 1,
     _clothingState: finalClothingState,
     _sceneState: newSceneState,
-    // _lastShotFocus updated after imageDecision resolves (see below)
+    _lastShotFocus: pickedShotFocus ?? lastShotFocus,
+    // Round-robin index for the picked shot (only set if we actually served an image)
+    ...(pickedShotFocus && pickedShotIdx !== null
+      ? { [`_shotIdx_${pickedShotFocus}`]: pickedShotIdx }
+      : {}),
   };
 
-  // Persist conversation + check image scene concurrently
+  // Persist conversation + optionally check image scene (for non-library chars)
   const recentForImage = [
     { role: 'user' as const, content: message },
     { role: 'assistant' as const, content: cleanReply },
   ];
 
   const [imageDecision, [updatedConversation, updatedUser]] = await Promise.all([
-    shouldGenerateImage(
-      character.name,
-      recentForImage,
-      character,
-      newIntimacy,
-      newUnlockedActs,
-      meta.scene || character.occupation || '',
-      finalClothingState,
-      lastShotFocus,
-      newSceneState,
-    ),
+    charHasLibrary
+      ? Promise.resolve({ generate: false, shotFocus: pickedShotFocus ?? undefined })
+      : shouldGenerateImage(
+          character.name,
+          recentForImage,
+          character,
+          newIntimacy,
+          newUnlockedActs,
+          meta.scene || character.occupation || '',
+          finalClothingState,
+          lastShotFocus,
+          newSceneState,
+        ),
     Promise.all([
       conversation
         ? prisma.conversation.update({
@@ -261,7 +285,7 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
     ] as const),
   ]);
 
-  // Send meta event — include imagePrompt if scene is spicy
+  // Send meta event — library chars get imageUrl directly; others get imagePrompt for manual trigger
   res.write(`data: ${JSON.stringify({
     type: 'meta',
     mood: meta.mood,
@@ -270,15 +294,16 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
     dominance: newDominance,
     desire: newDesire,
     attach: newAttach,
-    imagePrompt: imageDecision.generate ? imageDecision.prompt : null,
-    imageTwoShot: imageDecision.generate ? (imageDecision.twoShot ?? false) : false,
+    imageUrl: libraryImageUrl,                                                        // pre-generated (anime etc.)
+    imagePrompt: !charHasLibrary && imageDecision.generate ? imageDecision.prompt : null, // fallback for non-library chars
+    imageTwoShot: !charHasLibrary && imageDecision.generate ? (imageDecision.twoShot ?? false) : false,
     phase: newPhaseIndex,
     questionCount: newQuestionCount,
     sceneState: newSceneState,
   })}\n\n`);
 
-  // Persist updated shot focus to conversation memory (fire and forget)
-  if (imageDecision.shotFocus) {
+  // For non-library chars: persist updated shot focus (fire and forget)
+  if (!charHasLibrary && imageDecision.shotFocus) {
     prisma.conversation.update({
       where: { id: updatedConversation.id },
       data: { userMemory: { ...updatedUserMemory, _lastShotFocus: imageDecision.shotFocus } as object },

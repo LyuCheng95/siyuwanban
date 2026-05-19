@@ -45,7 +45,7 @@ export function deriveClothingState(acts: string[]): ClothingState {
 // ── Shot focus system ─────────────────────────────────────────────────────────
 // Code decides the shot type — Grok never controls composition.
 
-type ShotFocus =
+export type ShotFocus =
   | 'portrait'
   | 'medium'
   | 'breast'
@@ -100,7 +100,7 @@ const SHOT_PREFIXES: Record<ShotFocus, string> = {
  * Select shot focus — deterministic, code-driven.
  * Priority: sceneState.a (current action) > cumulative acts > clothing state
  */
-function selectShotFocus(
+export function selectShotFocus(
   clothingState: ClothingState,
   allActs: string[],
   intimacy: number,
