@@ -119,6 +119,19 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
   const existingContext = (conversation?.contextJson as Message[]) ?? [];
   const userMemory = (conversation?.userMemory as Record<string, unknown>) ?? {};
 
+  // Reunion: soft-reset pacing when returning after a long break (≥4h), keep intimacy + memory
+  const REUNION_GAP_MS = 4 * 60 * 60 * 1000;
+  const isReunion = conversation !== null
+    && ((userMemory as any)._totalTurns ?? 0) >= 6
+    && (Date.now() - conversation.updatedAt.getTime()) > REUNION_GAP_MS;
+
+  if (isReunion) {
+    (userMemory as any)._totalTurns    = 2;   // re-enter at early P0 with slight warmth
+    (userMemory as any)._phaseIndex    = 0;   // restart story arc
+    (userMemory as any)._clothingState = 'fully_clothed';
+    (userMemory as any)._sceneState    = null;
+  }
+
   // Build messages for Grok
   const recentAiReplies = existingContext
     .filter(m => m.role === 'assistant')
@@ -126,7 +139,7 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
     .reverse()
     .map(m => m.content);
   const userLang = ((user as any).language ?? 'zh') as 'zh' | 'en';
-  const systemPrompt = buildCharacterSystemPrompt(character as any, userMemory, recentAiReplies, user.nickname, userLang);
+  const systemPrompt = buildCharacterSystemPrompt(character as any, userMemory, recentAiReplies, user.nickname, userLang, isReunion);
   const contextWindow = existingContext.slice(-CONTEXT_WINDOW);
   const messages: Message[] = [
     { role: 'system', content: systemPrompt },
@@ -316,6 +329,7 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
     phase: newPhaseIndex,
     questionCount: newQuestionCount,
     sceneState: newSceneState,
+    isReunion,
   })}\n\n`);
 
   // For non-library chars: persist updated shot focus (fire and forget)
