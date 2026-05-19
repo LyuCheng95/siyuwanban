@@ -169,6 +169,17 @@ export const api = {
     ),
   },
 
+  referral: {
+    info: () => request<{
+      code: string; link: string; count: number;
+      referrerReward: number; refereeBonus: number;
+    }>('/referral'),
+    claim: (refCode: string) =>
+      request<{ ok: boolean; bonusDiamonds: number }>(
+        '/referral/claim', { method: 'POST', body: JSON.stringify({ refCode }) }
+      ),
+  },
+
   checkin: {
     status: () => request<{
       alreadyDone: boolean;

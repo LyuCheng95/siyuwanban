@@ -12,6 +12,7 @@ import { botRouter } from './routes/bot';
 import { checkinRouter } from './routes/checkin';
 import { adminRouter } from './routes/admin';
 import { redeemRouter } from './routes/redeem';
+import { referralRouter } from './routes/referral';
 import { cryptobotRouter, startUsdtPoller } from './routes/cryptobot';
 import { startDailyPush } from './services/dailyPush';
 import { buildLibraryIndex, reserveLibraryImages } from './services/libraryImage';
@@ -40,6 +41,7 @@ app.use('/api/images', imagesRouter);
 app.use('/api/bot', botRouter);
 app.use('/api/checkin', checkinRouter);
 app.use('/api/redeem', redeemRouter);
+app.use('/api/referral', referralRouter);
 app.use('/api/payments/crypto', cryptobotRouter);
 
 app.use('/api/admin', adminRouter);

@@ -26,6 +26,21 @@ function getTelegramInitData(): string | null {
   return null;
 }
 
+// 从 Telegram WebApp start_param 或 URL hash 提取推荐码（ref_XXXXXX）
+function getStartParam(): string | null {
+  try {
+    const tg = (window as any).Telegram?.WebApp;
+    const sp = tg?.initDataUnsafe?.start_param as string | undefined;
+    if (sp?.startsWith('ref_')) return sp.slice(4);
+  } catch {}
+  // 兼容浏览器调试：?ref=XXXXXX
+  try {
+    const p = new URLSearchParams(window.location.search).get('ref');
+    if (p) return p;
+  } catch {}
+  return null;
+}
+
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -45,6 +60,11 @@ export function useAuth() {
           const localLang = getLang();
           if (localLang !== result.user.language) {
             api.auth.setLanguage(localLang).catch(() => {});
+          }
+          // 自动认领推荐码（只有没被推荐过的用户才会成功）
+          const refCode = getStartParam();
+          if (refCode && !(result.user as any).referredBy) {
+            api.referral.claim(refCode).catch(() => {});
           }
           return;
         }

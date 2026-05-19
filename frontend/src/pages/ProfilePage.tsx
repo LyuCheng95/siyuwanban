@@ -36,9 +36,12 @@ export function ProfilePage({ user, setUser }: Props) {
   const [redeemCode, setRedeemCode] = useState('');
   const [redeemStatus, setRedeemStatus] = useState<{ ok: boolean; msg: string } | null>(null);
   const [redeemLoading, setRedeemLoading] = useState(false);
+  const [referralInfo, setReferralInfo] = useState<{ code: string; link: string; count: number; referrerReward: number; refereeBonus: number } | null>(null);
+  const [referralCopied, setReferralCopied] = useState(false);
 
   useEffect(() => {
     api.characters.mine().then(setMyChars).catch(console.error);
+    api.referral.info().then(setReferralInfo).catch(() => {});
   }, []);
 
   async function deleteChar(id: string) {
@@ -193,6 +196,46 @@ export function ProfilePage({ user, setUser }: Props) {
             {lang === 'zh' ? 'English' : '中文'}
           </button>
         </div>
+
+        {/* Referral */}
+        {referralInfo && !user.isAnonymous && (
+          <div style={{ marginTop: 12, padding: '14px', background: 'var(--bg-card)', borderRadius: 12, border: '1px solid rgba(99,102,241,0.2)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <div style={{ fontSize: 12, color: 'var(--text-hint)' }}>🔗 {lang === 'en' ? 'Invite Friends' : '邀请好友'}</div>
+              {referralInfo.count > 0 && (
+                <div style={{ fontSize: 11, color: '#8090f8', fontWeight: 600 }}>
+                  {lang === 'en' ? `${referralInfo.count} invited` : `已邀请 ${referralInfo.count} 人`}
+                </div>
+              )}
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-2)', marginBottom: 10, lineHeight: 1.6 }}>
+              {lang === 'en'
+                ? `You get 💎${referralInfo.referrerReward} · Friend gets 💎${referralInfo.refereeBonus}`
+                : `你得 💎${referralInfo.referrerReward} · 好友得 💎${referralInfo.refereeBonus}`}
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{
+                flex: 1, padding: '9px 12px', background: 'var(--bg)',
+                border: '1.5px solid var(--border)', borderRadius: 8,
+                fontSize: 13, color: 'var(--text-2)', fontFamily: 'monospace',
+                letterSpacing: '0.06em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}>
+                {referralInfo.link}
+              </div>
+              <button
+                className="btn btn-primary"
+                style={{ padding: '9px 16px', fontSize: 13, flexShrink: 0 }}
+                onClick={() => {
+                  navigator.clipboard.writeText(referralInfo.link).catch(() => {});
+                  setReferralCopied(true);
+                  setTimeout(() => setReferralCopied(false), 2000);
+                }}
+              >
+                {referralCopied ? '✓' : (lang === 'en' ? 'Copy' : '复制')}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Redeem code */}
         <div style={{ marginTop: 12, padding: '14px', background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border)' }}>
