@@ -243,7 +243,7 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
 
   const [imageDecision, [updatedConversation, updatedUser]] = await Promise.all([
     charHasLibrary
-      ? Promise.resolve({ generate: false, shotFocus: pickedShotFocus ?? undefined })
+      ? Promise.resolve({ generate: false, prompt: undefined, twoShot: undefined, shotFocus: pickedShotFocus ?? undefined } as { generate: boolean; prompt?: string; twoShot?: boolean; shotFocus?: string })
       : shouldGenerateImage(
           character.name,
           recentForImage,
