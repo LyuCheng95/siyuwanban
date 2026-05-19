@@ -147,13 +147,14 @@ export function pickLibraryImage(
   const entry = charMap.get(shotKey);
   if (!entry || entry.indices.length === 0) return null;
 
-  // Filter out reserved indices
+  // Filter out reserved indices; fall back to all indices if every image is reserved
   const reserved  = reservedImages.get(characterName)?.get(shotKey) ?? new Set<number>();
   const available = entry.indices.filter(i => !reserved.has(i));
-  if (available.length === 0) return null;
+  const pool      = available.length > 0 ? available : [...entry.indices];
+  if (pool.length === 0) return null;
 
   // Round-robin: next after lastIdx, wrap around
-  const next = available.find(i => i > lastIdx) ?? available[0];
+  const next = pool.find(i => i > lastIdx) ?? pool[0];
   const url  = libraryImageUrl(entry.category, entry.character, entry.shot, next);
 
   return { url, index: next };
