@@ -98,65 +98,106 @@ const SHOT_PREFIXES: Record<ShotFocus, string> = {
 
 /**
  * Select shot focus — deterministic, code-driven.
- * Priority: sceneState.a (current action) > cumulative acts > clothing state
+ *
+ * Priority ladder (highest → lowest):
+ *   ① actionHint  — sceneState.a, the exact action extracted from the AI reply
+ *   ② currentActs — meta.acts from THIS turn only (what just happened)
+ *   ③ replyText   — keyword scan of the full AI reply (narrative context)
+ *   ④ allActs     — cumulative acts, gated by intimacy threshold (prevents
+ *                    explicit shots when just having a romantic conversation)
+ *   ⑤ clothingState — physical state reality
+ *   ⑥ intimacy    — clothed default: portrait vs medium
  */
 export function selectShotFocus(
   clothingState: ClothingState,
   allActs: string[],
   intimacy: number,
   lastFocus: string,
-  actionHint?: string,  // sceneState.a — the exact current action this turn
+  actionHint?: string,    // sceneState.a — exact current action
+  currentActs?: string[], // meta.acts — acts that just happened this turn
+  replyText?: string,     // cleanReply — full AI reply for keyword scanning
 ): ShotFocus {
-  const str = allActs.join(' ');
+  const isExposed = clothingState === 'bottomless' || clothingState === 'naked';
 
   // ① Current-action override from sceneState (most precise signal)
-  if (actionHint && actionHint.trim()) {
+  if (actionHint?.trim()) {
     const ah = actionHint;
-    // Climax signals
-    if (/潮吹|squirt/i.test(ah))                                          return 'ahegao';
+    if (/潮吹|squirt/i.test(ah))                                           return 'ahegao';
     if (/射精|creampie|内射/i.test(ah))                                    return 'creampie';
-    if (/高潮|orgasm/i.test(ah))  return lastFocus === 'ahegao' ? 'creampie' : 'ahegao';
-    // Oral
+    if (/高潮|orgasm/i.test(ah))   return lastFocus === 'ahegao' ? 'creampie' : 'ahegao';
     if (/口交.*阴茎|口含|blowjob/i.test(ah))                              return 'blowjob';
     if (/舔阴|cunnilingus|舔.*阴蒂/i.test(ah))                            return 'cunnilingus';
-    // Penetration — position-specific
     if (/骑乘|cowgirl|riding/i.test(ah) && clothingState === 'naked')     return 'penetration_cowgirl';
     if (/后入|doggy|from behind/i.test(ah) && clothingState === 'naked')  return 'penetration_doggy';
     if (/传教士|missionary/i.test(ah) && clothingState === 'naked')       return 'penetration_missionary';
     if (/侧入|spoon/i.test(ah) && clothingState === 'naked')              return 'penetration_spooning';
-    if ((/插入|penetration|intercourse/i.test(ah)) && clothingState === 'naked') return 'penetration_generic';
-    // Fingering
-    if (/手指.*阴|fingering/i.test(ah) && (clothingState === 'bottomless' || clothingState === 'naked')) return 'fingering';
+    if (/插入|penetration|intercourse/i.test(ah) && clothingState === 'naked') return 'penetration_generic';
+    if (/手指.*阴|fingering/i.test(ah) && isExposed)                      return 'fingering';
+    if (/抚摸.*胸|揉.*乳|乳头|nipple/i.test(ah) && clothingState !== 'fully_clothed') return 'breast';
+    if (/接吻|kiss|亲吻/i.test(ah))  return intimacy > 50 ? 'medium' : 'portrait';
   }
 
-  // ② Cumulative acts fallback (same logic as before)
+  // ② This turn's acts (meta.acts) — highest confidence for current scene
+  if (currentActs && currentActs.length > 0) {
+    const cur = currentActs.join(' ');
+    if (/潮吹|squirt/i.test(cur))                                          return 'ahegao';
+    if (/射精|creampie|内射/i.test(cur))                                   return 'creampie';
+    if (/高潮|orgasm/i.test(cur))  return lastFocus === 'ahegao' ? 'creampie' : 'ahegao';
+    if (/口交|blowjob|口含.*阴茎/i.test(cur))                             return 'blowjob';
+    if (/舔阴|cunnilingus/i.test(cur))                                     return 'cunnilingus';
+    if (/骑乘|cowgirl/i.test(cur) && clothingState === 'naked')            return 'penetration_cowgirl';
+    if (/后入|doggy/i.test(cur) && clothingState === 'naked')              return 'penetration_doggy';
+    if (/传教士|missionary/i.test(cur) && clothingState === 'naked')       return 'penetration_missionary';
+    if (/侧入|spoon/i.test(cur) && clothingState === 'naked')              return 'penetration_spooning';
+    if (/插入|penetration|intercourse/i.test(cur) && clothingState === 'naked') return 'penetration_generic';
+    if (/手指.*阴|指.*进入|fingering/i.test(cur) && isExposed)            return 'fingering';
+    if (/抚摸.*胸|揉.*乳|乳头|nipple/i.test(cur) && clothingState !== 'fully_clothed') return 'breast';
+    if (/接吻|kiss|亲吻/i.test(cur)) return intimacy > 50 ? 'medium' : 'portrait';
+  }
+
+  // ③ Reply text keyword scan (narrative context proxy)
+  if (replyText) {
+    const rt = replyText;
+    if (/潮吹/.test(rt))                                                   return 'ahegao';
+    if (/射出|精液|射在/.test(rt))        return lastFocus === 'ahegao' ? 'creampie' : 'ahegao';
+    if (/含住|吸吮.*龟头|口含/.test(rt) && clothingState === 'naked')     return 'blowjob';
+    if (/手指.*进入|插入手指|指尖.*深处/.test(rt) && isExposed)           return 'fingering';
+    if (/乳头|双乳|乳房.*裸|赤裸.*上身/.test(rt) && clothingState !== 'fully_clothed') return 'breast';
+    if (/插入|进入.*体内|抽插/.test(rt) && clothingState === 'naked')     return 'penetration_generic';
+    // Romantic / gentle signal → prefer portrait or medium
+    if (/轻轻|温柔|靠近|嘴唇|眼眸/.test(rt) && intimacy < 60)            return intimacy < 30 ? 'portrait' : 'medium';
+  }
+
+  // ④ Cumulative acts — gated by intimacy to prevent stale explicit shots
+  //    (e.g. don't show penetration shot during a tender post-coital dialogue)
+  const str = allActs.join(' ');
   const hasClimax = /射精|高潮|潮吹|creampie|ahegao|orgasm|squirt/i.test(str);
-  if (hasClimax) return lastFocus === 'ahegao' ? 'creampie' : 'ahegao';
+  if (hasClimax && intimacy >= 65) return lastFocus === 'ahegao' ? 'creampie' : 'ahegao';
 
   const hasSex = /插入|性交|抽插|penetration|intercourse/i.test(str);
-  if (hasSex) {
-    if (/骑乘|cowgirl|riding on top/i.test(str))   return 'penetration_cowgirl';
-    if (/后入|doggy|from behind/i.test(str))        return 'penetration_doggy';
-    if (/传教士|missionary/i.test(str))             return 'penetration_missionary';
-    if (/侧入|spooning/i.test(str))                 return 'penetration_spooning';
+  if (hasSex && intimacy >= 55) {
+    if (/骑乘|cowgirl|riding on top/i.test(str))  return 'penetration_cowgirl';
+    if (/后入|doggy|from behind/i.test(str))       return 'penetration_doggy';
+    if (/传教士|missionary/i.test(str))            return 'penetration_missionary';
+    if (/侧入|spooning/i.test(str))                return 'penetration_spooning';
     return 'penetration_generic';
   }
 
   const hasBlowjob = /口交.*阴茎|口含.*阴茎|blowjob|penis in mouth/i.test(str);
   const hasCunni   = /口交.*阴蒂|cunnilingus|舔.*阴蒂|lick.*clit/i.test(str);
-  if (hasBlowjob) return 'blowjob';
-  if (hasCunni)   return 'cunnilingus';
+  if (hasBlowjob && intimacy >= 50) return 'blowjob';
+  if (hasCunni   && intimacy >= 50) return 'cunnilingus';
 
   const hasFingering = /手指.*阴|阴蒂.*手指|fingering|finger.*pussy/i.test(str);
-  if (hasFingering && (clothingState === 'bottomless' || clothingState === 'naked')) return 'fingering';
+  if (hasFingering && isExposed) return 'fingering';
 
-  // ③ Clothing state
+  // ⑤ Clothing state (physical reality)
   if (clothingState === 'naked')      return lastFocus === 'breast' ? 'pussy' : 'breast';
   if (clothingState === 'bottomless') return 'pussy';
   if (clothingState === 'topless')    return 'breast';
 
-  // ④ Clothed
-  if (intimacy < 20) return 'portrait';
+  // ⑥ Clothed — use intimacy
+  if (intimacy < 30) return 'portrait';
   return 'medium';
 }
 
@@ -313,7 +354,9 @@ export async function shouldGenerateImage(
   const fullBodyAnchor= faceAnchor ? `${faceAnchor}, ${bodyAnchor}` : bodyAnchor;
 
   // ── Step 1: Code selects shot focus (sceneState.a takes priority) ────────────
-  const shotFocus  = selectShotFocus(clothingState, recentActs, intimacyLevel, lastShotFocus, sceneState?.a);
+  // Extract last assistant reply for contextual keyword scanning
+  const lastReplyText = recentMessages.filter(m => m.role === 'assistant').at(-1)?.content ?? '';
+  const shotFocus  = selectShotFocus(clothingState, recentActs, intimacyLevel, lastShotFocus, sceneState?.a, undefined, lastReplyText);
   const shotPrefix = SHOT_PREFIXES[shotFocus];
 
   // ── Step 2: Decide whether to generate ──────────────────────────────────────

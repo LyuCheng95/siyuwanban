@@ -225,19 +225,19 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
           return next;
         });
 
-      // Stage 1 at 2.5 s
-      await new Promise(r => setTimeout(r, 2500));
+      // Stage 1 at 5 s — keep stage 0 (total dark) long enough to feel like real generation
+      await new Promise(r => setTimeout(r, 5000));
       advance(1);
 
-      // Stage 2 at 5 s
-      await new Promise(r => setTimeout(r, 2500));
+      // Stage 2 at 8 s
+      await new Promise(r => setTimeout(r, 3000));
       advance(2);
 
-      // Stage 3 at 7 s (fully sharp, show "完成")
-      await new Promise(r => setTimeout(r, 2000));
+      // Stage 3 at 10.5 s (fully sharp, show "完成")
+      await new Promise(r => setTimeout(r, 2500));
       advance(3);
 
-      // Transition to normal image card at 8 s
+      // Transition to normal image card at 11.5 s
       await new Promise(r => setTimeout(r, 1000));
       setMessages(prev => {
         const next = [...prev];
@@ -783,17 +783,21 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
                 </button>
               )}
 
-              {/* ── Fake-generation reveal: blurred image un-blurs over ~8s ── */}
+              {/* ── Fake-generation reveal: image materialises from solid dark → clear ── */}
               {msg.revealUrl && (() => {
                 const stage = msg.revealStage ?? 0;
-                const blurPx   = [24, 12, 4, 0][stage];
-                const scalePct = [1.08, 1.04, 1.01, 1][stage];
-                const progress = [10, 44, 78, 100][stage];
-                const statusTxt = stage === 0 ? 'AI 构图中…' : stage === 1 ? '着色渲染…' : stage === 2 ? '细节精化…' : '渲染完成 ✓';
-                const overlayAlpha = stage < 2 ? 0.45 : stage === 2 ? 0.2 : 0;
+                // Stage 0: 70px blur + 0.94 opaque overlay → completely unrecognisable
+                // Stage 1: 32px blur + 0.60 overlay → faint glow, no detail
+                // Stage 2: 8px  blur + 0.14 overlay → form emerging
+                // Stage 3: 0px  blur + 0.00 overlay → crystal clear
+                const blurPx      = [70, 32, 8, 0][stage];
+                const overlayAlpha= [0.94, 0.60, 0.14, 0][stage];
+                const scalePct    = [1.12, 1.06, 1.02, 1][stage];
+                const progress    = [8, 42, 76, 100][stage];
+                const statusTxt   = ['AI 构图中…', '着色渲染…', '细节精化…', '渲染完成 ✓'][stage];
                 return (
                   <div style={{ position:'relative', borderRadius:12, overflow:'hidden', lineHeight:0 }}>
-                    {/* Blurred image */}
+                    {/* Actual image — always rendered so CSS transition is smooth */}
                     <img
                       src={msg.revealUrl}
                       alt="generating"
@@ -801,43 +805,48 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
                         width:'100%', display:'block', borderRadius:12,
                         filter:`blur(${blurPx}px)`,
                         transform:`scale(${scalePct})`,
-                        transition:'filter 2.4s ease, transform 2.4s ease',
+                        transition:'filter 2.5s ease, transform 2.5s ease',
                         transformOrigin:'center center',
                       }}
                     />
-                    {/* Dark overlay fades out as image clears */}
+                    {/* Heavy dark veil — hides all structure at stage 0 */}
                     <div style={{
                       position:'absolute', inset:0, borderRadius:12,
-                      background:`rgba(8,4,16,${overlayAlpha})`,
-                      transition:'background 2.4s ease',
+                      background:`rgba(6,2,14,${overlayAlpha})`,
+                      transition:'background 2.5s ease',
+                      // Subtle animated noise shimmer at early stages
+                      animation: stage < 2 ? 'generatingPulse 2s ease-in-out infinite' : 'none',
                     }} />
-                    {/* Bottom HUD */}
+                    {/* Bottom HUD (fades out at final stage) */}
                     <div style={{
                       position:'absolute', bottom:0, left:0, right:0,
-                      padding:'20px 12px 10px',
-                      background:'linear-gradient(to top, rgba(6,2,12,0.85) 0%, transparent 100%)',
+                      padding:'24px 12px 10px',
+                      background:'linear-gradient(to top, rgba(4,1,10,0.9) 0%, transparent 100%)',
                       borderRadius:'0 0 12px 12px',
                       opacity: stage === 3 ? 0 : 1,
                       transition:'opacity 0.8s ease',
+                      pointerEvents:'none',
                     }}>
-                      {/* Progress bar */}
-                      <div style={{ height:2, background:'rgba(255,255,255,0.1)', borderRadius:2, marginBottom:6 }}>
+                      <div style={{ height:2, background:'rgba(255,255,255,0.08)', borderRadius:2, marginBottom:7 }}>
                         <div style={{
                           height:'100%', borderRadius:2,
                           width:`${progress}%`,
-                          background:'linear-gradient(90deg,#a855f7,#e8356c)',
-                          transition:'width 2.4s ease',
-                          boxShadow:'0 0 6px rgba(168,85,247,0.6)',
+                          background:'linear-gradient(90deg,#7c3aed,#e8356c)',
+                          transition:'width 2.5s ease',
+                          boxShadow:'0 0 8px rgba(168,85,247,0.7)',
                         }} />
                       </div>
-                      {/* Status text */}
-                      <div style={{
-                        fontSize:10, color:'rgba(220,180,255,0.8)',
-                        letterSpacing:'0.12em', fontWeight:500,
-                      }}>
+                      <div style={{ fontSize:10, color:'rgba(200,160,255,0.75)', letterSpacing:'0.14em', fontWeight:500 }}>
                         ✦ {statusTxt}
                       </div>
                     </div>
+                    {/* CSS keyframes injected inline */}
+                    <style>{`
+                      @keyframes generatingPulse {
+                        0%,100%{opacity:1}
+                        50%{opacity:0.85}
+                      }
+                    `}</style>
                   </div>
                 );
               })()}

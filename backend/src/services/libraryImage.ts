@@ -160,6 +160,55 @@ export function pickLibraryImage(
 }
 
 /**
+ * Build a fallback chain from the preferred shot to simpler alternatives.
+ * Order: preferred → content-adjacent → generic exposed → medium → portrait
+ */
+function buildShotFallbackChain(preferred: string): string[] {
+  const seen = new Set<string>();
+  const chain: string[] = [];
+  const add = (s: string) => { if (!seen.has(s)) { seen.add(s); chain.push(s); } };
+
+  add(preferred);
+
+  if (preferred.startsWith('penetration') || preferred === 'creampie' || preferred === 'ahegao') {
+    add('breast'); add('pussy'); add('medium');
+  } else if (preferred === 'blowjob' || preferred === 'cunnilingus') {
+    add('breast'); add('medium');
+  } else if (preferred === 'fingering') {
+    add('pussy'); add('breast'); add('medium');
+  } else if (preferred === 'pussy') {
+    add('breast'); add('medium');
+  } else if (preferred === 'breast') {
+    add('medium'); add('portrait');
+  } else if (preferred === 'kiss' || preferred === 'handjob') {
+    add('medium'); add('portrait');
+  }
+
+  add('medium');
+  add('portrait');
+  return chain;
+}
+
+/**
+ * Pick the best available library image for a character, trying the preferred
+ * shot first, then falling back through content-adjacent alternatives.
+ * Returns which shot was actually used so userMemory can be updated correctly.
+ */
+export function pickBestLibraryImage(
+  characterName: string,
+  preferredShot: string,
+  lastIdxMap: Record<string, number>, // shotKey → last shown index
+): { url: string; index: number; shotKey: string } | null {
+  const chain = buildShotFallbackChain(preferredShot);
+  for (const shot of chain) {
+    const lastIdx = lastIdxMap[shot] ?? 0;
+    const picked = pickLibraryImage(characterName, shot, lastIdx);
+    if (picked) return { ...picked, shotKey: shot };
+  }
+  return null;
+}
+
+/**
  * Return all image URLs for a given character + shotKey (for building album/faceUrl).
  * These are the "raw" full lists before any reservation filtering.
  */

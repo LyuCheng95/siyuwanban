@@ -3,7 +3,7 @@ import { authMiddleware, AuthRequest } from '../middleware/auth';
 import { prisma } from '../utils/prisma';
 import { buildCharacterSystemPrompt, chatStream, extractUserMemory, parseMeta, Message, SceneState } from '../services/grok';
 import { shouldGenerateImage, deriveClothingState, CLOTHING_STATE_RANK, ClothingState, selectShotFocus } from '../services/comfyui';
-import { hasLibraryChar, pickLibraryImage } from '../services/libraryImage';
+import { hasLibraryChar, pickBestLibraryImage } from '../services/libraryImage';
 
 export const chatRouter = Router();
 chatRouter.use(authMiddleware);
@@ -205,13 +205,28 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
   let pickedShotIdx: number | null = null;
 
   if (charHasLibrary) {
-    const shotFocus = selectShotFocus(finalClothingState, newUnlockedActs, newIntimacy, lastShotFocus, newSceneState?.a);
-    pickedShotFocus = shotFocus;
-    const lastShotIdx = (userMemory as any)[`_shotIdx_${shotFocus}`] ?? 0;
-    const picked = pickLibraryImage(character.name, shotFocus, lastShotIdx);
+    // Use current-turn acts (meta.acts) and reply text for precise shot selection
+    const idealShot = selectShotFocus(
+      finalClothingState, newUnlockedActs, newIntimacy, lastShotFocus,
+      newSceneState?.a,    // sceneState action — highest priority
+      meta.acts,           // this turn's acts — second priority
+      cleanReply,          // reply keywords — third priority
+    );
+
+    // Build lastIdxMap from userMemory for round-robin continuity across shots
+    const lastIdxMap: Record<string, number> = {};
+    for (const key of Object.keys(userMemory as object)) {
+      if (key.startsWith('_shotIdx_')) {
+        lastIdxMap[key.replace('_shotIdx_', '')] = (userMemory as any)[key] ?? 0;
+      }
+    }
+
+    // Try preferred shot; fall back through content-adjacent alternatives automatically
+    const picked = pickBestLibraryImage(character.name, idealShot, lastIdxMap);
     if (picked) {
       libraryImageUrl = picked.url;
-      pickedShotIdx = picked.index;
+      pickedShotFocus = picked.shotKey;
+      pickedShotIdx   = picked.index;
     }
   }
 
