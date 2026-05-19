@@ -55,12 +55,13 @@ export interface Message {
   role: 'user' | 'assistant';
   content: string;
   imageUrl?: string;
-  imagePrompt?: string;
+  imagePrompt?: string;       // ComfyUI generation prompt (non-library chars)
   imageTwoShot?: boolean;
+  pendingImageUrl?: string;   // library image locked behind 2💎 payment
   imageGenerating?: boolean;
-  imageError?: boolean;   // generation failed — show inline error on the button
-  streaming?: boolean;    // currently receiving chunks — show dots, hide text
-  fresh?: boolean;        // just received — animate paragraphs in
+  imageError?: boolean;       // generation/unlock failed — show retry button
+  streaming?: boolean;        // currently receiving chunks — show dots, hide text
+  fresh?: boolean;            // just received — animate paragraphs in
 }
 
 export interface Conversation {

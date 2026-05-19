@@ -155,6 +155,12 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ prompt, characterName, characterId }),
       }),
+    // Reveal a pre-generated library image — costs 2💎
+    unlock: (imageUrl: string, characterId: string) =>
+      request<{ url: string; paid: number }>('/images/unlock', {
+        method: 'POST',
+        body: JSON.stringify({ imageUrl, characterId }),
+      }),
   },
 
   redeem: {

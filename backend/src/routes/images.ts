@@ -98,3 +98,48 @@ imagesRouter.post('/generate', async (req: AuthRequest, res: Response): Promise<
     res.status(503).json({ error: 'Image generation failed', detail: err.message });
   }
 });
+
+// POST /api/images/unlock — reveal a pre-generated library image (costs 2💎)
+imagesRouter.post('/unlock', async (req: AuthRequest, res: Response): Promise<void> => {
+  const { imageUrl, characterId } = req.body as { imageUrl: string; characterId: string };
+
+  if (!imageUrl?.trim()) {
+    res.status(400).json({ error: 'imageUrl required' });
+    return;
+  }
+
+  // Check diamonds
+  const user = await prisma.user.findUnique({
+    where: { id: req.userId! },
+    select: { paidCredits: true },
+  });
+  if (!user || user.paidCredits < 2) {
+    res.status(402).json({ error: 'insufficient_diamonds' });
+    return;
+  }
+
+  // Deduct 2 diamonds
+  const updated = await prisma.user.update({
+    where: { id: req.userId!, paidCredits: { gte: 2 } },
+    data: { paidCredits: { decrement: 2 } },
+  });
+
+  // Save to user's album (fire and forget)
+  if (characterId) {
+    prisma.conversation.findUnique({
+      where: { userId_characterId: { userId: req.userId!, characterId } },
+    }).then(conv => {
+      if (!conv) return;
+      const mem = (conv.userMemory as any) ?? {};
+      const existing: string[] = mem._albumImages ?? [];
+      if (!existing.includes(imageUrl)) {
+        return prisma.conversation.update({
+          where: { id: conv.id },
+          data: { userMemory: { ...mem, _albumImages: [...existing, imageUrl] } as object },
+        });
+      }
+    }).catch(() => {});
+  }
+
+  res.json({ url: imageUrl, paid: updated.paidCredits });
+});

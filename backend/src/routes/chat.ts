@@ -285,7 +285,8 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
     ] as const),
   ]);
 
-  // Send meta event — library chars get imageUrl directly; others get imagePrompt for manual trigger
+  // Send meta event — library chars send pendingImageUrl (locked, user pays 2💎 to unlock)
+  //                   non-library chars send imagePrompt (user pays 2💎 to generate via ComfyUI)
   res.write(`data: ${JSON.stringify({
     type: 'meta',
     mood: meta.mood,
@@ -294,8 +295,8 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
     dominance: newDominance,
     desire: newDesire,
     attach: newAttach,
-    imageUrl: libraryImageUrl,                                                        // pre-generated (anime etc.)
-    imagePrompt: !charHasLibrary && imageDecision.generate ? imageDecision.prompt : null, // fallback for non-library chars
+    pendingImageUrl: libraryImageUrl,                                                      // library image (locked until paid)
+    imagePrompt: !charHasLibrary && imageDecision.generate ? imageDecision.prompt : null,  // ComfyUI prompt (non-library chars)
     imageTwoShot: !charHasLibrary && imageDecision.generate ? (imageDecision.twoShot ?? false) : false,
     phase: newPhaseIndex,
     questionCount: newQuestionCount,

@@ -146,10 +146,9 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
     ]);
   }, []);
 
-  // ── 场景图生成（inline，不弹窗，扣1钻石）───────────────────────────────
+  // ── 场景图生成（ComfyUI，非图库角色）───────────────────────────────────
   async function generateInlineImage(prompt: string, msgIdx: number) {
     if (!character || !characterId) return;
-    // Mark this specific message as generating; clear any previous error
     setMessages(prev => {
       const next = [...prev];
       next[msgIdx] = { ...next[msgIdx], imageGenerating: true, imageError: false };
@@ -162,18 +161,15 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
         next[msgIdx] = { ...next[msgIdx], imageGenerating: false, imageUrl: res.url, imageError: false };
         return next;
       });
-      // Update diamond balance from server response
       if (typeof res.paid === 'number') {
         setCredits(prev => ({ ...prev, paid: res.paid as number }));
         onCreditsUpdate(credits.free, res.paid as number);
       }
-      // Save to album (fire-and-forget)
       api.chat.saveImage(characterId, res.url).then(() => {
         setAlbumImages(prev => prev.includes(res.url) ? prev : [...prev, res.url]);
       }).catch(() => {});
     } catch (err: any) {
-      const status = err?.status;
-      if (status === 402) {
+      if (err?.status === 402) {
         setMessages(prev => {
           const next = [...prev];
           next[msgIdx] = { ...next[msgIdx], imageGenerating: false };
@@ -181,7 +177,42 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
         });
         setShowPaywall(true);
       } else {
-        // Show inline error on this message — no new bubble added
+        setMessages(prev => {
+          const next = [...prev];
+          next[msgIdx] = { ...next[msgIdx], imageGenerating: false, imageError: true };
+          return next;
+        });
+      }
+    }
+  }
+
+  // ── 解锁图库图片（2💎）──────────────────────────────────────────────────
+  async function unlockLibraryImage(imageUrl: string, msgIdx: number) {
+    if (!characterId) return;
+    setMessages(prev => {
+      const next = [...prev];
+      next[msgIdx] = { ...next[msgIdx], imageGenerating: true, imageError: false };
+      return next;
+    });
+    try {
+      const res = await api.images.unlock(imageUrl, characterId);
+      setMessages(prev => {
+        const next = [...prev];
+        next[msgIdx] = { ...next[msgIdx], imageGenerating: false, imageUrl: res.url, pendingImageUrl: undefined, imageError: false };
+        return next;
+      });
+      setCredits(prev => ({ ...prev, paid: res.paid }));
+      onCreditsUpdate(credits.free, res.paid);
+      setAlbumImages(prev => prev.includes(res.url) ? prev : [...prev, res.url]);
+    } catch (err: any) {
+      if (err?.status === 402) {
+        setMessages(prev => {
+          const next = [...prev];
+          next[msgIdx] = { ...next[msgIdx], imageGenerating: false };
+          return next;
+        });
+        setShowPaywall(true);
+      } else {
         setMessages(prev => {
           const next = [...prev];
           next[msgIdx] = { ...next[msgIdx], imageGenerating: false, imageError: true };
@@ -288,11 +319,11 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
               if (data.sceneState)     setSceneState(data.sceneState);
               // 浮动提示
               showDeltas(ni, prevIntimacy, nd, prevDesire, na, prevAttach, nm, prevDominance);
-              // scene image — library chars get imageUrl directly; others get imagePrompt button
-              if (data.imageUrl) {
+              // scene image — both library (pendingImageUrl) and ComfyUI (imagePrompt) show a pay button
+              if (data.pendingImageUrl) {
                 setMessages(prev => {
                   const next = [...prev];
-                  next[next.length - 1] = { ...next[next.length - 1], imageUrl: data.imageUrl };
+                  next[next.length - 1] = { ...next[next.length - 1], pendingImageUrl: data.pendingImageUrl };
                   return next;
                 });
               } else if (data.imagePrompt) {
@@ -668,17 +699,23 @@ export function ChatPage({ user, onCreditsUpdate }: Props) {
                 </div>
               )}
 
-              {/* ── Scene trigger button — only when AI requested an image ── */}
-              {msg.role === 'assistant' && !streaming && !msg.imageGenerating && !msg.imageUrl && (msg.imagePrompt || msg.imageError) && (
+              {/* ── Scene trigger button — library image (pendingImageUrl) or ComfyUI (imagePrompt) ── */}
+              {msg.role === 'assistant' && !streaming && !msg.imageGenerating && !msg.imageUrl && (msg.pendingImageUrl || msg.imagePrompt || msg.imageError) && (
                 <button
                   className="scene-btn"
                   disabled={credits.paid < 2 && !msg.imageError}
                   onClick={() => {
                     if (credits.paid < 2) { setShowPaywall(true); return; }
-                    generateInlineImage(
-                      buildScenePrompt(character, msg.imagePrompt, desire, currentPhase, mood, msg.imageTwoShot),
-                      i,
-                    );
+                    if (msg.pendingImageUrl) {
+                      // Library image: just unlock (no generation needed)
+                      unlockLibraryImage(msg.pendingImageUrl, i);
+                    } else {
+                      // ComfyUI generation
+                      generateInlineImage(
+                        buildScenePrompt(character, msg.imagePrompt, desire, currentPhase, mood, msg.imageTwoShot),
+                        i,
+                      );
+                    }
                   }}
                   style={{ opacity: credits.paid < 2 ? 0.5 : 1 }}
                 >
