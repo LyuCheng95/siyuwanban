@@ -380,7 +380,7 @@ Current state:
       'Authorization': `Bearer ${process.env.GROK_API_KEY}`,
     },
     body: JSON.stringify({
-      model: 'grok-3',
+      model: 'grok-3-mini',
       messages: [
         { role: 'system', content: systemContent },
         ...recentMessages.slice(-4),

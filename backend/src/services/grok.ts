@@ -116,7 +116,7 @@ export async function chat(messages: Message[]): Promise<string> {
   const res = await grok.chat.completions.create({
     model: 'grok-3',
     messages,
-    max_tokens: 1000,
+    max_tokens: 600,
     temperature: 0.95,
     stream: false,
   });
@@ -130,7 +130,7 @@ export async function chatStream(
   const stream = await grok.chat.completions.create({
     model: 'grok-3',
     messages,
-    max_tokens: 1000,
+    max_tokens: 600,
     temperature: 0.95,
     stream: true,
   });
