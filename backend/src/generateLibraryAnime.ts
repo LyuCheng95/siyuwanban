@@ -43,7 +43,7 @@ const SHOT_COUNT: Partial<Record<ShotKey, number>> = {
 };
 
 // 亲密度阶段映射
-const PHASE_MAP: Record<ShotKey, number> = {
+const PHASE_MAP: Partial<Record<ShotKey, number>> = {
   portrait: 0, medium: 0,
   kiss: 1, breast: 1, pussy: 1,
   handjob: 2, fingering: 2, blowjob: 2, cunnilingus: 2,
@@ -65,7 +65,7 @@ const CHARACTER_BASE: Record<string, string> = {
 
 // 每个 shotKey 的变体列表，轮转使用确保同类图片各有差异
 type Variant = { prompt: string; note: string };
-const SHOT_VARIANTS: Record<ShotKey, Variant[]> = {
+const SHOT_VARIANTS: Partial<Record<ShotKey, Variant[]>> = {
   portrait: [
     { prompt: 'portrait, head and shoulders, direct eye contact, soft smile, hair flowing naturally, glowing background',                                                         note: '柔和微笑·直视镜头·发丝自然飘逸' },
     { prompt: 'portrait, head and shoulders, head slightly tilted, coy expression, finger lightly touching lips, flushed cheeks',                                                note: '侧头媚笑·手指轻触嘴唇·脸颊微红' },
@@ -266,7 +266,7 @@ interface ShotMeta {
   bodyFocus:   string;   // 主体焦点部位
   viewAngle:   string;   // 镜头角度
 }
-const SHOT_META: Record<ShotKey, ShotMeta> = {
+const SHOT_META: Partial<Record<ShotKey, ShotMeta>> = {
   portrait: {
     category: '调情',
     description: '面部特写，眼神撩人，轻启朱唇，若有所思',
@@ -539,7 +539,7 @@ async function generateForCharacter(characterName: string, fromArg?: string, for
     const [w, h]     = isPortrait ? [768, 1024] : [1024, 768];
     const loras      = SHOT_LORAS[shotKey] ?? [];
     const phase      = PHASE_MAP[shotKey] ?? 0;
-    const variants   = SHOT_VARIANTS[shotKey];
+    const variants   = SHOT_VARIANTS[shotKey] ?? [];
 
     for (let i = 1; i <= count; i++) {
       const imgPath  = path.join(shotDir, `${String(i).padStart(3,'0')}.png`);
@@ -565,7 +565,7 @@ async function generateForCharacter(characterName: string, fromArg?: string, for
         await downloadImage(filename, imgPath);
 
         // 写 metadata JSON
-        const meta = SHOT_META[shotKey];
+        const meta = SHOT_META[shotKey] ?? { category: '', description: '', tags: [], bodyFocus: '', viewAngle: '' };
         fs.writeFileSync(jsonPath, JSON.stringify({
           character:     characterName,
           shotKey,

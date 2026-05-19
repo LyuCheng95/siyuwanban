@@ -53,13 +53,36 @@ export type ShotFocus =
   | 'fingering'
   | 'blowjob'
   | 'cunnilingus'
+  | 'handjob'
+  | 'kiss'
   | 'penetration_cowgirl'
   | 'penetration_doggy'
   | 'penetration_missionary'
   | 'penetration_spooning'
   | 'penetration_generic'
+  | 'penetration_closeup'
+  | 'spread_pussy'
   | 'ahegao'
-  | 'creampie';
+  | 'creampie'
+  | 'cum_face'
+  | 'squirt'
+  | 'overstimulation'
+  | 'afterglow'
+  | 'undressing'
+  | 'ass'
+  | 'back'
+  | 'thighs'
+  | 'bondage'
+  | 'toy_use'
+  | 'petplay'
+  | 'spanking'
+  | 'massage'
+  | 'edging'
+  | 'exhibition'
+  | 'prone_bone'
+  | 'lotus'
+  | 'piledriver'
+  | 'none';
 
 /**
  * Hardcoded ComfyUI shot prefixes — weights ensure these dominate the final image.
@@ -94,6 +117,30 @@ const SHOT_PREFIXES: Record<ShotFocus, string> = {
     '(face close-up:1.5), (ahegao:1.9), (eyes rolled back:1.8), mouth wide open, drooling, tears of pleasure, deep red blush',
   creampie:
     '(pussy close-up:1.5), (creampie:1.8), (cum dripping from pussy:1.7), swollen lips, satisfied exhausted expression',
+  // ── batch2 / library-only shots (no realtime ComfyUI generation, prefix unused but required for type) ──
+  handjob:           'handjob POV, erect penis in hand, stroking motion, looking up at camera',
+  kiss:              'kiss close-up, lips pressing together, eyes closed, intimate',
+  cum_face:          'face close-up, cum on face, satisfied drooling expression',
+  squirt:            '(squirting:1.8), clear liquid gushing from pussy, legs shaking, involuntary orgasm',
+  overstimulation:   'post-orgasm, continuing stimulation, too sensitive, crying and shaking, overwhelmed',
+  afterglow:         'lying together, post-sex, satisfied warm expression, skin flushed, peaceful',
+  undressing:        'undressing mid-process, clothing half-removed, skin being revealed, anticipation',
+  ass:               'ass close-up, bare buttocks presented, looking back over shoulder',
+  back:              'bare back, spine visible, turned away, elegant nude back',
+  thighs:            'inner thigh close-up, soft pale skin, legs slightly parted',
+  bondage:           'rope bondage, wrists tied, submissive pose, trembling anticipation',
+  toy_use:           'sex toy in use, vibrator stimulation, overwhelmed expression',
+  petplay:           'cat ears and collar, crawling pose, submissive kitten, bell jingling',
+  spanking:          'bent over, bare ass, spanking aftermath, red marks, teary eyes',
+  massage:           'erotic massage, hands pressing on bare skin, relaxed then flushed',
+  edging:            'denied orgasm, desperate expression, hips raised chasing contact',
+  exhibition:        'semi-public exposure, partially undressed, thrill and terror mixed',
+  prone_bone:        '(prone bone position:1.7), lying flat on stomach, penetrated from behind, helpless pinned',
+  lotus:             '(lotus position:1.6), face to face, arms wrapped around each other, deep eye contact',
+  piledriver:        '(piledriver position:1.7), legs pushed over shoulders, extreme depth, overwhelmed',
+  penetration_closeup: '(vaginal penetration close-up:1.8), explicit junction detail, cock in pussy, love juice',
+  spread_pussy:      '(spread pussy close-up:1.8), labia pulled apart, vaginal entrance exposed, love juice glistening',
+  none:              '',
 };
 
 /**
@@ -122,11 +169,18 @@ export function selectShotFocus(
   // ① Current-action override from sceneState (most precise signal)
   if (actionHint?.trim()) {
     const ah = actionHint;
-    if (/潮吹|squirt/i.test(ah))                                           return 'ahegao';
+    if (/潮吹|squirt/i.test(ah))                                           return 'squirt';
     if (/射精|creampie|内射/i.test(ah))                                    return 'creampie';
     if (/高潮|orgasm/i.test(ah))   return lastFocus === 'ahegao' ? 'creampie' : 'ahegao';
+    if (/过度刺激|overstim/i.test(ah))                                     return 'overstimulation';
     if (/口交.*阴茎|口含|blowjob/i.test(ah))                              return 'blowjob';
     if (/舔阴|cunnilingus|舔.*阴蒂/i.test(ah))                            return 'cunnilingus';
+    if (/捆绑|bondage|束缚/i.test(ah))                                     return 'bondage';
+    if (/打屁股|spanking|惩罚.*臀/i.test(ah))                              return 'spanking';
+    if (/跳蛋|振动棒|玩具.*插|toy/i.test(ah))                             return 'toy_use';
+    if (/莲花|lotus|环抱.*骑/i.test(ah) && clothingState === 'naked')     return 'lotus';
+    if (/俯卧.*后入|prone.?bone/i.test(ah) && clothingState === 'naked')  return 'prone_bone';
+    if (/竖腿|piledriver|腿.*过肩/i.test(ah) && clothingState === 'naked') return 'piledriver';
     if (/骑乘|cowgirl|riding/i.test(ah) && clothingState === 'naked')     return 'penetration_cowgirl';
     if (/后入|doggy|from behind/i.test(ah) && clothingState === 'naked')  return 'penetration_doggy';
     if (/传教士|missionary/i.test(ah) && clothingState === 'naked')       return 'penetration_missionary';
@@ -134,17 +188,25 @@ export function selectShotFocus(
     if (/插入|penetration|intercourse/i.test(ah) && clothingState === 'naked') return 'penetration_generic';
     if (/手指.*阴|fingering/i.test(ah) && isExposed)                      return 'fingering';
     if (/抚摸.*胸|揉.*乳|乳头|nipple/i.test(ah) && clothingState !== 'fully_clothed') return 'breast';
+    if (/脱衣|undressing|解开.*扣/i.test(ah))                             return 'undressing';
     if (/接吻|kiss|亲吻/i.test(ah))  return intimacy > 50 ? 'medium' : 'portrait';
   }
 
   // ② This turn's acts (meta.acts) — highest confidence for current scene
   if (currentActs && currentActs.length > 0) {
     const cur = currentActs.join(' ');
-    if (/潮吹|squirt/i.test(cur))                                          return 'ahegao';
+    if (/潮吹|squirt/i.test(cur))                                          return 'squirt';
     if (/射精|creampie|内射/i.test(cur))                                   return 'creampie';
     if (/高潮|orgasm/i.test(cur))  return lastFocus === 'ahegao' ? 'creampie' : 'ahegao';
+    if (/过度刺激|overstim/i.test(cur))                                    return 'overstimulation';
+    if (/捆绑|bondage|束缚/i.test(cur))                                    return 'bondage';
+    if (/打屁股|spanking|惩罚.*臀/i.test(cur))                             return 'spanking';
+    if (/跳蛋|振动棒|情趣.*玩具|toy.*use/i.test(cur))                     return 'toy_use';
     if (/口交|blowjob|口含.*阴茎/i.test(cur))                             return 'blowjob';
     if (/舔阴|cunnilingus/i.test(cur))                                     return 'cunnilingus';
+    if (/莲花.*位|lotus/i.test(cur) && clothingState === 'naked')          return 'lotus';
+    if (/俯卧.*后入|prone.?bone/i.test(cur) && clothingState === 'naked') return 'prone_bone';
+    if (/竖腿|piledriver/i.test(cur) && clothingState === 'naked')        return 'piledriver';
     if (/骑乘|cowgirl/i.test(cur) && clothingState === 'naked')            return 'penetration_cowgirl';
     if (/后入|doggy/i.test(cur) && clothingState === 'naked')              return 'penetration_doggy';
     if (/传教士|missionary/i.test(cur) && clothingState === 'naked')       return 'penetration_missionary';
@@ -152,30 +214,39 @@ export function selectShotFocus(
     if (/插入|penetration|intercourse/i.test(cur) && clothingState === 'naked') return 'penetration_generic';
     if (/手指.*阴|指.*进入|fingering/i.test(cur) && isExposed)            return 'fingering';
     if (/抚摸.*胸|揉.*乳|乳头|nipple/i.test(cur) && clothingState !== 'fully_clothed') return 'breast';
+    if (/脱衣|undressing/i.test(cur))                                      return 'undressing';
     if (/接吻|kiss|亲吻/i.test(cur)) return intimacy > 50 ? 'medium' : 'portrait';
   }
 
   // ③ Reply text keyword scan (narrative context proxy)
   if (replyText) {
     const rt = replyText;
-    if (/潮吹/.test(rt))                                                   return 'ahegao';
+    if (/潮吹/.test(rt))                                                   return 'squirt';
     if (/射出|精液|射在/.test(rt))        return lastFocus === 'ahegao' ? 'creampie' : 'ahegao';
     if (/含住|吸吮.*龟头|口含/.test(rt) && clothingState === 'naked')     return 'blowjob';
     if (/手指.*进入|插入手指|指尖.*深处/.test(rt) && isExposed)           return 'fingering';
     if (/乳头|双乳|乳房.*裸|赤裸.*上身/.test(rt) && clothingState !== 'fully_clothed') return 'breast';
     if (/插入|进入.*体内|抽插/.test(rt) && clothingState === 'naked')     return 'penetration_generic';
+    if (/脱.*衣|解开.*扣|扣子/.test(rt) && clothingState === 'fully_clothed') return 'undressing';
     // Romantic / gentle signal → prefer portrait or medium
     if (/轻轻|温柔|靠近|嘴唇|眼眸/.test(rt) && intimacy < 60)            return intimacy < 30 ? 'portrait' : 'medium';
+    // Post-climax settled → afterglow
+    if (/余韵|事后|满足.*躺|依偎/.test(rt) && intimacy >= 70)             return 'afterglow';
   }
 
   // ④ Cumulative acts — gated by intimacy to prevent stale explicit shots
   //    (e.g. don't show penetration shot during a tender post-coital dialogue)
   const str = allActs.join(' ');
   const hasClimax = /射精|高潮|潮吹|creampie|ahegao|orgasm|squirt/i.test(str);
+  // Post-climax at high intimacy → afterglow or overstimulation
+  if (hasClimax && intimacy >= 80 && /余韵|事后|afterglow/i.test(str))     return 'afterglow';
   if (hasClimax && intimacy >= 65) return lastFocus === 'ahegao' ? 'creampie' : 'ahegao';
 
   const hasSex = /插入|性交|抽插|penetration|intercourse/i.test(str);
   if (hasSex && intimacy >= 55) {
+    if (/莲花|lotus/i.test(str))                                           return 'lotus';
+    if (/俯卧.*后入|prone.?bone/i.test(str))                              return 'prone_bone';
+    if (/竖腿|piledriver/i.test(str))                                      return 'piledriver';
     if (/骑乘|cowgirl|riding on top/i.test(str))  return 'penetration_cowgirl';
     if (/后入|doggy|from behind/i.test(str))       return 'penetration_doggy';
     if (/传教士|missionary/i.test(str))            return 'penetration_missionary';
@@ -191,12 +262,18 @@ export function selectShotFocus(
   const hasFingering = /手指.*阴|阴蒂.*手指|fingering|finger.*pussy/i.test(str);
   if (hasFingering && isExposed) return 'fingering';
 
+  // BDSM / kink acts (cumulative, lower intimacy threshold)
+  if (/捆绑|bondage|束缚/i.test(str) && intimacy >= 40)                   return 'bondage';
+  if (/打屁股|spanking/i.test(str) && intimacy >= 40)                     return 'spanking';
+  if (/跳蛋|振动棒|玩具/i.test(str) && intimacy >= 40)                    return 'toy_use';
+
   // ⑤ Clothing state (physical reality)
   if (clothingState === 'naked')      return lastFocus === 'breast' ? 'pussy' : 'breast';
   if (clothingState === 'bottomless') return 'pussy';
   if (clothingState === 'topless')    return 'breast';
 
-  // ⑥ Clothed — use intimacy
+  // ⑥ Clothed — undressing transition or intimacy default
+  if (intimacy >= 25 && intimacy < 45 && /脱|解|undress/i.test(str)) return 'undressing';
   if (intimacy < 30) return 'portrait';
   return 'medium';
 }

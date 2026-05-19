@@ -56,7 +56,7 @@ const SHOT_COUNT: Partial<Record<ShotKey, number>> = {
   squirt:                 4,
 };
 
-const PHASE_MAP: Record<ShotKey, number> = {
+const PHASE_MAP: Partial<Record<ShotKey, number>> = {
   portrait: 0, medium: 0,
   kiss: 1, breast: 1, pussy: 1,
   handjob: 2, fingering: 2, blowjob: 2, cunnilingus: 2,
@@ -340,7 +340,7 @@ const CHARACTER_STYLE: Record<string, CharStyle> = {
 
 // ── 每个 shotKey 的变体（轮转使用，确保每张图不一样）──────────────────
 type Variant = { prompt: string; note: string };
-const SHOT_VARIANTS: Record<ShotKey, Variant[]> = {
+const SHOT_VARIANTS: Partial<Record<ShotKey, Variant[]>> = {
   portrait: [
     { prompt: 'portrait photo, head and shoulders, direct eye contact, soft natural smile, hair flowing, warm soft background',                                                       note: '柔和微笑·直视镜头·发丝自然' },
     { prompt: 'portrait photo, head and shoulders, head slightly tilted, coy playful expression, finger lightly touching lips, flushed cheeks',                                      note: '侧头媚笑·手指触唇·脸颊微红' },
@@ -520,7 +520,7 @@ const SHOT_VARIANTS: Record<ShotKey, Variant[]> = {
 
 // ── metadata ──────────────────────────────────────────────────────
 interface ShotMeta { category: string; description: string; tags: string[]; bodyFocus: string; viewAngle: string; }
-const SHOT_META: Record<ShotKey, ShotMeta> = {
+const SHOT_META: Partial<Record<ShotKey, ShotMeta>> = {
   portrait:               { category: '调情', description: '面部特写，眼神撩人，轻启朱唇，若有所思',           tags: ['正脸','眼神挑逗','轻启朱唇','媚眼','近景','唯美','撩人','无裸露'],                       bodyFocus: '脸部',      viewAngle: '近景正面'  },
   medium:                 { category: '调情', description: '半身展示，身材曲线若隐若现，撩拨心弦',             tags: ['半身','身材','撩人','性感','衣着','胸线','腰线','中景','诱惑'],                          bodyFocus: '上半身',    viewAngle: '中景正面'  },
   kiss:                   { category: '前戏', description: '嘴唇相贴，舌尖缠绕，唾液交换，沉醉其中',           tags: ['接吻','舌吻','嘴唇','唾液','脸红','眼睛半闭','男性出现','亲密','缠绵'],                  bodyFocus: '嘴唇',      viewAngle: '近景'      },
@@ -676,7 +676,7 @@ async function generateForCharacter(characterName: string, fromArg: string | und
 
     const isPortrait = ['portrait','medium','blowjob','cum_face','ahegao','kiss','breast','pussy','fingering','cunnilingus','bondage','toy_use','petplay','undressing','squirt'].includes(shotKey);
     const [w, h]     = isPortrait ? [768, 1024] : [1024, 768];
-    const variants   = SHOT_VARIANTS[shotKey];
+    const variants   = SHOT_VARIANTS[shotKey] ?? [];
     const phase      = PHASE_MAP[shotKey] ?? 0;
 
     for (let i = 1; i <= count; i++) {
@@ -713,7 +713,7 @@ async function generateForCharacter(characterName: string, fromArg: string | und
         const filename = await waitForImage(promptId);
         await downloadImage(filename, imgPath);
 
-        const meta = SHOT_META[shotKey];
+        const meta = SHOT_META[shotKey] ?? { category: '', description: '', tags: [], bodyFocus: '', viewAngle: '' };
         fs.writeFileSync(jsonPath, JSON.stringify({
           character:     characterName,
           shotKey,

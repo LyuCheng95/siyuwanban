@@ -37,12 +37,25 @@ export const SHOT_TYPES = [
   { key: 'ahegao',                  label: '高潮表情',   count: 5 },
   { key: 'creampie',                label: '内射',       count: 5 },
   { key: 'cum_face',                label: '颜射',       count: 4 },
-  { key: 'bondage',                 label: '捆绑调教',   count: 5 },
-  { key: 'toy_use',                 label: '情趣玩具',   count: 5 },
+  { key: 'bondage',                 label: '捆绑调教',   count: 4 },
+  { key: 'toy_use',                 label: '情趣玩具',   count: 4 },
   { key: 'petplay',                 label: '宠物扮演',   count: 4 },
   { key: 'spanking',                label: '惩罚打屁股', count: 4 },
   { key: 'undressing',              label: '脱衣过程',   count: 4 },
   { key: 'squirt',                  label: '潮喷',       count: 4 },
+  { key: 'ass',                     label: '裸臀展示',   count: 4 },
+  { key: 'back',                    label: '裸背展示',   count: 4 },
+  { key: 'thighs',                  label: '大腿内侧',   count: 4 },
+  { key: 'massage',                 label: '情色按摩',   count: 4 },
+  { key: 'edging',                  label: '边缘控制',   count: 4 },
+  { key: 'exhibition',              label: '半公开场所',  count: 4 },
+  { key: 'prone_bone',              label: '俯卧后入',   count: 4 },
+  { key: 'lotus',                   label: '正面环抱骑乘', count: 4 },
+  { key: 'piledriver',              label: '竖腿深入',   count: 4 },
+  { key: 'overstimulation',         label: '过度刺激',   count: 4 },
+  { key: 'afterglow',               label: '余韵沉醉',   count: 4 },
+  { key: 'penetration_closeup',     label: '性交链接特写', count: 4 },
+  { key: 'spread_pussy',            label: '掰开阴道特写', count: 4 },
 ] as const;
 
 export type ShotKey = typeof SHOT_TYPES[number]['key'];
@@ -91,7 +104,7 @@ ${storyPhases.length
   ? storyPhases.map((p, i) => `[P${i}] ${p.slice(0, 400)}`).join('\n\n')
   : '（无专属剧本，使用职业通用场景）'}
 
-任务：为以下24种图片类型生成场景配置，每种包含4个字段（均为英文SD提示词）：
+任务：为以下41种图片类型生成场景配置，每种包含4个字段（均为英文SD提示词）：
 - scene：背景/场地，15-25词，必须符合该角色故事中实际发生的场景
 - outfit：服装/裸露状态，10-20词，必须与该类型的亲密程度匹配
 - mood：表情/情绪关键词，5-10词
@@ -111,14 +124,25 @@ ${shotList}
 8. spanking：包含明显的俯卧/弯腰姿势，outfit半裸，mood羞耻泪眼；extra加 "bent over" 或 "red marks on buttocks"
 9. undressing：脱衣过程的中间状态——衣物半脱/缓慢解开，体现情趣张力；outfit写"shirt half-off shoulders"/"bra just unhooked"等中间状态，mood撩拨期待
 10. squirt：潮喷/潮吹，阴部正面特写，明显的液体喷出；outfit完全裸体，mood完全失控崩溃；extra加 "squirting", "clear liquid gushing"
-11. 返回格式：
+11. ass：裸臀展示，scene为角色故事中的私密场所，outfit仅露臀部（panties pulled aside/nude bottom），mood撩拨展示；extra加 "bare ass", "ass presented"
+12. back：裸背展示，scene温馨私密，outfit上身裸露背部可见，mood慵懒优雅；extra加 "bare back", "spine visible"
+13. thighs：大腿内侧特写，scene私密空间，outfit半裸大腿可见，mood柔软诱人；extra加 "inner thigh close-up", "soft pale thighs"
+14. massage：情色按摩，scene放松私密，outfit毛巾或半裸，mood从放松到兴奋渐变；extra加 "erotic massage", "hands on skin"
+15. edging：边缘控制/被带到临界点后中断，outfit完全或近乎裸体，mood极度挫败渴望；extra加 "orgasm denial", "brought to edge"
+16. exhibition：半公开场所发生，scene带有被发现风险的场所（走廊/窗边/户外僻静处），outfit部分着衣或调整，mood刺激+紧张；extra加 "semi-public", "risk of being seen"
+17. prone_bone：俯卧后入体位，lying flat on stomach penetrated from behind；outfit nude；extra加 "prone bone position", "lying flat"
+18. lotus：正面环抱骑乘，sitting face to face wrapped around each other；intimate eye contact；extra加 "lotus position", "face to face"
+19. piledriver：竖腿深入，legs pushed back over shoulders，extreme depth missionary variant；extra加 "piledriver position", "legs over shoulders"
+20. overstimulation：高潮后继续刺激，too sensitive to bear，body still shaking；outfit nude；mood crying overwhelmed；extra加 "overstimulation", "post-orgasm continued"
+21. afterglow：性爱后余韵，lying together warm and satisfied，skin flushed，eyes half-closed；outfit nude or sheet；mood blissful peaceful；extra加 "afterglow", "post-sex satisfaction"
+22. 返回格式：
 {
   "characterName": "${characterName}",
   "model": "${model}",
   "shotConfigs": {
     "portrait": { "scene": "...", "outfit": "...", "mood": "...", "extra": "..." },
     "medium": { ... },
-    ...（共24个key，必须与上方列表完全一致）
+    ...（共41个key，必须与上方列表完全一致）
   }
 }`;
 

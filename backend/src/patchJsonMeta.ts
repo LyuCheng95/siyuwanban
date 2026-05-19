@@ -12,7 +12,7 @@ const MODEL = 'prefectiousXLNSFW_v10.safetensors';
 
 const ANIME_CHARS = ['X-23', '幻音', '狐九', '冷霜', '魅罗'];
 
-const PHASE_MAP: Record<ShotKey, number> = {
+const PHASE_MAP: Partial<Record<ShotKey, number>> = {
   portrait: 0, medium: 0,
   kiss: 1, breast: 1, pussy: 1,
   handjob: 2, fingering: 2, blowjob: 2, cunnilingus: 2,
@@ -30,7 +30,7 @@ interface ShotMeta {
   bodyFocus:   string;
   viewAngle:   string;
 }
-const SHOT_META: Record<ShotKey, ShotMeta> = {
+const SHOT_META: Partial<Record<ShotKey, ShotMeta>> = {
   portrait:               { category: '调情', description: '面部特写，眼神撩人，轻启朱唇，若有所思',           tags: ['正脸','眼神挑逗','轻启朱唇','媚眼','微笑','上半身','近景','唯美','撩人','无裸露'],               bodyFocus: '脸部',      viewAngle: '近景正面'  },
   medium:                 { category: '调情', description: '半身展示，身材曲线若隐若现，撩拨心弦',             tags: ['半身','身材','撩人','性感','衣着','胸线','腰线','中景','诱惑','含蓄'],                           bodyFocus: '上半身',    viewAngle: '中景正面'  },
   kiss:                   { category: '前戏', description: '嘴唇相贴，舌尖缠绕，唾液交换，沉醉其中',           tags: ['接吻','舌吻','嘴唇','唾液','脸红','眼睛半闭','男性出现','亲密','缠绵','湿润嘴唇'],               bodyFocus: '嘴唇',      viewAngle: '近景'      },
@@ -68,7 +68,7 @@ function patchCharacter(characterName: string) {
 
     const pngs = fs.readdirSync(shotDir).filter(f => f.endsWith('.png'));
     const [w, h] = PORTRAIT_SHOTS.includes(shotKey) ? [768, 1024] : [1024, 768];
-    const meta   = SHOT_META[shotKey];
+    const meta   = SHOT_META[shotKey] ?? { category: '', description: '', tags: [], bodyFocus: '', viewAngle: '' };
     const phase  = PHASE_MAP[shotKey] ?? 0;
 
     for (const png of pngs) {

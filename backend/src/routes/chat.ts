@@ -197,9 +197,6 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
       ? derivedClothing : prevClothingState;
   const lastShotFocus: string = (userMemory as any)._lastShotFocus ?? 'none';
 
-  // Send replace event so frontend shows clean text
-  res.write(`data: ${JSON.stringify({ type: 'replace', text: cleanReply })}\n\n`);
-
   // Persist conversation with clean reply
   const newContext: Message[] = [
     ...existingContext,
@@ -218,13 +215,15 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
   let pickedShotIdx: number | null = null;
 
   if (charHasLibrary) {
-    // Use current-turn acts (meta.acts) and reply text for precise shot selection
-    const idealShot = selectShotFocus(
-      finalClothingState, newUnlockedActs, newIntimacy, lastShotFocus,
-      newSceneState?.a,    // sceneState action — highest priority
-      meta.acts,           // this turn's acts — second priority
-      cleanReply,          // reply keywords — third priority
-    );
+    // Layer 1: AI-signalled shot type takes priority; fall back to heuristic selection
+    const idealShot = (meta.img && meta.img.length > 0)
+      ? meta.img
+      : selectShotFocus(
+          finalClothingState, newUnlockedActs, newIntimacy, lastShotFocus,
+          newSceneState?.a,
+          meta.acts,
+          cleanReply,
+        );
 
     // Build lastIdxMap from userMemory for round-robin continuity across shots
     const lastIdxMap: Record<string, number> = {};
@@ -234,8 +233,11 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
       }
     }
 
-    // Try preferred shot; fall back through content-adjacent alternatives automatically
-    const picked = pickBestLibraryImage(character.name, idealShot, lastIdxMap);
+    // Layer 2+3: note-based variant scoring on the preferred shot; round-robin for fallbacks
+    const picked = pickBestLibraryImage(
+      character.name, idealShot, lastIdxMap,
+      meta.imgNote ?? undefined,  // AI-written compact description for within-shot matching
+    );
     if (picked) {
       libraryImageUrl = picked.url;
       pickedShotFocus = picked.shotKey;
@@ -257,64 +259,104 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
     _clothingState: finalClothingState,
     _sceneState: newSceneState,
     _lastShotFocus: pickedShotFocus ?? lastShotFocus,
-    // Round-robin index for the picked shot (only set if we actually served an image)
     ...(pickedShotFocus && pickedShotIdx !== null
       ? { [`_shotIdx_${pickedShotFocus}`]: pickedShotIdx }
       : {}),
   };
 
-  // Persist conversation + optionally check image scene (for non-library chars)
+  // ── Library chars: send SSE immediately, all DB writes fire-and-forget ────────
+  if (charHasLibrary) {
+    res.write(`data: ${JSON.stringify({ type: 'replace', text: cleanReply })}\n\n`);
+    res.write(`data: ${JSON.stringify({
+      type: 'meta',
+      mood: meta.mood,
+      suggestions: meta.suggestions,
+      intimacy: newIntimacy,
+      dominance: newDominance,
+      desire: newDesire,
+      attach: newAttach,
+      pendingImageUrl: libraryImageUrl,
+      imagePrompt: null,
+      imageTwoShot: false,
+      phase: newPhaseIndex,
+      questionCount: newQuestionCount,
+      sceneState: newSceneState,
+      isReunion,
+    })}\n\n`);
+    // Optimistic credit display: show old balance minus 1
+    res.write(`data: ${JSON.stringify({
+      type: 'done',
+      credits: { free: user.freeCredits, paid: Math.max(0, user.paidCredits - 1) },
+    })}\n\n`);
+    res.end();
+
+    // Background: persist conversation, decrement credits, log messages
+    const nextTurns = ((conversation?.totalTurns ?? 0) + 1);
+    const convPromise = conversation
+      ? prisma.conversation.update({
+          where: { id: conversation.id },
+          data: { contextJson: newContext as object[], totalTurns: { increment: 1 }, userMemory: updatedUserMemory as object },
+        })
+      : prisma.conversation.create({
+          data: { userId: req.userId!, characterId: characterId as string, contextJson: newContext as object[], totalTurns: 1, userMemory: updatedUserMemory as object },
+        });
+
+    convPromise.then((updatedConv) => {
+      prisma.message.createMany({
+        data: [
+          { conversationId: updatedConv.id, role: 'user', content: message },
+          { conversationId: updatedConv.id, role: 'assistant', content: cleanReply },
+        ],
+      }).catch(() => {});
+
+      if (nextTurns % 5 === 0) {
+        extractUserMemory(updatedUserMemory, newContext.slice(-10) as Message[]).then((newMemory) => {
+          prisma.conversation.update({
+            where: { id: updatedConv.id },
+            data: { userMemory: { ...newMemory, _intimacyLevel: newIntimacy, _dominanceLevel: newDominance, _desireLevel: newDesire, _attachLevel: newAttach, _mood: meta.mood, _clothingState: finalClothingState, _lastShotFocus: pickedShotFocus ?? lastShotFocus, _sceneState: newSceneState } as object },
+          }).catch(() => {});
+        });
+      }
+    }).catch(() => {});
+
+    prisma.user.update({ where: { id: req.userId!, paidCredits: { gt: 0 } }, data: { paidCredits: { decrement: 1 } } }).catch(() => {});
+    prisma.character.update({ where: { id: characterId as string }, data: { usageCount: { increment: 1 } } }).catch(() => {});
+    return;
+  }
+
+  // ── Non-library chars: blocking (needs imagePrompt for ComfyUI) ───────────────
   const recentForImage = [
     { role: 'user' as const, content: message },
     { role: 'assistant' as const, content: cleanReply },
   ];
 
   const [imageDecision, [updatedConversation, updatedUser]] = await Promise.all([
-    charHasLibrary
-      ? Promise.resolve({ generate: false, prompt: undefined, twoShot: undefined, shotFocus: pickedShotFocus ?? undefined } as { generate: boolean; prompt?: string; twoShot?: boolean; shotFocus?: string })
-      : shouldGenerateImage(
-          character.name,
-          recentForImage,
-          character,
-          newIntimacy,
-          newUnlockedActs,
-          meta.scene || character.occupation || '',
-          finalClothingState,
-          lastShotFocus,
-          newSceneState,
-        ),
+    shouldGenerateImage(
+      character.name,
+      recentForImage,
+      character,
+      newIntimacy,
+      newUnlockedActs,
+      meta.scene || character.occupation || '',
+      finalClothingState,
+      lastShotFocus,
+      newSceneState,
+    ),
     Promise.all([
       conversation
         ? prisma.conversation.update({
             where: { id: conversation.id },
-            data: {
-              contextJson: newContext as object[],
-              totalTurns: { increment: 1 },
-              userMemory: updatedUserMemory as object,
-            },
+            data: { contextJson: newContext as object[], totalTurns: { increment: 1 }, userMemory: updatedUserMemory as object },
           })
         : prisma.conversation.create({
-            data: {
-              userId: req.userId!,
-              characterId: characterId as string,
-              contextJson: newContext as object[],
-              totalTurns: 1,
-              userMemory: updatedUserMemory as object,
-            },
+            data: { userId: req.userId!, characterId: characterId as string, contextJson: newContext as object[], totalTurns: 1, userMemory: updatedUserMemory as object },
           }),
-      prisma.user.update({
-        where: { id: req.userId!, paidCredits: { gt: 0 } },
-        data: { paidCredits: { decrement: 1 } },
-      }),
-      prisma.character.update({
-        where: { id: characterId as string },
-        data: { usageCount: { increment: 1 } },
-      }),
+      prisma.user.update({ where: { id: req.userId!, paidCredits: { gt: 0 } }, data: { paidCredits: { decrement: 1 } } }),
+      prisma.character.update({ where: { id: characterId as string }, data: { usageCount: { increment: 1 } } }),
     ] as const),
   ]);
 
-  // Send meta event — library chars send pendingImageUrl (locked, user pays 2💎 to unlock)
-  //                   non-library chars send imagePrompt (user pays 2💎 to generate via ComfyUI)
+  res.write(`data: ${JSON.stringify({ type: 'replace', text: cleanReply })}\n\n`);
   res.write(`data: ${JSON.stringify({
     type: 'meta',
     mood: meta.mood,
@@ -323,24 +365,22 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
     dominance: newDominance,
     desire: newDesire,
     attach: newAttach,
-    pendingImageUrl: libraryImageUrl,                                                      // library image (locked until paid)
-    imagePrompt: !charHasLibrary && imageDecision.generate ? imageDecision.prompt : null,  // ComfyUI prompt (non-library chars)
-    imageTwoShot: !charHasLibrary && imageDecision.generate ? (imageDecision.twoShot ?? false) : false,
+    pendingImageUrl: null,
+    imagePrompt: imageDecision.generate ? imageDecision.prompt : null,
+    imageTwoShot: imageDecision.generate ? (imageDecision.twoShot ?? false) : false,
     phase: newPhaseIndex,
     questionCount: newQuestionCount,
     sceneState: newSceneState,
     isReunion,
   })}\n\n`);
 
-  // For non-library chars: persist updated shot focus (fire and forget)
-  if (!charHasLibrary && imageDecision.shotFocus) {
+  if (imageDecision.shotFocus) {
     prisma.conversation.update({
       where: { id: updatedConversation.id },
       data: { userMemory: { ...updatedUserMemory, _lastShotFocus: imageDecision.shotFocus } as object },
     }).catch(() => {});
   }
 
-  // Save messages to DB (fire and forget)
   prisma.message.createMany({
     data: [
       { conversationId: updatedConversation.id, role: 'user', content: message },
@@ -348,29 +388,17 @@ chatRouter.post('/:characterId', async (req: AuthRequest, res: Response): Promis
     ],
   }).catch(() => {});
 
-  // Send done event
   res.write(`data: ${JSON.stringify({
     type: 'done',
     credits: { free: updatedUser.freeCredits, paid: updatedUser.paidCredits },
   })}\n\n`);
 
-  // Periodically extract user memory (every 5 turns)
   if (updatedConversation.totalTurns % 5 === 0) {
     const recentMessages = newContext.slice(-10) as Message[];
     extractUserMemory(userMemory, recentMessages).then((newMemory) => {
       prisma.conversation.update({
         where: { id: updatedConversation.id },
-        data: { userMemory: {
-          ...newMemory,
-          _intimacyLevel: newIntimacy,
-          _dominanceLevel: newDominance,
-          _desireLevel: newDesire,
-          _attachLevel: newAttach,
-          _mood: meta.mood,
-          _clothingState: finalClothingState,
-          _lastShotFocus: imageDecision.shotFocus ?? lastShotFocus,
-          _sceneState: newSceneState,
-        } as object },
+        data: { userMemory: { ...newMemory, _intimacyLevel: newIntimacy, _dominanceLevel: newDominance, _desireLevel: newDesire, _attachLevel: newAttach, _mood: meta.mood, _clothingState: finalClothingState, _lastShotFocus: imageDecision.shotFocus ?? lastShotFocus, _sceneState: newSceneState } as object },
       }).catch(() => {});
     });
   }
